@@ -28,23 +28,23 @@
 #include <mach/sys_config.h>
 
 #ifdef CONFIG_PLATFORM_ARM_SUNxI
-	extern int sw_usb_disable_hcd(__u32 usbc_no);
-	extern int sw_usb_enable_hcd(__u32 usbc_no);
-	static int usb_wifi_host = 2;
+extern int sw_usb_disable_hcd(__u32 usbc_no);
+extern int sw_usb_enable_hcd(__u32 usbc_no);
+static int usb_wifi_host = 2;
 #endif
 
 #if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
-	extern int sw_usb_disable_hcd(__u32 usbc_no);
-	extern int sw_usb_enable_hcd(__u32 usbc_no);
-	extern void wifi_pm_power(int on);
-	static script_item_u item;
+extern int sw_usb_disable_hcd(__u32 usbc_no);
+extern int sw_usb_enable_hcd(__u32 usbc_no);
+extern void wifi_pm_power(int on);
+static script_item_u item;
 #endif
 
 #ifdef CONFIG_PLATFORM_ARM_SUN8I
-	extern int sunxi_usb_disable_hcd(__u32 usbc_no);
-	extern int sunxi_usb_enable_hcd(__u32 usbc_no);
-	extern void wifi_pm_power(int on);
-	static script_item_u item;
+extern int sunxi_usb_disable_hcd(__u32 usbc_no);
+extern int sunxi_usb_enable_hcd(__u32 usbc_no);
+extern void wifi_pm_power(int on);
+static script_item_u item;
 #endif
 
 
@@ -125,16 +125,16 @@ void platform_wifi_power_off(void)
 #endif /* CONFIG_PLATFORM_ARM_SUNxI */
 
 #if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
-#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
+	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
 	sw_usb_disable_hcd(item.val);
-#endif
+	#endif
 	wifi_pm_power(0);
 #endif /* defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I) */
 
 #if defined(CONFIG_PLATFORM_ARM_SUN8I)
-#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
+	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
 	sunxi_usb_disable_hcd(item.val);
-#endif
+	#endif
 	wifi_pm_power(0);
 #endif /* defined(CONFIG_PLATFORM_ARM_SUN8I) */
 

@@ -41,23 +41,6 @@
 	#include "rtl8192e_sreset.h"
 #endif
 
-
-/* ---------------------------------------------------------------------
- *		RTL8192E From header
- * --------------------------------------------------------------------- */
-#define RTL8192E_FW_IMG					"rtl8192e/FW_NIC.bin"
-#define RTL8192E_FW_WW_IMG				"rtl8192e/FW_WoWLAN.bin"
-#define RTL8192E_PHY_REG					"rtl8192e/PHY_REG.txt"
-#define RTL8192E_PHY_RADIO_A				"rtl8192e/RadioA.txt"
-#define RTL8192E_PHY_RADIO_B				"rtl8192e/RadioB.txt"
-#define RTL8192E_TXPWR_TRACK				"rtl8192e/TxPowerTrack.txt"
-#define RTL8192E_AGC_TAB					"rtl8192e/AGC_TAB.txt"
-#define RTL8192E_PHY_MACREG 				"rtl8192e/MAC_REG.txt"
-#define RTL8192E_PHY_REG_PG				"rtl8192e/PHY_REG_PG.txt"
-#define RTL8192E_PHY_REG_MP 				"rtl8192e/PHY_REG_MP.txt"
-#define RTL8192E_TXPWR_LMT					"rtl8192e/TXPWR_LMT.txt"
-#define RTL8192E_WIFI_ANT_ISOLATION		"rtl8192e/wifi_ant_isolation.txt"
-
 /* ---------------------------------------------------------------------
  *		RTL8192E Power Configuration CMDs for PCIe interface
  * --------------------------------------------------------------------- */
@@ -131,7 +114,7 @@ typedef struct _RT_FIRMWARE_8192E {
 #define RX_DMA_SIZE_8192E					0x4000	/* 16K*/
 
 #ifdef CONFIG_WOWLAN
-	#define RESV_FMWF	(WKFMCAM_SIZE * MAX_WKFM_NUM) /* 16 entries, for each is 24 bytes*/
+	#define RESV_FMWF	(WKFMCAM_SIZE * MAX_WKFM_CAM_NUM) /* 16 entries, for each is 24 bytes*/
 #else
 	#define RESV_FMWF	0
 #endif
@@ -148,9 +131,9 @@ typedef struct _RT_FIRMWARE_8192E {
  * Beacon:2, PS-Poll:1, Null Data:1,Prob Rsp:1,Qos Null Data:1 */
 #define RSVD_PAGE_NUM_8192E		0x08
 /* For WoWLan , more reserved page
- * ARP Rsp:1, RWC:1, GTK Info:1,GTK RSP:2,GTK EXT MEM:2, PNO: 6 */
+ * ARP Rsp:1, RWC:1, GTK Info:1,GTK RSP:2,GTK EXT MEM:2, AOAC rpt: 1,PNO: 6 */
 #ifdef CONFIG_WOWLAN
-	#define WOWLAN_PAGE_NUM_8192E	0x07
+	#define WOWLAN_PAGE_NUM_8192E	0x08
 #else
 	#define WOWLAN_PAGE_NUM_8192E	0x00
 #endif

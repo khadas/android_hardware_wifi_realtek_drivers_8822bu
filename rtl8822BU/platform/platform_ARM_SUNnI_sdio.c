@@ -27,30 +27,30 @@
 #include <drv_types.h>
 #include <mach/sys_config.h>
 #ifdef CONFIG_GPIO_WAKEUP
-	#include <linux/gpio.h>
+#include <linux/gpio.h>
 #endif
 
 #ifdef CONFIG_MMC
-	static int sdc_id = -1;
-	static signed int gpio_eint_wlan = -1;
-	static u32 eint_wlan_handle = 0;
+static int sdc_id = -1;
+static signed int gpio_eint_wlan = -1;
+static u32 eint_wlan_handle = 0;
 
-	#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
-		extern void sw_mci_rescan_card(unsigned id, unsigned insert);
-	#elif defined(CONFIG_PLATFORM_ARM_SUN8I)
-		extern void sunxi_mci_rescan_card(unsigned id, unsigned insert);
-	#endif
+#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
+extern void sw_mci_rescan_card(unsigned id, unsigned insert);
+#elif defined(CONFIG_PLATFORM_ARM_SUN8I)
+extern void sunxi_mci_rescan_card(unsigned id, unsigned insert);
+#endif
 
-	#ifdef CONFIG_PLATFORM_ARM_SUN8I_W5P1
-		extern int get_rf_mod_type(void);
-	#else
-		extern int wifi_pm_get_mod_type(void);
-	#endif
+#ifdef CONFIG_PLATFORM_ARM_SUN8I_W5P1
+extern int get_rf_mod_type(void);
+#else
+extern int wifi_pm_get_mod_type(void);
+#endif
 
-	extern void wifi_pm_power(int on);
-	#ifdef CONFIG_GPIO_WAKEUP
-		extern unsigned int oob_irq;
-	#endif
+extern void wifi_pm_power(int on);
+#ifdef CONFIG_GPIO_WAKEUP
+extern unsigned int oob_irq;
+#endif
 #endif /* CONFIG_MMC */
 
 /*

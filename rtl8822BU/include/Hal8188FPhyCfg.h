@@ -101,8 +101,9 @@ PHY_GetTxPowerIndex_8188F(
 	IN	PADAPTER			pAdapter,
 	IN	u8					RFPath,
 	IN	u8					Rate,
-	IN	CHANNEL_WIDTH		BandWidth,
-	IN	u8					Channel
+	IN	u8		BandWidth,
+	IN	u8					Channel,
+	struct txpwr_idx_comp *tic
 );
 
 VOID
@@ -118,19 +119,6 @@ PHY_SetTxPowerLevel8188F(
 );
 
 VOID
-PHY_SetBWMode8188F(
-	IN	PADAPTER				Adapter,
-	IN	CHANNEL_WIDTH			Bandwidth,	/* 20M or 40M */
-	IN	unsigned char				Offset		/* Upper, Lower, or Don't care */
-);
-
-VOID
-PHY_SwChnl8188F(/* Call after initialization */
-	IN	PADAPTER	Adapter,
-	IN	u8		channel
-);
-
-VOID
 PHY_SetSwChnlBWMode8188F(
 	IN	PADAPTER			Adapter,
 	IN	u8					channel,
@@ -139,10 +127,13 @@ PHY_SetSwChnlBWMode8188F(
 	IN	u8					Offset80
 );
 
-VOID PHY_SetRFPathSwitch_8188F(
+VOID phy_set_rf_path_switch_8188f(
 	IN	PADAPTER	pAdapter,
-	IN	BOOLEAN		bMain
+	IN	bool		bMain
 );
+
+void BBTurnOnBlock_8188F(_adapter *adapter);
+
 /*--------------------------Exported Function prototype End---------------------*/
 
 #endif

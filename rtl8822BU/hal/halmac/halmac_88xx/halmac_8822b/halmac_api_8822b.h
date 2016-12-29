@@ -16,6 +16,11 @@ halmac_init_trx_cfg_8822b(
 );
 
 HALMAC_RET_STATUS
+halmac_init_protocol_cfg_8822b(
+	IN PHALMAC_ADAPTER pHalmac_adapter
+);
+
+HALMAC_RET_STATUS
 halmac_init_h2c_8822b(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 );

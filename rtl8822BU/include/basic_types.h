@@ -296,9 +296,9 @@
 		else { \
 			WriteLE4Byte(__pStart, \
 				LE_BITS_CLEARED_TO_4BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u32)__Value) & BIT_LEN_MASK_32(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 
@@ -309,9 +309,9 @@
 		else { \
 			WriteLE2Byte(__pStart, \
 				LE_BITS_CLEARED_TO_2BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u16)__Value) & BIT_LEN_MASK_16(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 
@@ -322,9 +322,9 @@
 		else { \
 			WriteLE1Byte(__pStart, \
 				LE_BITS_CLEARED_TO_1BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u8)__Value) & BIT_LEN_MASK_8(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 
@@ -338,9 +338,9 @@
 		else { \
 			WriteBE4Byte(__pStart, \
 				BE_BITS_CLEARED_TO_4BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u32)__Value) & BIT_LEN_MASK_32(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 
@@ -351,9 +351,9 @@
 		else { \
 			WriteBE2Byte(__pStart, \
 				BE_BITS_CLEARED_TO_2BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u16)__Value) & BIT_LEN_MASK_16(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 
@@ -364,9 +364,9 @@
 		else { \
 			WriteBE1Byte(__pStart, \
 				BE_BITS_CLEARED_TO_1BYTE(__pStart, __BitOffset, __BitLen) \
-				     | \
+				| \
 				((((u8)__Value) & BIT_LEN_MASK_8(__BitLen)) << (__BitOffset)) \
-				    ); \
+			); \
 		} \
 	} while (0)
 

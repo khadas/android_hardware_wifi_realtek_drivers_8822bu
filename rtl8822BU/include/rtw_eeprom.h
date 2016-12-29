@@ -73,13 +73,13 @@ typedef enum _RT_CUSTOMER_ID {
 	RT_CID_819x_ALPHA = 16,
 	RT_CID_819x_Sitecom = 17,
 	RT_CID_CCX = 18, /* It's set under CCX logo test and isn't demanded for CCX functions, but for test behavior like retry limit and tx report. By Bruce, 2009-02-17. */
-	RT_CID_819x_Lenovo = 19,
+	RT_CID_819X_LENOVO = 19,
 	RT_CID_819x_QMI = 20,
 	RT_CID_819x_Edimax_Belkin = 21,
 	RT_CID_819x_Sercomm_Belkin = 22,
 	RT_CID_819x_CAMEO1 = 23,
 	RT_CID_819x_MSI = 24,
-	RT_CID_819x_Acer = 25,
+	RT_CID_819X_ACER = 25,
 	RT_CID_819x_AzWave_ASUS = 26,
 	RT_CID_819x_AzWave = 27, /* For AzWave in PCIe, The ID is AzWave use and not only Asus */
 	RT_CID_819x_HP = 28,
@@ -111,11 +111,11 @@ extern void eeprom_read_sz(_adapter *padapter, u16 reg, u8 *data, u32 sz);
 extern void read_eeprom_content_by_attrib(_adapter	*padapter);
 
 #ifdef PLATFORM_LINUX
-	#ifdef CONFIG_ADAPTOR_INFO_CACHING_FILE
-		extern int isAdaptorInfoFileValid(void);
-		extern int storeAdaptorInfoFile(char *path, u8 *efuse_data);
-		extern int retriveAdaptorInfoFile(char *path, u8 *efuse_data);
-	#endif /* CONFIG_ADAPTOR_INFO_CACHING_FILE */
+#ifdef CONFIG_ADAPTOR_INFO_CACHING_FILE
+extern int isAdaptorInfoFileValid(void);
+extern int storeAdaptorInfoFile(char *path, u8 *efuse_data);
+extern int retriveAdaptorInfoFile(char *path, u8 *efuse_data);
+#endif /* CONFIG_ADAPTOR_INFO_CACHING_FILE */
 #endif /* PLATFORM_LINUX */
 
 #endif /* __RTL871X_EEPROM_H__ */

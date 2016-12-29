@@ -92,12 +92,6 @@ phy_BB8814A_Config_ParaFile(
 	IN	PADAPTER	Adapter
 );
 
-
-RT_STATUS
-PHY_BBConfigMP_8814A(
-	IN	PADAPTER	Adapter
-);
-
 VOID
 PHY_ConfigBB_8814A(
 	IN	PADAPTER	Adapter
@@ -134,12 +128,22 @@ PHY_SetTxPowerLevel8814(
 );
 
 u8
-PHY_GetTxPowerIndex_8814A(
+phy_get_tx_power_index_8814a(
 	IN	PADAPTER			Adapter,
 	IN  u8				RFPath,
 	IN	u8				Rate,
 	IN	CHANNEL_WIDTH		BandWidth,
 	IN	u8				Channel
+);
+
+u8
+PHY_GetTxPowerIndex8814A(
+	IN	PADAPTER			Adapter,
+	IN  u8				RFPath,
+	IN	u8				Rate,
+	IN	u8				BandWidth,
+	IN	u8				Channel,
+	struct txpwr_idx_comp *tic
 );
 
 VOID
@@ -171,7 +175,7 @@ PHY_GetTxBBSwing_8814A(
 
 VOID
 PHY_SwChnlTimerCallback8814A(
-	IN	PRT_TIMER		pTimer
+	IN	struct timer_list		*p_timer
 );
 
 VOID
@@ -242,19 +246,6 @@ PHY_SwitchWirelessBand8814A(
 VOID
 PHY_SetIO_8814A(
 	PADAPTER		pAdapter
-);
-
-VOID
-PHY_SetBWMode8814(
-	IN	PADAPTER			Adapter,
-	IN	CHANNEL_WIDTH	Bandwidth,	/* 20M or 40M */
-	IN	u8					Offset		/* Upper, Lower, or Don't care */
-);
-
-VOID
-PHY_SwChnl8814(
-	IN	PADAPTER	Adapter,
-	IN	u8			channel
 );
 
 VOID

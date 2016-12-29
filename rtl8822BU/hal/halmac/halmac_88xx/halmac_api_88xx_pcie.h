@@ -4,6 +4,13 @@
 #include "../halmac_2_platform.h"
 #include "../halmac_type.h"
 
+#define LINK_CTRL2_REG_OFFSET	0xA0
+#define GEN2_CTRL_OFFSET		0x80C
+#define LINK_STATUS_REG_OFFSET	0x82
+#define GEN1_SPEED				0x01
+#define GEN2_SPEED				0x02
+
+
 HALMAC_RET_STATUS
 halmac_init_pcie_cfg_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter

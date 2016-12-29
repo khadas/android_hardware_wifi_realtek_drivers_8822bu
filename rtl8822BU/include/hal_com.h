@@ -192,12 +192,6 @@
 	(rate == DESC_RATEVHTSS3MCS8) ? "VHTSS3MCS8" :\
 	(rate == DESC_RATEVHTSS3MCS9) ? "VHTSS3MCS9" : "UNKNOWN"
 
-#define HDATA_BW(bw)\
-	(bw == CHANNEL_WIDTH_20) ? "20M" :\
-	(bw == CHANNEL_WIDTH_40) ? "40M" :\
-	(bw == CHANNEL_WIDTH_80) ? "80M" :\
-	(bw == CHANNEL_WIDTH_160) ? "160M" : "UNKNOWN"
-
 enum {
 	UP_LINK,
 	DOWN_LINK,
@@ -217,6 +211,30 @@ typedef enum _CH_SW_USE_CASE {
 	CH_SW_USE_CASE_TDLS		= 0,
 	CH_SW_USE_CASE_MCC		= 1
 } CH_SW_USE_CASE;
+
+typedef enum _WAKEUP_REASON{
+	RX_PAIRWISEKEY					= 0x01,
+	RX_GTK							= 0x02,
+	RX_FOURWAY_HANDSHAKE			= 0x03,
+	RX_DISASSOC						= 0x04,
+	RX_DEAUTH						= 0x08,
+	RX_ARP_REQUEST					= 0x09,
+	FW_DECISION_DISCONNECT			= 0x10,
+	RX_MAGIC_PKT					= 0x21,
+	RX_UNICAST_PKT					= 0x22,
+	RX_PATTERN_PKT					= 0x23,
+	RTD3_SSID_MATCH					= 0x24,
+	RX_REALWOW_V2_WAKEUP_PKT		= 0x30,
+	RX_REALWOW_V2_ACK_LOST			= 0x31,
+	ENABLE_FAIL_DMA_IDLE			= 0x40,
+	ENABLE_FAIL_DMA_PAUSE			= 0x41,
+	RTIME_FAIL_DMA_IDLE				= 0x42,
+	RTIME_FAIL_DMA_PAUSE			= 0x43,
+	RX_PNO							= 0x55,
+	AP_OFFLOAD_WAKEUP				= 0x66,
+	CLK_32K_UNLOCK					= 0xFD,
+	CLK_32K_LOCK					= 0xFE
+}WAKEUP_REASON;
 
 /*
  * Queue Select Value in TxDesc
@@ -347,7 +365,7 @@ HAL_IsLegalChannel(
 
 u8	MRateToHwRate(u8 rate);
 
-u8	HwRateToMRate(u8 rate);
+u8	hw_rate_to_m_rate(u8 rate);
 
 void	HalSetBrateCfg(
 	IN PADAPTER		Adapter,
@@ -366,9 +384,15 @@ void rtw_hal_dump_macaddr(void *sel, _adapter *adapter);
 
 void rtw_init_hal_com_default_value(PADAPTER Adapter);
 
+#ifdef CONFIG_FW_C2H_REG
 void c2h_evt_clear(_adapter *adapter);
-s32 c2h_evt_read(_adapter *adapter, u8 *buf);
 s32 c2h_evt_read_88xx(_adapter *adapter, u8 *buf);
+#endif
+
+#ifdef CONFIG_FW_C2H_PKT
+void rtw_hal_c2h_pkt_pre_hdl(_adapter *adapter, u8 *buf, u16 len);
+void rtw_hal_c2h_pkt_hdl(_adapter *adapter, u8 *buf, u16 len);
+#endif
 
 u8  rtw_hal_networktype_to_raid(_adapter *adapter, struct sta_info *psta);
 u8 rtw_get_mgntframe_raid(_adapter *adapter, unsigned char network_type);
@@ -379,6 +403,7 @@ u32 rtw_sec_read_cam(_adapter *adapter, u8 addr);
 void rtw_sec_write_cam(_adapter *adapter, u8 addr, u32 wdata);
 void rtw_sec_read_cam_ent(_adapter *adapter, u8 id, u8 *ctrl, u8 *mac, u8 *key);
 void rtw_sec_write_cam_ent(_adapter *adapter, u8 id, u16 ctrl, u8 *mac, u8 *key);
+void rtw_sec_clr_cam_ent(_adapter *adapter, u8 id);
 bool rtw_sec_read_cam_is_gk(_adapter *adapter, u8 id);
 
 void rtw_hal_set_msr(_adapter *adapter, u8 net_type);
@@ -577,11 +602,6 @@ static inline u32 rtw_phydm_ability_get(_adapter *adapter)
 	#define GetLineFromBuffer(buffer)   strsep(&buffer, "\r\n")
 #endif
 
-#ifdef CONFIG_FW_C2H_DEBUG
-	void Debug_FwC2H(PADAPTER padapter, u8 *pdata, u8 len);
-#endif
-/*CONFIG_FW_C2H_DEBUG*/
-
 void update_IOT_info(_adapter *padapter);
 
 #ifdef CONFIG_AUTO_CHNL_SEL_NHM
@@ -611,5 +631,22 @@ void StopTxBeacon(_adapter *padapter);
 #ifdef CONFIG_LPS_PG
 	u8 rtw_hal_set_lps_pg_info(_adapter *adapter);
 #endif
+
+int rtw_hal_get_rsvd_page(_adapter *adapter, u32 page_offset, u32 page_num, u8 *buffer, u32 buffer_size);
+
+#ifdef CONFIG_WOWLAN
+struct rtl_wow_pattern {
+	u16	crc;
+	u8	type;
+	u32	mask[4];
+};
+void rtw_wow_pattern_cam_dump(_adapter *adapter);
+
+#ifdef CONFIG_WOW_PATTERN_HW_CAM
+void rtw_wow_pattern_read_cam_ent(_adapter *adapter, u8 id, struct  rtl_wow_pattern *context);
+void rtw_dump_wow_pattern(void *sel, struct rtl_wow_pattern *pwow_pattern, u8 idx);
+#endif
+#endif
+void rtw_dump_phy_cap(void *sel, _adapter *adapter);
 
 #endif /* __HAL_COMMON_H__ */

@@ -243,7 +243,7 @@ int rtw_dev_get_feature_set(struct net_device *dev)
 {
 	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
 	HAL_DATA_TYPE *HalData = GET_HAL_DATA(adapter);
-	HAL_VERSION *hal_ver = &HalData->VersionID;
+	HAL_VERSION *hal_ver = &HalData->version_id;
 
 	int feature_set = 0;
 

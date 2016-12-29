@@ -24,20 +24,20 @@
  */
 #include <drv_types.h>
 #ifdef CONFIG_GPIO_WAKEUP
-	#include <linux/gpio.h>
+#include <linux/gpio.h>
 #endif
 
 #ifdef CONFIG_MMC
-	#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
-		extern void sunxi_mmc_rescan_card(unsigned ids);
-		extern void sunxi_wlan_set_power(int on);
-		extern int sunxi_wlan_get_bus_index(void);
-		extern int sunxi_wlan_get_oob_irq(void);
-		extern int sunxi_wlan_get_oob_irq_flags(void);
-	#endif
-	#ifdef CONFIG_GPIO_WAKEUP
-		extern unsigned int oob_irq;
-	#endif
+#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
+extern void sunxi_mmc_rescan_card(unsigned ids);
+extern void sunxi_wlan_set_power(int on);
+extern int sunxi_wlan_get_bus_index(void);
+extern int sunxi_wlan_get_oob_irq(void);
+extern int sunxi_wlan_get_oob_irq_flags(void);
+#endif
+#ifdef CONFIG_GPIO_WAKEUP
+extern unsigned int oob_irq;
+#endif
 #endif /* CONFIG_MMC */
 
 /*

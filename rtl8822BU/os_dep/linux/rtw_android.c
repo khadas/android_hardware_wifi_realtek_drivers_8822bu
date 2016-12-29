@@ -19,27 +19,27 @@
  ******************************************************************************/
 
 #ifdef CONFIG_GPIO_WAKEUP
-	#include <linux/gpio.h>
+#include <linux/gpio.h>
 #endif
 
 #include <drv_types.h>
 
 #if defined(RTW_ENABLE_WIFI_CONTROL_FUNC)
-	#include <linux/platform_device.h>
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
-		#include <linux/wlan_plat.h>
-	#else
-		#include <linux/wifi_tiwlan.h>
-	#endif
+#include <linux/platform_device.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
+	#include <linux/wlan_plat.h>
+#else
+	#include <linux/wifi_tiwlan.h>
+#endif
 #endif /* defined(RTW_ENABLE_WIFI_CONTROL_FUNC) */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
-	#define strnicmp	strncasecmp
+#define strnicmp	strncasecmp
 #endif /* Linux kernel >= 4.0.0 */
 
 #ifdef CONFIG_GPIO_WAKEUP
-	#include <linux/interrupt.h>
-	#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/irq.h>
 #endif
 
 #include "rtw_version.h"

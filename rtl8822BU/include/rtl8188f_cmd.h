@@ -184,7 +184,6 @@ enum h2c_cmd_8188F {
 void rtl8188f_set_FwPwrMode_cmd(PADAPTER padapter, u8 Mode);
 void rtl8188f_set_FwJoinBssRpt_cmd(PADAPTER padapter, u8 mstatus);
 void rtl8188f_set_rssi_cmd(PADAPTER padapter, u8 *param);
-void rtl8188f_Add_RateATid(PADAPTER pAdapter, u64 bitmap, u8 *arg, u8 rssi_level);
 void rtl8188f_fw_try_ap_cmd(PADAPTER padapter, u32 need_ack);
 /* s32 rtl8188f_set_lowpwr_lps_cmd(PADAPTER padapter, u8 enable); */
 void rtl8188f_set_FwPsTuneParam_cmd(PADAPTER padapter);
@@ -195,25 +194,25 @@ void rtl8188f_download_rsvd_page(PADAPTER padapter, u8 mstatus);
 	void rtl8188f_download_BTCoex_AP_mode_rsvd_page(PADAPTER padapter);
 #endif /* CONFIG_BT_COEXIST */
 #ifdef CONFIG_P2P
-	void rtl8188f_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
+void rtl8188f_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
 #endif /* CONFIG_P2P */
 
 void CheckFwRsvdPageContent(PADAPTER padapter);
 
 #ifdef CONFIG_TDLS
-	#ifdef CONFIG_TDLS_CH_SW
-		void rtl8188f_set_BcnEarly_C2H_Rpt_cmd(PADAPTER padapter, u8 enable);
-	#endif
+#ifdef CONFIG_TDLS_CH_SW
+void rtl8188f_set_BcnEarly_C2H_Rpt_cmd(PADAPTER padapter, u8 enable);
+#endif
 #endif
 
 #ifdef CONFIG_P2P_WOWLAN
-	void rtl8188f_set_p2p_wowlan_offload_cmd(PADAPTER padapter);
+void rtl8188f_set_p2p_wowlan_offload_cmd(PADAPTER padapter);
 #endif
 
 void rtl8188f_set_FwPwrModeInIPS_cmd(PADAPTER padapter, u8 cmd_param);
 
 #ifdef CONFIG_TSF_RESET_OFFLOAD
-	u8 rtl8188f_reset_tsf(_adapter *padapter, u8 reset_port);
+u8 rtl8188f_reset_tsf(_adapter *padapter, u8 reset_port);
 #endif /* CONFIG_TSF_RESET_OFFLOAD */
 s32 FillH2CCmd8188F(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
 u8 GetTxBufferRsvdPageNum8188F(_adapter *padapter, bool wowlan);

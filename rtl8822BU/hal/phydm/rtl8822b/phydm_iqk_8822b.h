@@ -24,14 +24,14 @@
 
 
 /*--------------------------Define Parameters-------------------------------*/
-#define 	MAC_REG_NUM_8822B 2
+#define	MAC_REG_NUM_8822B 2
 #define		BB_REG_NUM_8822B 13
 #define		RF_REG_NUM_8822B 5
 
 
-#define	LOK_delay_8822B 1
-#define	IQK_delay_8822B 1
-#define	WBIQK_delay_8822B 1
+#define	LOK_delay_8822B 2
+#define	GS_delay_8822B 2
+#define	WBIQK_delay_8822B 2
 
 #define TXIQK 0
 #define RXIQK 1
@@ -41,34 +41,33 @@
 
 
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
-VOID 
-DoIQK_8822B(
-	PVOID	pDM_VOID,
-	u1Byte		DeltaThermalIndex,
-	u1Byte		ThermalValue,	
-	u1Byte		Threshold
-	);
+void
+do_iqk_8822b(
+	void	*p_dm_void,
+	u8		delta_thermal_index,
+	u8		thermal_value,
+	u8		threshold
+);
 #else
-VOID 
-DoIQK_8822B(
-	PVOID		pDM_VOID,
-	u1Byte 		DeltaThermalIndex,
-	u1Byte		ThermalValue,	
-	u1Byte 		Threshold
-	);
+void
+do_iqk_8822b(
+	void		*p_dm_void,
+	u8		delta_thermal_index,
+	u8		thermal_value,
+	u8		threshold
+);
 #endif
 
-VOID	
-PHY_IQCalibrate_8822B(	
-	IN	PVOID		pDM_VOID,
-	IN	BOOLEAN		clear
-	);
+void
+phy_iq_calibrate_8822b(
+	void		*p_dm_void,
+	bool		clear
+);
 
 #else	/* (RTL8822B_SUPPORT == 0)*/
 
-#define PHY_IQCalibrate_8822B(_pDM_VOID, clear)
+#define phy_iq_calibrate_8822b(_pdm_void, clear)
 
 #endif	/* RTL8822B_SUPPORT */
 
- #endif	/* #ifndef __PHYDM_IQK_8822B_H__*/
-
+#endif	/* #ifndef __PHYDM_IQK_8822B_H__*/

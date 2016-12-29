@@ -81,4 +81,25 @@ halmac_cfg_tx_agg_align_sdio_not_support_88xx(
 	IN u16	align_size
 );
 
+HALMAC_RET_STATUS
+halmac_tx_allowed_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 *pHalmac_buf,
+	IN u32 halmac_size
+);
+
+u32
+halmac_reg_read_indirect_32_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u32 halmac_offset
+);
+
+u8
+halmac_reg_read_nbyte_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u32 halmac_offset,
+	IN u32 halmac_size,
+	OUT u8 *halmac_data
+);
+
 #endif/* _HALMAC_API_88XX_SDIO_H_ */

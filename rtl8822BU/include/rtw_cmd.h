@@ -94,12 +94,15 @@ struct	evt_priv {
 	_queue	evt_queue;
 #endif
 
-#define CONFIG_C2H_WK
+#ifdef CONFIG_FW_C2H_REG
+	#define CONFIG_C2H_WK
+#endif
+
 #ifdef CONFIG_C2H_WK
 	_workitem c2h_wk;
 	bool c2h_wk_alive;
 	struct rtw_cbuf *c2h_queue;
-#define C2H_QUEUE_MAX_LEN 10
+	#define C2H_QUEUE_MAX_LEN 10
 #endif
 
 #ifdef CONFIG_H2CLBK
@@ -142,23 +145,6 @@ struct	evt_priv {
 		pcmd->rspsz = 0;\
 	} while (0)
 
-struct c2h_evt_hdr {
-	u8 id:4;
-	u8 plen:4;
-	u8 seq;
-	u8 payload[0];
-};
-
-struct c2h_evt_hdr_88xx {
-	u8 id;
-	u8 seq;
-	u8 payload[12];
-	u8 plen;
-	u8 trigger;
-};
-
-#define c2h_evt_valid(c2h_evt) ((c2h_evt)->id || (c2h_evt)->plen)
-
 struct P2P_PS_Offload_t {
 	u8 Offload_En:1;
 	u8 role:1; /* 1: Owner, 0: Client */
@@ -189,9 +175,9 @@ extern struct cmd_obj *rtw_dequeue_cmd(struct cmd_priv *pcmdpriv);
 extern void rtw_free_cmd_obj(struct cmd_obj *pcmd);
 
 #ifdef CONFIG_EVENT_THREAD_MODE
-	extern u32 rtw_enqueue_evt(struct evt_priv *pevtpriv, struct evt_obj *obj);
-	extern struct evt_obj *rtw_dequeue_evt(_queue *queue);
-	extern void rtw_free_evt_obj(struct evt_obj *pcmd);
+extern u32 rtw_enqueue_evt(struct evt_priv *pevtpriv, struct evt_obj *obj);
+extern struct evt_obj *rtw_dequeue_evt(_queue *queue);
+extern void rtw_free_evt_obj(struct evt_obj *pcmd);
 #endif
 
 void rtw_stop_cmd_thread(_adapter *adapter);
@@ -205,7 +191,7 @@ extern void rtw_free_evt_priv(struct evt_priv *pevtpriv);
 extern void rtw_cmd_clr_isr(struct cmd_priv *pcmdpriv);
 extern void rtw_evt_notify_isr(struct evt_priv *pevtpriv);
 #ifdef CONFIG_P2P
-	u8 p2p_protocol_wk_cmd(_adapter *padapter, int intCmdType);
+u8 p2p_protocol_wk_cmd(_adapter *padapter, int intCmdType);
 #endif /* CONFIG_P2P */
 
 #else
@@ -238,6 +224,8 @@ enum rtw_drvextra_cmd_id {
 	SESSION_TRACKER_WK_CID,
 	EN_HW_UPDATE_TSF_WK_CID,
 	TEST_H2C_CID,
+	MP_CMD_WK_CID,
+	CUSTOMER_STR_WK_CID,
 	MAX_WK_CID
 };
 
@@ -329,23 +317,20 @@ struct createbss_parm {
 };
 
 #if 0
-	/* Caller Mode: AP, Ad-HoC, Infra */
+/* Caller Mode: AP, Ad-HoC, Infra */
+/* Notes: To set the NIC mode of RTL8711 */
+/* Command Mode */
+/* The definition of mode: */
 
-	/* Notes: To set the NIC mode of RTL8711 */
-
-	/* Command Mode */
-
-	/* The definition of mode: */
-
-	#define IW_MODE_AUTO	0	/*  Let the driver decides which AP to join */
-	#define IW_MODE_ADHOC	1	/*  Single cell network (Ad-Hoc Clients) */
-	#define IW_MODE_INFRA	2	/*  Multi cell network, roaming, .. */
-	#define IW_MODE_MASTER	3	/*  Synchronisation master or Access Point */
-	#define IW_MODE_REPEAT	4	/*  Wireless Repeater (forwarder) */
-	#define IW_MODE_SECOND	5	/*  Secondary master/repeater (backup) */
-	#define IW_MODE_MONITOR	6	/*  Passive monitor (listen only) */
-
+#define IW_MODE_AUTO	0	/*  Let the driver decides which AP to join */
+#define IW_MODE_ADHOC	1	/*  Single cell network (Ad-Hoc Clients) */
+#define IW_MODE_INFRA	2	/*  Multi cell network, roaming, .. */
+#define IW_MODE_MASTER	3	/*  Synchronisation master or Access Point */
+#define IW_MODE_REPEAT	4	/*  Wireless Repeater (forwarder) */
+#define IW_MODE_SECOND	5	/*  Secondary master/repeater (backup) */
+#define IW_MODE_MONITOR	6	/*  Passive monitor (listen only) */
 #endif
+
 struct	setopmode_parm {
 	u8	mode;
 	u8	rsvd[3];
@@ -448,13 +433,9 @@ struct set_assocsta_rsp {
 
 /*
 	Caller Ad-Hoc/AP
-
 	Command mode
-
 	This is to force fw to del an sta_data entry per driver's request
-
 	FW will invalidate the cam entry associated with it.
-
 */
 struct del_assocsta_parm {
 	u8	addr[ETH_ALEN];
@@ -1060,11 +1041,11 @@ u8 rtw_dm_in_lps_wk_cmd(_adapter *padapter);
 u8 rtw_lps_change_dtim_cmd(_adapter *padapter, u8 dtim);
 
 #if (RATE_ADAPTIVE_SUPPORT == 1)
-	u8 rtw_rpt_timer_cfg_cmd(_adapter *padapter, u16 minRptTime);
+u8 rtw_rpt_timer_cfg_cmd(_adapter *padapter, u16 minRptTime);
 #endif
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
-	extern  u8 rtw_antenna_select_cmd(_adapter *padapter, u8 antenna, u8 enqueue);
+extern  u8 rtw_antenna_select_cmd(_adapter *padapter, u8 antenna, u8 enqueue);
 #endif
 
 u8 rtw_dm_ra_mask_wk_cmd(_adapter *padapter, u8 *psta);
@@ -1090,7 +1071,7 @@ void rtw_dfs_master_status_apply(_adapter *adapter, u8 self_action);
 #endif /* CONFIG_AP_MODE */
 
 #ifdef CONFIG_BT_COEXIST
-	u8 rtw_btinfo_cmd(PADAPTER padapter, u8 *pbuf, u16 length);
+u8 rtw_btinfo_cmd(PADAPTER padapter, u8 *pbuf, u16 length);
 #endif
 
 u8 rtw_test_h2c_cmd(_adapter *adapter, u8 *buf, u8 len);
@@ -1106,11 +1087,19 @@ extern u8 rtw_led_blink_cmd(_adapter *padapter, PVOID pLed);
 extern u8 rtw_set_csa_cmd(_adapter *padapter, u8 new_ch_no);
 extern u8 rtw_tdls_cmd(_adapter *padapter, u8 *addr, u8 option);
 
-/* #ifdef CONFIG_C2H_PACKET_EN */
-extern u8 rtw_c2h_packet_wk_cmd(PADAPTER padapter, u8 *pbuf, u16 length);
-/* #else */
-extern u8 rtw_c2h_wk_cmd(PADAPTER padapter, u8 *c2h_evt);
-/* #endif */
+u8 rtw_mp_cmd(_adapter *adapter, u8 mp_cmd_id, u8 flags);
+
+#ifdef CONFIG_RTW_CUSTOMER_STR
+u8 rtw_customer_str_req_cmd(_adapter *adapter);
+u8 rtw_customer_str_write_cmd(_adapter *adapter, const u8 *cstr);
+#endif
+
+#ifdef CONFIG_FW_C2H_REG
+u8 rtw_c2h_reg_wk_cmd(_adapter *adapter, u8 *c2h_evt);
+#endif
+#ifdef CONFIG_FW_C2H_PKT
+u8 rtw_c2h_packet_wk_cmd(_adapter *adapter, u8 *c2h_evt, u16 length);
+#endif
 
 u8 rtw_run_in_thread_cmd(PADAPTER padapter, void (*func)(void *), void *context);
 

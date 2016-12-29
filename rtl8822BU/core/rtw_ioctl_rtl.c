@@ -154,7 +154,6 @@ NDIS_STATUS oid_rt_pro_set_fw_dig_state_hdl(struct oid_par_priv *poid_par_priv)
 	PADAPTER		Adapter = (PADAPTER)(poid_par_priv->adapter_context);
 	_irqL			oldirql;
 
-	_func_enter_;
 
 	if (poid_par_priv->type_of_oid != SET_OID) {
 		status = NDIS_STATUS_NOT_ACCEPTED;
@@ -170,7 +169,6 @@ NDIS_STATUS oid_rt_pro_set_fw_dig_state_hdl(struct oid_par_priv *poid_par_priv)
 	} else
 		status = NDIS_STATUS_NOT_ACCEPTED;
 	_irqlevel_changed_(&oldirql, RAISE);
-	_func_exit_;
 #endif
 	return status;
 }
@@ -183,7 +181,6 @@ NDIS_STATUS oid_rt_pro_set_fw_ra_state_hdl(struct oid_par_priv *poid_par_priv)
 	PADAPTER		Adapter = (PADAPTER)(poid_par_priv->adapter_context);
 	_irqL			oldirql;
 
-	_func_enter_;
 	if (poid_par_priv->type_of_oid != SET_OID) {
 		status = NDIS_STATUS_NOT_ACCEPTED;
 		return status;
@@ -200,7 +197,6 @@ NDIS_STATUS oid_rt_pro_set_fw_ra_state_hdl(struct oid_par_priv *poid_par_priv)
 	} else
 		status = NDIS_STATUS_NOT_ACCEPTED;
 	_irqlevel_changed_(&oldirql, RAISE);
-	_func_exit_;
 #endif
 	return status;
 }
@@ -585,7 +581,6 @@ NDIS_STATUS oid_rt_get_channel_hdl(struct oid_par_priv *poid_par_priv)
 
 	ULONG   channelnum;
 
-	_func_enter_;
 	if (poid_par_priv->type_of_oid != QUERY_OID) {
 		status = NDIS_STATUS_NOT_ACCEPTED;
 		return status;
@@ -602,7 +597,6 @@ NDIS_STATUS oid_rt_get_channel_hdl(struct oid_par_priv *poid_par_priv)
 
 	*poid_par_priv->bytes_rw = poid_par_priv->information_buf_len;
 
-	_func_exit_;
 
 
 
@@ -765,7 +759,6 @@ NDIS_STATUS oid_rt_pro_rf_write_registry_hdl(struct oid_par_priv *poid_par_priv)
 	NDIS_STATUS		status = NDIS_STATUS_SUCCESS;
 	PADAPTER		Adapter = (PADAPTER)(poid_par_priv->adapter_context);
 	_irqL			oldirql;
-	_func_enter_;
 	/* DEBUG_ERR(("<**********************oid_rt_pro_rf_write_registry_hdl\n")); */
 	if (poid_par_priv->type_of_oid != SET_OID) { /* QUERY_OID */
 		status = NDIS_STATUS_NOT_ACCEPTED;
@@ -788,7 +781,6 @@ NDIS_STATUS oid_rt_pro_rf_write_registry_hdl(struct oid_par_priv *poid_par_priv)
 	} else
 		status = NDIS_STATUS_INVALID_LENGTH;
 	_irqlevel_changed_(&oldirql, RAISE);
-	_func_exit_;
 
 	return status;
 }
@@ -800,7 +792,6 @@ NDIS_STATUS oid_rt_pro_rf_read_registry_hdl(struct oid_par_priv *poid_par_priv)
 #if 0
 	PADAPTER		Adapter = (PADAPTER)(poid_par_priv->adapter_context);
 	_irqL	oldirql;
-	_func_enter_;
 
 	/* DEBUG_ERR(("<**********************oid_rt_pro_rf_read_registry_hdl\n")); */
 	if (poid_par_priv->type_of_oid != SET_OID) { /* QUERY_OID */
@@ -836,7 +827,6 @@ NDIS_STATUS oid_rt_pro_rf_read_registry_hdl(struct oid_par_priv *poid_par_priv)
 	} else
 		status = NDIS_STATUS_INVALID_LENGTH;
 	_irqlevel_changed_(&oldirql, RAISE);
-	_func_exit_;
 #endif
 	return status;
 }
@@ -885,7 +875,6 @@ NDIS_STATUS oid_rt_get_connect_state_hdl(struct oid_par_priv *poid_par_priv)
 
 #if 0
 	/* Rearrange the order to let the UI still shows connection when scan is in progress */
-	RT_TRACE(COMP_OID_QUERY, DBG_LOUD, ("===> Query OID_RT_GET_CONNECT_STATE.\n"));
 	if (pMgntInfo->mAssoc)
 		ulInfo = 1;
 	else if (pMgntInfo->mIbss)
@@ -895,7 +884,6 @@ NDIS_STATUS oid_rt_get_connect_state_hdl(struct oid_par_priv *poid_par_priv)
 	else
 		ulInfo = 3;
 	ulInfoLen = sizeof(ULONG);
-	RT_TRACE(COMP_OID_QUERY, DBG_LOUD, ("<=== Query OID_RT_GET_CONNECT_STATE: %d\n", ulInfo));
 #endif
 
 	return status;

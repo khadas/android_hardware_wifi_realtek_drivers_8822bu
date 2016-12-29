@@ -25,8 +25,8 @@
 #include <drv_types.h>
 
 #ifdef CONFIG_PLATFORM_ACTIONS_ATM705X
-	extern int acts_wifi_init(void);
-	extern void acts_wifi_cleanup(void);
+extern int acts_wifi_init(void);
+extern void acts_wifi_cleanup(void);
 #endif
 
 /*

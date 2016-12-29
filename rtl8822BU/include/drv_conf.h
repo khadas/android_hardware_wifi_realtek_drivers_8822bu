@@ -46,6 +46,12 @@
 
 #endif
 
+#if defined(CONFIG_RTW_80211R) && !defined(CONFIG_LAYER2_ROAMING)
+
+	#error "Enable CONFIG_LAYER2_ROAMING before enable CONFIG_RTW_80211R\n"
+
+#endif
+
 /* Older Android kernel doesn't has CONFIG_ANDROID defined,
  * add this to force CONFIG_ANDROID defined */
 #ifdef CONFIG_PLATFORM_ANDROID
@@ -101,6 +107,7 @@
 
 #define RTW_SCAN_SPARSE_MIRACAST 1
 #define RTW_SCAN_SPARSE_BG 0
+#define RTW_SCAN_SPARSE_ROAMING_ACTIVE 1
 
 #ifndef CONFIG_RTW_HIQ_FILTER
 	#define CONFIG_RTW_HIQ_FILTER 1
@@ -140,6 +147,38 @@
 
 #ifndef CONFIG_RTW_DFS_REGION_DOMAIN
 	#define CONFIG_RTW_DFS_REGION_DOMAIN 0
+#endif
+
+#ifndef CONFIG_TXPWR_BY_RATE_EN
+#define CONFIG_TXPWR_BY_RATE_EN 2 /* by efuse */
+#endif
+#ifndef CONFIG_TXPWR_LIMIT_EN
+#define CONFIG_TXPWR_LIMIT_EN 2 /* by efuse */
+#endif
+
+/* compatible with old fashion configuration */
+#if defined(CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY)
+	#undef CONFIG_TXPWR_BY_RATE_EN
+	#undef CONFIG_TXPWR_LIMIT_EN
+	#define CONFIG_TXPWR_BY_RATE_EN 1
+	#define CONFIG_TXPWR_LIMIT_EN 1
+#elif defined(CONFIG_CALIBRATE_TX_POWER_TO_MAX)
+	#undef CONFIG_TXPWR_BY_RATE_EN
+	#undef CONFIG_TXPWR_LIMIT_EN
+	#define CONFIG_TXPWR_BY_RATE_EN 1
+	#define CONFIG_TXPWR_LIMIT_EN 0
+#endif
+
+#ifndef RTW_DEF_MODULE_REGULATORY_CERT
+	#define RTW_DEF_MODULE_REGULATORY_CERT 0
+#endif
+
+#if RTW_DEF_MODULE_REGULATORY_CERT
+	/* force enable TX power by rate and TX power limit */
+	#undef CONFIG_TXPWR_BY_RATE_EN
+	#undef CONFIG_TXPWR_LIMIT_EN
+	#define CONFIG_TXPWR_BY_RATE_EN 1
+	#define CONFIG_TXPWR_LIMIT_EN 1
 #endif
 
 #ifndef CONFIG_RTW_TARGET_TX_PWR_2G_A
@@ -243,15 +282,8 @@
 	#define CONFIG_IEEE80211_BAND_5GHZ
 #endif
 
-#ifndef RTW_DEF_MODULE_REGULATORY_CERT
-	#define RTW_DEF_MODULE_REGULATORY_CERT 0
-#endif
-
-#if RTW_DEF_MODULE_REGULATORY_CERT
-	/* force enable TX power by rate and TX power limit */
-	#ifndef CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY
-		#define CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY
-	#endif
+#if defined(CONFIG_WOWLAN) && (defined(CONFIG_RTL8822B) || defined(CONFIG_RTL8821C))
+	#define CONFIG_WOW_PATTERN_HW_CAM
 #endif
 
 /*
@@ -266,6 +298,9 @@
 
 
 /*#define CONFIG_DOSCAN_IN_BUSYTRAFFIC	*/
+
+/*Don't release SDIO irq in suspend/resume procedure*/
+#define CONFIG_RTW_SDIO_KEEP_IRQ	0
 
 /*
  * Add by Lucas@2016/02/15

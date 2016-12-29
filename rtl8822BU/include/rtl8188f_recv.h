@@ -52,19 +52,20 @@
 #define	Rx_Smooth_Factor (20)
 
 #if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-	s32 rtl8188fs_init_recv_priv(PADAPTER padapter);
-	void rtl8188fs_free_recv_priv(PADAPTER padapter);
+s32 rtl8188fs_init_recv_priv(PADAPTER padapter);
+void rtl8188fs_free_recv_priv(PADAPTER padapter);
+s32 rtl8188fs_recv_hdl(_adapter *padapter);
 #endif
 
 #ifdef CONFIG_USB_HCI
-	int rtl8188fu_init_recv_priv(_adapter *padapter);
-	void rtl8188fu_free_recv_priv(_adapter *padapter);
-	void rtl8188fu_init_recvbuf(_adapter *padapter, struct recv_buf *precvbuf);
+int rtl8188fu_init_recv_priv(_adapter *padapter);
+void rtl8188fu_free_recv_priv(_adapter *padapter);
+void rtl8188fu_init_recvbuf(_adapter *padapter, struct recv_buf *precvbuf);
 #endif
 
 #ifdef CONFIG_PCI_HCI
-	s32 rtl8188fe_init_recv_priv(PADAPTER padapter);
-	void rtl8188fe_free_recv_priv(PADAPTER padapter);
+s32 rtl8188fe_init_recv_priv(PADAPTER padapter);
+void rtl8188fe_free_recv_priv(PADAPTER padapter);
 #endif
 
 void rtl8188f_query_rx_desc_status(union recv_frame *precvframe, u8 *pdesc);

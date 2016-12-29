@@ -14,6 +14,11 @@ halmac_init_adapter_para_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 );
 
+VOID
+halmac_init_adapter_dynamic_para_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter
+);
+
 HALMAC_RET_STATUS
 halmac_mount_api_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
@@ -69,11 +74,6 @@ halmac_cfg_rx_aggregation_88xx(
 );
 
 HALMAC_RET_STATUS
-halmac_init_protocol_cfg_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter
-);
-
-HALMAC_RET_STATUS
 halmac_init_edca_cfg_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 );
@@ -122,11 +122,6 @@ halmac_init_mac_cfg_88xx(
 );
 
 HALMAC_RET_STATUS
-halmac_clear_security_cam_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter
-);
-
-HALMAC_RET_STATUS
 halmac_dump_efuse_map_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN HALMAC_EFUSE_READ_CFG cfg
@@ -157,6 +152,12 @@ halmac_pg_efuse_by_map_88xx(
 
 HALMAC_RET_STATUS
 halmac_get_efuse_size_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	OUT u32 *halmac_size
+);
+
+HALMAC_RET_STATUS
+halmac_get_efuse_available_size_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	OUT u32 *halmac_size
 );
@@ -314,8 +315,9 @@ HALMAC_RET_STATUS
 halmac_dump_fifo_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN HAL_FIFO_SEL halmac_fifo_sel,
-	OUT u8 *pFifo_map,
-	IN u32 halmac_fifo_dump_size
+	IN u32 halmac_start_addr,
+	IN u32 halmac_fifo_dump_size,
+	OUT u8 *pFifo_map
 );
 
 u32
@@ -489,6 +491,44 @@ halmac_cfg_la_mode_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_cfg_rx_fifo_expanding_mode_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_RX_FIFO_EXPANDING_MODE rx_fifo_expanding_mode
+);
+
+HALMAC_RET_STATUS
+halmac_config_security_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN PHALMAC_SECURITY_SETTING pSec_setting
+);
+
+u8
+halmac_get_used_cam_entry_num_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HAL_SECURITY_TYPE sec_type
+);
+
+HALMAC_RET_STATUS
+halmac_write_cam_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	IN u32 entry_index,
+	IN PHALMAC_CAM_ENTRY_INFO pCam_entry_info
+);
+
+HALMAC_RET_STATUS
+halmac_read_cam_entry_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	IN u32 entry_index,
+	OUT PHALMAC_CAM_ENTRY_FORMAT pContent
+);
+
+HALMAC_RET_STATUS
+halmac_clear_cam_entry_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u32 entry_index
+);
+
+HALMAC_RET_STATUS
 halmac_get_hw_value_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN HALMAC_HW_ID hw_id,
@@ -521,5 +561,27 @@ halmac_chk_txdesc_88xx(
 	IN u32 halmac_size
 );
 
+HALMAC_RET_STATUS
+halmac_dl_drv_rsvd_page_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 pg_offset,
+	IN u8 *pHalmac_buf,
+	IN u32 halmac_size
+);
+
+HALMAC_RET_STATUS
+halmac_cfg_csi_rate_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 rssi,
+	IN u8 current_rate,
+	IN u8 fixrate_en,
+	OUT u8 *new_rate
+);
+
+HALMAC_RET_STATUS
+halmac_sdio_cmd53_4byte_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 enable
+);
 
 #endif/* _HALMAC_API_H_ */

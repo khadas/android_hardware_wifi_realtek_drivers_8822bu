@@ -117,8 +117,9 @@ PHY_GetTxPowerIndex_8188E(
 	IN	PADAPTER		pAdapter,
 	IN	u8				RFPath,
 	IN	u8				Rate,
-	IN	CHANNEL_WIDTH	BandWidth,
-	IN	u8				Channel
+	IN	u8				BandWidth,
+	IN	u8				Channel,
+	struct txpwr_idx_comp *tic
 );
 
 /*
@@ -166,7 +167,7 @@ PHY_SetRFEReg_8188E(
 /*
  * BB/MAC/RF other monitor API
  *   */
-VOID PHY_SetRFPathSwitch_8188E(IN	PADAPTER	pAdapter, IN	BOOLEAN		bMain);
+VOID phy_set_rf_path_switch_8188e(IN	PADAPTER	pAdapter, IN	bool		bMain);
 
 extern	VOID
 PHY_SwitchEphyParameter(
@@ -184,13 +185,6 @@ SetAntennaConfig92C(
 	IN	u8		DefaultAnt
 );
 
-VOID
-storePwrIndexDiffRateOffset(
-	IN	PADAPTER	Adapter,
-	IN	u32		RegAddr,
-	IN	u32		BitMask,
-	IN	u32		Data
-);
 /*--------------------------Exported Function prototype---------------------*/
 
 /*

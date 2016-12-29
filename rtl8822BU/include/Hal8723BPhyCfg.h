@@ -101,8 +101,9 @@ PHY_GetTxPowerIndex_8723B(
 	IN	PADAPTER			pAdapter,
 	IN	u8					RFPath,
 	IN	u8					Rate,
-	IN	CHANNEL_WIDTH		BandWidth,
-	IN	u8					Channel
+	IN	u8					BandWidth,
+	IN	u8					Channel,
+	struct txpwr_idx_comp *tic
 );
 
 VOID
@@ -118,19 +119,6 @@ PHY_SetTxPowerLevel8723B(
 );
 
 VOID
-PHY_SetBWMode8723B(
-	IN	PADAPTER				Adapter,
-	IN	CHANNEL_WIDTH			Bandwidth,	/* 20M or 40M */
-	IN	unsigned char				Offset		/* Upper, Lower, or Don't care */
-);
-
-VOID
-PHY_SwChnl8723B(/* Call after initialization */
-	IN	PADAPTER	Adapter,
-	IN	u8		channel
-);
-
-VOID
 PHY_SetSwChnlBWMode8723B(
 	IN	PADAPTER			Adapter,
 	IN	u8					channel,
@@ -139,10 +127,11 @@ PHY_SetSwChnlBWMode8723B(
 	IN	u8					Offset80
 );
 
-VOID PHY_SetRFPathSwitch_8723B(
+VOID phy_set_rf_path_switch_8723b(
 	IN	PADAPTER	pAdapter,
-	IN	BOOLEAN		bMain
+	IN	bool		bMain
 );
+
 /*--------------------------Exported Function prototype End---------------------*/
 
 #endif

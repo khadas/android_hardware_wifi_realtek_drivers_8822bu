@@ -153,6 +153,7 @@ typedef struct _ADAPTER _adapter, ADAPTER, *PADAPTER;
 
 #include <rtw_android.h>
 
+#include <rtw_btcoex_wifionly.h>
 #ifdef CONFIG_BT_COEXIST
 	#include <rtw_btcoex.h>
 #endif /* CONFIG_BT_COEXIST */
@@ -221,6 +222,8 @@ struct registry_priv {
 	u8	uapsd_acvo_en;
 
 	WLAN_BSSID_EX    dev_network;
+
+	u8 tx_bw_mode;
 
 #ifdef CONFIG_80211N_HT
 	u8	ht_enable;
@@ -379,11 +382,6 @@ struct registry_priv {
 	u8 dfs_region_domain;
 #endif
 
-#ifdef CONFIG_NAPI
-	u8 napi_debug;
-	u16 napi_weight;
-#endif
-
 #ifdef CONFIG_MCC_MODE
 	u8 en_mcc;
 	u32 rtw_mcc_single_tx_cri;
@@ -393,9 +391,27 @@ struct registry_priv {
 	u32 rtw_mcc_sta_bw20_target_tx_tp;
 	u32 rtw_mcc_sta_bw40_target_tx_tp;
 	u32 rtw_mcc_sta_bw80_target_tx_tp;
+	s8 rtw_mcc_policy_table_idx;
+	u8 rtw_mcc_duration;
+	u8 rtw_mcc_tsf_sync_offset;
+	u8 rtw_mcc_start_time_offset;
+	u8 rtw_mcc_interval;
+	s8 rtw_mcc_guard_offset0;
+	s8 rtw_mcc_guard_offset1;
 #endif /* CONFIG_MCC_MODE */
 
+#ifdef CONFIG_RTW_NAPI
+	u8 en_napi;
+#ifdef CONFIG_RTW_GRO
+	u8 en_gro;
+#endif /* CONFIG_RTW_GRO */
+#endif /* CONFIG_RTW_NAPI */
+
 	bool	default_patterns_en;
+#ifdef CONFIG_SUPPORT_TRX_SHARED
+	u8 trx_share_mode;
+#endif
+	u8 check_hw_status;
 };
 
 /* For registry parameters */
@@ -416,8 +432,10 @@ struct registry_priv {
 #define BSSID_OFT(field) ((ULONG)FIELD_OFFSET(WLAN_BSSID_EX, field))
 #define BSSID_SZ(field)   sizeof(((PWLAN_BSSID_EX) 0)->field)
 
-#define REGSTY_BW_2G(regsty) ((regsty)->bw_mode & 0x0F)
-#define REGSTY_BW_5G(regsty) (((regsty)->bw_mode) >> 4)
+#define BW_MODE_2G(bw_mode) ((bw_mode) & 0x0F)
+#define BW_MODE_5G(bw_mode) ((bw_mode) >> 4)
+#define REGSTY_BW_2G(regsty) BW_MODE_2G((regsty)->bw_mode)
+#define REGSTY_BW_5G(regsty) BW_MODE_5G((regsty)->bw_mode)
 #define REGSTY_IS_BW_2G_SUPPORT(regsty, bw) (REGSTY_BW_2G((regsty)) >= (bw))
 #define REGSTY_IS_BW_5G_SUPPORT(regsty, bw) (REGSTY_BW_5G((regsty)) >= (bw))
 
@@ -444,7 +462,7 @@ typedef struct rtw_if_operations {
 
 #ifdef CONFIG_CONCURRENT_MODE
 	#define is_primary_adapter(adapter) (adapter->adapter_type == PRIMARY_ADAPTER)
-	#define is_vir_adapter(adapter) (adapter->adapter_type == MAX_ADAPTER)
+	#define is_vir_adapter(adapter) (adapter->adapter_type == VIRTUAL_ADAPTER)
 	#define get_hw_port(adapter) (adapter->hw_port)
 #else
 	#define is_primary_adapter(adapter) (1)
@@ -717,10 +735,56 @@ struct macid_ctl_t {
 	u8 iface_bmc[CONFIG_IFACE_NUMBER];/*for bc-sta of AP or Adhoc mode*/
 	struct macid_bmp ch_g[2]; /* 2 ch concurrency */
 	u8 h2c_msr[MACID_NUM_SW_LIMIT];
+	u8 bw[MACID_NUM_SW_LIMIT];
+	u8 vht_en[MACID_NUM_SW_LIMIT];
+	u32 rate_bmp0[MACID_NUM_SW_LIMIT];
+	u32 rate_bmp1[MACID_NUM_SW_LIMIT];
 	struct sta_info *sta[MACID_NUM_SW_LIMIT];
 };
 
+/* used for rf_ctl_t.rate_bmp_cck_ofdm */
+#define RATE_BMP_CCK		0x000F
+#define RATE_BMP_OFDM		0xFFF0
+#define RATE_BMP_HAS_CCK(_bmp_cck_ofdm)		(_bmp_cck_ofdm & RATE_BMP_CCK)
+#define RATE_BMP_HAS_OFDM(_bmp_cck_ofdm)	(_bmp_cck_ofdm & RATE_BMP_OFDM)
+#define RATE_BMP_GET_CCK(_bmp_cck_ofdm)		(_bmp_cck_ofdm & RATE_BMP_CCK)
+#define RATE_BMP_GET_OFDM(_bmp_cck_ofdm)	((_bmp_cck_ofdm & RATE_BMP_OFDM) >> 4)
+
+/* used for rf_ctl_t.rate_bmp_ht_by_bw */
+#define RATE_BMP_HT_1SS		0x000000FF
+#define RATE_BMP_HT_2SS		0x0000FF00
+#define RATE_BMP_HT_3SS		0x00FF0000
+#define RATE_BMP_HT_4SS		0xFF000000
+#define RATE_BMP_HAS_HT_1SS(_bmp_ht)		(_bmp_ht & RATE_BMP_HT_1SS)
+#define RATE_BMP_HAS_HT_2SS(_bmp_ht)		(_bmp_ht & RATE_BMP_HT_2SS)
+#define RATE_BMP_HAS_HT_3SS(_bmp_ht)		(_bmp_ht & RATE_BMP_HT_3SS)
+#define RATE_BMP_HAS_HT_4SS(_bmp_ht)		(_bmp_ht & RATE_BMP_HT_4SS)
+#define RATE_BMP_GET_HT_1SS(_bmp_ht)		(_bmp_ht & RATE_BMP_HT_1SS)
+#define RATE_BMP_GET_HT_2SS(_bmp_ht)		((_bmp_ht & RATE_BMP_HT_2SS) >> 8)
+#define RATE_BMP_GET_HT_3SS(_bmp_ht)		((_bmp_ht & RATE_BMP_HT_3SS) >> 16)
+#define RATE_BMP_GET_HT_4SS(_bmp_ht)		((_bmp_ht & RATE_BMP_HT_4SS) >> 24)
+
+/* used for rf_ctl_t.rate_bmp_vht_by_bw */
+#define RATE_BMP_VHT_1SS	0x000003FF
+#define RATE_BMP_VHT_2SS	0x000FFC00
+#define RATE_BMP_VHT_3SS	0x3FF00000
+#define RATE_BMP_HAS_VHT_1SS(_bmp_vht)		(_bmp_vht & RATE_BMP_VHT_1SS)
+#define RATE_BMP_HAS_VHT_2SS(_bmp_vht)		(_bmp_vht & RATE_BMP_VHT_2SS)
+#define RATE_BMP_HAS_VHT_3SS(_bmp_vht)		(_bmp_vht & RATE_BMP_VHT_3SS)
+#define RATE_BMP_GET_VHT_1SS(_bmp_vht)		(_bmp_vht & RATE_BMP_VHT_1SS)
+#define RATE_BMP_GET_VHT_2SS(_bmp_vht)		((_bmp_vht & RATE_BMP_VHT_2SS) >> 10)
+#define RATE_BMP_GET_VHT_3SS(_bmp_vht)		((_bmp_vht & RATE_BMP_VHT_3SS) >> 20)
+
 struct rf_ctl_t {
+	/* used for debug or by tx power limit */
+	u16 rate_bmp_cck_ofdm;		/* 20MHz */
+	u32 rate_bmp_ht_by_bw[2];	/* 20MHz, 40MHz. 4SS supported */
+	u32 rate_bmp_vht_by_bw[4];	/* 20MHz, 40MHz, 80MHz, 160MHz. up to 3SS supported */
+
+	/* used by tx power limit */
+	u8 highest_ht_rate_bw_bmp;
+	u8 highest_vht_rate_bw_bmp;
+
 #ifdef CONFIG_DFS_MASTER
 	bool radar_detect_by_others;
 	u8 dfs_master_enabled;
@@ -745,20 +809,6 @@ struct rf_ctl_t {
 #define IS_CAC_STOPPED(rfctl) ((rfctl)->cac_end_time == RTW_CAC_STOPPED)
 #define IS_CH_WAITING(rfctl) (!IS_CAC_STOPPED(rfctl) && time_after((unsigned long)(rfctl)->cac_end_time, (unsigned long)rtw_get_current_time()))
 #define IS_UNDER_CAC(rfctl) (IS_CH_WAITING(rfctl) && time_after((unsigned long)rtw_get_current_time(), (unsigned long)(rfctl)->cac_start_time))
-
-struct mi_state {
-	u8 sta_num;			/*WIFI_FW_STATION_STATE*/
-	u8 ld_sta_num;		/*WIFI_FW_STATION_STATE |_FW_LINKED*/
-	u8 lg_sta_num;		/*WIFI_FW_STATION_STATE |_FW_UNDER_LINKING*/
-	u8 ap_num;			/*WIFI_FW_AP_STATE|_FW_LINKED*/
-	u8 ld_ap_num;		/*WIFI_FW_AP_STATE|_FW_LINKED && asoc_sta_count > 2*/
-	u8 adhoc_num;		/* WIFI_FW_ADHOC_STATE */
-	u8 ld_adhoc_num;	/* WIFI_FW_ADHOC_STATE && asoc_sta_count > 2 */
-	u8 uwps_num;		/*WIFI_UNDER_WPS*/
-	u8 union_ch;
-	u8 union_bw;
-	u8 union_offset;
-};
 
 #ifdef CONFIG_MBSSID_CAM
 #define TOTAL_MBID_CAM_NUM	8
@@ -786,12 +836,6 @@ struct halmac_indicator {
 
 struct halmacpriv {
 	/* flags */
-	/*
-	 * send_general_info
-	 *	0: no need to call halmac_send_general_info()
-	 *	1: need to call halmac_send_general_info()
-	 */
-	u8 send_general_info;
 
 	/* For asynchronous functions */
 	struct halmac_indicator *indicator;
@@ -818,6 +862,13 @@ struct dvobj_priv {
 
 	_mutex hw_init_mutex;
 	_mutex h2c_fwcmd_mutex;
+
+#ifdef CONFIG_RTW_CUSTOMER_STR
+	_mutex customer_str_mutex;
+	struct submit_ctx *customer_str_sctx;
+	u8 customer_str[RTW_CUSTOMER_STR_LEN];
+#endif
+
 	_mutex setch_mutex;
 	_mutex setbw_mutex;
 	_mutex rf_read_reg_mutex;
@@ -877,6 +928,7 @@ struct dvobj_priv {
 #ifdef CONFIG_SWTIMER_BASED_TXBCN
 	_timer txbcn_timer;
 #endif
+	_timer dynamic_chk_timer; /* dynamic/periodic check timer */
 
 #ifdef RTW_HALMAC
 	void *halmac;
@@ -1007,6 +1059,18 @@ struct dvobj_priv {
 #endif /*CONFIG_MCC_MODE */
 };
 
+#define DEV_STA_NUM(_dvobj)			MSTATE_STA_NUM(&((_dvobj)->iface_state))
+#define DEV_STA_LD_NUM(_dvobj)		MSTATE_STA_LD_NUM(&((_dvobj)->iface_state))
+#define DEV_STA_LG_NUM(_dvobj)		MSTATE_STA_LG_NUM(&((_dvobj)->iface_state))
+#define DEV_AP_NUM(_dvobj)			MSTATE_AP_NUM(&((_dvobj)->iface_state))
+#define DEV_AP_LD_NUM(_dvobj)		MSTATE_AP_LD_NUM(&((_dvobj)->iface_state))
+#define DEV_ADHOC_NUM(_dvobj)		MSTATE_ADHOC_NUM(&((_dvobj)->iface_state))
+#define DEV_ADHOC_LD_NUM(_dvobj)	MSTATE_ADHOC_LD_NUM(&((_dvobj)->iface_state))
+#define DEV_WPS_NUM(_dvobj)			MSTATE_WPS_NUM(&((_dvobj)->iface_state))
+#define DEV_U_CH(_dvobj)			MSTATE_U_CH(&((_dvobj)->iface_state))
+#define DEV_U_BW(_dvobj)			MSTATE_U_BW(&((_dvobj)->iface_state))
+#define DEV_U_OFFSET(_dvobj)		MSTATE_U_OFFSET(&((_dvobj)->iface_state))
+
 #define dvobj_to_pwrctl(dvobj) (&(dvobj->pwrctl_priv))
 #define pwrctl_to_dvobj(pwrctl) container_of(pwrctl, struct dvobj_priv, pwrctl_priv)
 #define dvobj_to_macidctl(dvobj) (&(dvobj->macid_ctl))
@@ -1064,6 +1128,13 @@ typedef enum _DRIVER_STATE {
 	DRIVER_REPLACE_DONGLE = 2,
 } DRIVER_STATE;
 
+#ifdef CONFIG_RTW_NAPI
+enum _NAPI_STATE {
+	NAPI_DISABLE = 0,
+	NAPI_ENABLE = 1,
+};
+#endif
+
 #ifdef CONFIG_INTEL_PROXIM
 struct proxim {
 	bool proxim_support;
@@ -1092,6 +1163,14 @@ typedef struct loopbackdata {
 } LOOPBACKDATA, *PLOOPBACKDATA;
 #endif
 
+struct tsf_info {
+	u8 sync_port;/*tsf sync from portx*/
+	u8 offset; /*tsf timer offset*/
+};
+
+#define ADAPTER_TX_BW_2G(adapter) BW_MODE_2G((adapter)->driver_tx_bw_mode)
+#define ADAPTER_TX_BW_5G(adapter) BW_MODE_5G((adapter)->driver_tx_bw_mode)
+
 struct _ADAPTER {
 	int	DriverState;/* for disable driver using module, use dongle to replace module. */
 	int	pid[3];/* process id from UI, 0:wps, 1:hostapd, 2:dhcpcd */
@@ -1114,6 +1193,11 @@ struct _ADAPTER {
 	struct	registry_priv	registrypriv;
 
 	struct	led_priv	ledpriv;
+
+#ifdef CONFIG_RTW_NAPI
+	struct	napi_struct napi;
+	u8	napi_state;
+#endif
 
 #ifdef CONFIG_MP_INCLUDED
 	struct	mp_priv	mppriv;
@@ -1161,7 +1245,7 @@ struct _ADAPTER {
 
 	PVOID			HalData;
 	u32 hal_data_sz;
-	struct hal_ops	HalFunc;
+	struct hal_ops	hal_func;
 
 	u32	IsrContent;
 	u32	ImrContent;
@@ -1241,10 +1325,6 @@ struct _ADAPTER {
 
 #endif /* CONFIG_IOCTL_CFG80211 */
 
-#ifdef CONFIG_NAPI
-	struct  napi_struct napi;
-#endif /* CONFIG_NAPI */
-
 #endif /* PLATFORM_LINUX */
 
 #ifdef PLATFORM_FREEBSD
@@ -1280,6 +1360,7 @@ struct _ADAPTER {
 	**	refer to iface_id if iface_nums>2 and isprimary is false and the adapter_type value is 0xff.*/
 	u8 adapter_type;/*be used in  Multi-interface to recognize whether is PRIMARY_ADAPTER  or not(PRIMARY_ADAPTER/VIRTUAL_ADAPTER) .*/
 	u8 hw_port; /*interface port type, it depends on HW port */
+	struct tsf_info tsf;
 
 
 	/*extend to support multi interface*/
@@ -1317,6 +1398,9 @@ struct _ADAPTER {
 	u8 fix_rate;
 	u8 fix_bw;
 	u8 data_fb; /* data rate fallback, valid only when fix_rate is not 0xff */
+	u8 power_offset;
+	u8 driver_tx_bw_mode;
+
 	u8 driver_vcs_en; /* Enable=1, Disable=0 driver control vrtl_carrier_sense for tx */
 	u8 driver_vcs_type;/* force 0:disable VCS, 1:RTS-CTS, 2:CTS-to-self when vcs_en=1. */
 	u8 driver_ampdu_spacing;/* driver control AMPDU Density for peer sta's rx */
@@ -1324,8 +1408,10 @@ struct _ADAPTER {
 	u8 driver_rx_ampdu_spacing;  /* driver control Rx AMPDU Density */
 	u8 fix_rx_ampdu_accept;
 	u8 fix_rx_ampdu_size; /* 0~127, TODO:consider each sta and each TID */
+#ifdef CONFIG_TX_AMSDU
 	u8 tx_amsdu;
 	u16 tx_amsdu_rate;
+#endif
 	unsigned char     in_cta_test;
 #ifdef DBG_RX_COUNTER_DUMP
 	u8 dump_rx_cnt_mode;/*BIT0:drv,BIT1:mac,BIT2:phy*/

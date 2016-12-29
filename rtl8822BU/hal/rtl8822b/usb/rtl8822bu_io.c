@@ -23,7 +23,6 @@
 
 void rtl8822bu_set_intf_ops(struct _io_ops *pops)
 {
-	_func_enter_;
 
 	_rtw_memset((u8 *)pops, 0, sizeof(struct _io_ops));
 
@@ -53,6 +52,5 @@ void rtl8822bu_set_intf_ops(struct _io_ops *pops)
 	pops->_read_interrupt = &usb_read_interrupt;
 #endif
 
-	_func_exit_;
 
 }

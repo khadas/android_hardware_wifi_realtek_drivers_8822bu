@@ -131,7 +131,7 @@ static const struct ieee80211_regdomain rtw_regdom_14 = {
 };
 
 #if 0
-	static struct rtw_regulatory *rtw_regd;
+static struct rtw_regulatory *rtw_regd;
 #endif
 
 static bool _rtw_is_radar_freq(u16 center_freq)
@@ -268,16 +268,16 @@ static void _rtw_reg_apply_radar_flags(struct wiphy *wiphy)
 		if (!_rtw_is_radar_freq(ch->center_freq))
 			continue;
 #ifdef CONFIG_DFS
-#if defined(CONFIG_DFS_MASTER) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+		#if !defined(CONFIG_DFS_MASTER)
 		if (!(ch->flags & IEEE80211_CHAN_DISABLED)) {
 			ch->flags |= IEEE80211_CHAN_RADAR;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
+			#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 			ch->flags |= (IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN);
-#else
+			#else
 			ch->flags |= IEEE80211_CHAN_NO_IR;
-#endif
+			#endif
 		}
-#endif
+		#endif
 #endif /* CONFIG_DFS */
 
 #if 0
@@ -337,13 +337,13 @@ static void _rtw_reg_apply_flags(struct wiphy *wiphy)
 		ch = ieee80211_get_channel(wiphy, freq);
 		if (ch) {
 			if (channel_set[i].ScanType == SCAN_PASSIVE) {
-#if defined(CONFIG_DFS_MASTER) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
+				#if defined(CONFIG_DFS_MASTER)
 				ch->flags = 0;
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
+				#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 				ch->flags = (IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN);
-#else
+				#else
 				ch->flags = IEEE80211_CHAN_NO_IR;
-#endif
+				#endif
 			} else
 				ch->flags = 0;
 		}
@@ -463,9 +463,9 @@ void _rtw_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
 }
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0))
-	int rtw_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
+int rtw_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
 #else
-	void rtw_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
+void rtw_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
 #endif
 {
 	_rtw_reg_notifier(wiphy, request);

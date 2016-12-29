@@ -104,30 +104,14 @@ PHY_GetTxPowerIndex_8192E(
 	IN	PADAPTER			pAdapter,
 	IN	u8					RFPath,
 	IN	u8					Rate,
-	IN	CHANNEL_WIDTH		BandWidth,
-	IN	u8					Channel
-);
-
-/*
- * Switch bandwidth for 8192S
- *   */
-VOID
-PHY_SetBWMode8192E(
-	IN	PADAPTER			pAdapter,
-	IN	CHANNEL_WIDTH	Bandwidth,
-	IN	u8					Offset
+	IN	u8					BandWidth,
+	IN	u8					Channel,
+	struct txpwr_idx_comp *tic
 );
 
 /*
  * channel switch related funciton
  *   */
-VOID
-PHY_SwChnl8192E(
-	IN	PADAPTER	Adapter,
-	IN	u8			channel
-);
-
-
 VOID
 PHY_SetSwChnlBWMode8192E(
 	IN	PADAPTER			Adapter,
@@ -145,7 +129,7 @@ PHY_SetRFEReg_8192E(
 void
 phy_SpurCalibration_8192E(
 	IN	PADAPTER			Adapter,
-	IN	SPUR_CAL_METHOD	Method
+	IN	enum spur_cal_method	method
 );
 void PHY_SpurCalibration_8192E(IN PADAPTER Adapter);
 
@@ -160,17 +144,9 @@ phy_SpurCalibration_8192E_NBI(
  *   */
 
 VOID
-PHY_SetRFPathSwitch_8192E(
+phy_set_rf_path_switch_8192e(
 	IN	PADAPTER	pAdapter,
-	IN	BOOLEAN		bMain
-);
-
-VOID
-storePwrIndexDiffRateOffset(
-	IN	PADAPTER	Adapter,
-	IN	u32		RegAddr,
-	IN	u32		BitMask,
-	IN	u32		Data
+	IN	bool		bMain
 );
 
 /*--------------------------Exported Function prototype---------------------*/

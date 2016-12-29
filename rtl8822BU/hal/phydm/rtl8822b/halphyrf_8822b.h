@@ -24,53 +24,52 @@
 #define AVG_THERMAL_NUM_8822B	4
 #define RF_T_METER_8822B		0x42
 
-void ConfigureTxpowerTrack_8822B(
-	PTXPWRTRACK_CFG	pConfig
-	);
+void configure_txpower_track_8822b(
+	struct _TXPWRTRACK_CFG	*p_config
+);
 
-VOID
-ODM_TxPwrTrackSetPwr8822B(
-	PVOID				pDM_VOID,
-	PWRTRACK_METHOD	Method,
-	u1Byte				RFPath,
-	u1Byte				ChannelMappedIndex
-	);
+void
+odm_tx_pwr_track_set_pwr8822b(
+	void				*p_dm_void,
+	enum pwrtrack_method	method,
+	u8				rf_path,
+	u8				channel_mapped_index
+);
 
-VOID
-GetDeltaSwingTable_8822B(
-	PVOID		pDM_VOID,
+void
+get_delta_swing_table_8822b(
+	void		*p_dm_void,
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
-	pu1Byte		*TemperatureUP_A,
-	pu1Byte		*TemperatureDOWN_A,
-	pu1Byte		*TemperatureUP_B,
-	pu1Byte		*TemperatureDOWN_B,
-	pu1Byte		*TemperatureUP_CCK_A,
-	pu1Byte		*TemperatureDOWN_CCK_A,
-	pu1Byte		*TemperatureUP_CCK_B,
-	pu1Byte		*TemperatureDOWN_CCK_B
+	u8 **temperature_up_a,
+	u8 **temperature_down_a,
+	u8 **temperature_up_b,
+	u8 **temperature_down_b,
+	u8 **temperature_up_cck_a,
+	u8 **temperature_down_cck_a,
+	u8 **temperature_up_cck_b,
+	u8 **temperature_down_cck_b
 #else
-	pu1Byte		*TemperatureUP_A,
-	pu1Byte		*TemperatureDOWN_A,
-	pu1Byte		*TemperatureUP_B,
-	pu1Byte		*TemperatureDOWN_B
+	u8 **temperature_up_a,
+	u8 **temperature_down_a,
+	u8 **temperature_up_b,
+	u8 **temperature_down_b
 #endif
-	);
+);
 
-VOID
-PHY_LCCalibrate_8822B(
-	PVOID pDM_VOID
-	);
+void
+phy_lc_calibrate_8822b(
+	void *p_dm_void
+);
 
 
 
-VOID PHY_SetRFPathSwitch_8822B(
+void phy_set_rf_path_switch_8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
-	IN PDM_ODM_T		pDM_Odm,
+	struct PHY_DM_STRUCT		*p_dm_odm,
 #else
-	IN	PADAPTER	pAdapter,
+	struct _ADAPTER	*p_adapter,
 #endif
-	IN	BOOLEAN		bMain
-	);
+	bool		is_main
+);
 
 #endif	/* #ifndef __HAL_PHY_RF_8822B_H__ */
-

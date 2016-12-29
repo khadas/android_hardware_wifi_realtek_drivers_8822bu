@@ -1,7 +1,7 @@
 #ifndef _HALMAC_FW_INFO_H_
 #define _HALMAC_FW_INFO_H_
 
-#define H2C_FORMAT_VERSION              4
+#define H2C_FORMAT_VERSION              5
 
 #define H2C_ACK_HDR_CONTENT_LENGTH          8
 #define CFG_PARAMETER_ACK_CONTENT_LENGTH    16

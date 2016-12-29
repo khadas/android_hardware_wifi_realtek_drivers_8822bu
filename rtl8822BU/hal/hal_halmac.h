@@ -21,6 +21,7 @@
 #define _HAL_HALMAC_H_
 
 #include <drv_types.h>		/* adapter_to_dvobj(), struct intf_hdl and etc. */
+#include <hal_data.h>		/* struct hal_spec_t */
 #include "halmac/halmac_api.h"	/* PHALMAC_ADAPTER and etc. */
 
 /* HALMAC Definition for Driver */
@@ -47,6 +48,12 @@ extern HALMAC_PLATFORM_API rtw_halmac_platform_api;
 u8 rtw_halmac_read8(struct intf_hdl *, u32 addr);
 u16 rtw_halmac_read16(struct intf_hdl *, u32 addr);
 u32 rtw_halmac_read32(struct intf_hdl *, u32 addr);
+void rtw_halmac_read_mem(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *pmem);
+#ifdef CONFIG_SDIO_INDIRECT_ACCESS
+u8 rtw_halmac_iread8(struct intf_hdl *pintfhdl, u32 addr);
+u16 rtw_halmac_iread16(struct intf_hdl *pintfhdl, u32 addr);
+u32 rtw_halmac_iread32(struct intf_hdl *pintfhdl, u32 addr);
+#endif
 int rtw_halmac_write8(struct intf_hdl *, u32 addr, u8 value);
 int rtw_halmac_write16(struct intf_hdl *, u32 addr, u16 value);
 int rtw_halmac_write32(struct intf_hdl *, u32 addr, u32 value);
@@ -65,6 +72,7 @@ int rtw_halmac_dlfw_from_file(struct dvobj_priv *, u8 *fwpath);
 int rtw_halmac_phy_power_switch(struct dvobj_priv *, u8 enable);
 int rtw_halmac_send_h2c(struct dvobj_priv *, u8 *h2c);
 int rtw_halmac_c2h_handle(struct dvobj_priv *, u8 *c2h, u32 size);
+int rtw_halmac_get_available_efuse_size(struct dvobj_priv *d, u32 *size);
 
 int rtw_halmac_get_physical_efuse_size(struct dvobj_priv *, u32 *size);
 int rtw_halmac_read_physical_efuse_map(struct dvobj_priv *, u8 *map, u32 size);
@@ -81,17 +89,17 @@ int rtw_halmac_read_bt_physical_efuse_map(struct dvobj_priv *, u8 *map, u32 size
 
 int rtw_halmac_config_rx_info(struct dvobj_priv *, HALMAC_DRV_INFO);
 int rtw_halmac_set_mac_address(struct dvobj_priv *, enum _hw_port, u8 *addr);
-int rtw_halmac_set_bssid(struct dvobj_priv *d, enum _hw_port hwport, u8 *addr);
+int rtw_halmac_set_bssid(struct dvobj_priv *, enum _hw_port hwport, u8 *addr);
 
 int rtw_halmac_set_bandwidth(struct dvobj_priv *, u8 channel, u8 pri_ch_idx, u8 bw);
+int rtw_halmac_dump_fifo(struct dvobj_priv *d, u8 fifo_sel, u32 addr, u32 size, u8 *buffer);
 int rtw_halmac_rx_agg_switch(struct dvobj_priv *, u8 enable);
-int rtw_halmac_get_hw_value(struct dvobj_priv *d, HALMAC_HW_ID hw_id, VOID *pvalue);
-
+int rtw_halmac_get_hw_value(struct dvobj_priv *, HALMAC_HW_ID hw_id, VOID *pvalue);
 int rtw_halmac_get_wow_reason(struct dvobj_priv *, u8 *reason);
-int rtw_halmac_get_drv_info_sz(struct dvobj_priv *d, u8 *sz);
-
+int rtw_halmac_get_drv_info_sz(struct dvobj_priv *, u8 *sz);
 int rtw_halmac_get_rsvd_drv_pg_bndy(struct dvobj_priv *dvobj, u16 *drv_pg);
-int rtw_halmac_download_rsvd_page(struct dvobj_priv *dvobj, u16 page_idx, u8 *pbuf, u8 length);
+int rtw_halmac_download_rsvd_page(struct dvobj_priv *dvobj, u8 pg_offset, u8 *pbuf, u32 size);
+int rtw_halmac_fill_hal_spec(struct dvobj_priv *, struct hal_spec_t *);
 
 #ifdef CONFIG_SDIO_HCI
 int rtw_halmac_query_tx_page_num(struct dvobj_priv *);
@@ -106,4 +114,7 @@ u8 rtw_halmac_usb_get_bulkout_id(struct dvobj_priv *, u8 *buf, u32 size);
 u8 rtw_halmac_switch_usb_mode(struct dvobj_priv *d, enum RTW_USB_SPEED usb_mode);
 #endif /* CONFIG_USB_HCI */
 
+#ifdef CONFIG_SUPPORT_TRX_SHARED
+void dump_trx_share_mode(void *sel, _adapter *adapter);
+#endif
 #endif /* _HAL_HALMAC_H_ */

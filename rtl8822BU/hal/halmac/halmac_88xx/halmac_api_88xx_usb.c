@@ -26,14 +26,14 @@ halmac_init_usb_cfg_88xx(
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_init_usb_cfg_88xx ==========>\n");
 
-	value8 |= (BIT_DMA_MODE | (0x3 << BIT_SHIFT_BURST_CNT));                /* burst number = 4 */
+	value8 |= (BIT_DMA_MODE | (0x3 << BIT_SHIFT_BURST_CNT)); /* burst number = 4 */
 
-	if (PLATFORM_REG_READ_8(pDriver_adapter, REG_SYS_CFG2 + 3) == 0x20) {   /* usb3.0 */
+	if (PLATFORM_REG_READ_8(pDriver_adapter, REG_SYS_CFG2 + 3) == 0x20) { /* usb3.0 */
 		value8 |= (HALMAC_USB_BURST_SIZE_3_0 << BIT_SHIFT_BURST_SIZE);
 	} else {
-		if ((PLATFORM_REG_READ_8(pDriver_adapter, REG_USB_USBSTAT) & 0x3) == 0x1)       /* usb2.0 */
+		if ((PLATFORM_REG_READ_8(pDriver_adapter, REG_USB_USBSTAT) & 0x3) == 0x1) /* usb2.0 */
 			value8 |= HALMAC_USB_BURST_SIZE_2_0_HSPEED << BIT_SHIFT_BURST_SIZE;
-		else                                                                            /* usb1.1 */
+		else /* usb1.1 */
 			value8 |= HALMAC_USB_BURST_SIZE_2_0_FSPEED << BIT_SHIFT_BURST_SIZE;
 	}
 

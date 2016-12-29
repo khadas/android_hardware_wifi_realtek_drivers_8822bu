@@ -120,9 +120,6 @@ PHY_RFShadowCompare(
 		if (RF_Shadow[eRFPath][Offset].Value != reg) {
 			/* Locate error position. */
 			RF_Shadow[eRFPath][Offset].ErrorOrNot = _TRUE;
-			/* RT_TRACE(COMP_INIT, DBG_LOUD, */
-			/* ("PHY_RFShadowCompare RF-%d Addr%02lx Err = %05lx\n", */
-			/* eRFPath, Offset, reg)); */
 		}
 		return RF_Shadow[eRFPath][Offset].ErrorOrNot ;
 	}
@@ -142,9 +139,6 @@ PHY_RFShadowRecorver(
 		if (RF_Shadow[eRFPath][Offset].Recorver == _TRUE) {
 			rtw_hal_write_rfreg(Adapter, eRFPath, Offset, bRFRegOffsetMask,
 					    RF_Shadow[eRFPath][Offset].Value);
-			/* RT_TRACE(COMP_INIT, DBG_LOUD, */
-			/* ("PHY_RFShadowRecorver RF-%d Addr%02lx=%05lx", */
-			/* eRFPath, Offset, RF_Shadow[eRFPath][Offset].Value)); */
 		}
 	}
 

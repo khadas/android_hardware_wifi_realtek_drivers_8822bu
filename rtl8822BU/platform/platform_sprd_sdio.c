@@ -21,7 +21,7 @@
 
 extern void sdhci_bus_scan(void);
 #ifndef ANDROID_2X
-	extern int sdhci_device_attached(void);
+extern int sdhci_device_attached(void);
 #endif
 
 /*

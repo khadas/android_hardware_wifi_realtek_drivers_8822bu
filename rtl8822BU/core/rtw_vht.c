@@ -695,46 +695,59 @@ u32	rtw_build_vht_cap_ie(_adapter *padapter, u8 *pbuf)
 		SET_VHT_CAPABILITY_ELE_CHL_WIDTH(pcap, 0);
 
 	/* B4 Rx LDPC */
-	if (TEST_FLAG(pvhtpriv->ldpc_cap, LDPC_VHT_ENABLE_RX))
+	if (TEST_FLAG(pvhtpriv->ldpc_cap, LDPC_VHT_ENABLE_RX)) {
 		SET_VHT_CAPABILITY_ELE_RX_LDPC(pcap, 1);
+		RTW_INFO("[VHT] Declare supporting RX LDPC\n");
+	}
 
 	/* B5 ShortGI for 80MHz */
 	SET_VHT_CAPABILITY_ELE_SHORT_GI80M(pcap, pvhtpriv->sgi_80m ? 1 : 0); /* We can receive Short GI of 80M */
+	if (pvhtpriv->sgi_80m)
+		RTW_INFO("[VHT] Declare supporting SGI 80MHz\n");
 
 	/* B6 ShortGI for 160MHz */
 	/* SET_VHT_CAPABILITY_ELE_SHORT_GI160M(pcap, pvhtpriv->sgi_80m? 1 : 0); */
 
 	/* B7 Tx STBC */
-	if (TEST_FLAG(pvhtpriv->stbc_cap, STBC_VHT_ENABLE_TX))
+	if (TEST_FLAG(pvhtpriv->stbc_cap, STBC_VHT_ENABLE_TX)) {
 		SET_VHT_CAPABILITY_ELE_TX_STBC(pcap, 1);
+		RTW_INFO("[VHT] Declare supporting TX STBC\n");
+	}
 
 	/* B8 B9 B10 Rx STBC */
 	if (TEST_FLAG(pvhtpriv->stbc_cap, STBC_VHT_ENABLE_RX)) {
 		rtw_hal_get_def_var(padapter, HAL_DEF_RX_STBC, (u8 *)(&rx_stbc_nss));
 
 		SET_VHT_CAPABILITY_ELE_RX_STBC(pcap, rx_stbc_nss);
+		RTW_INFO("[VHT] Declare supporting RX STBC = %d\n", rx_stbc_nss);
 	}
 
 	/* B11 SU Beamformer Capable */
 	if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_BEAMFORMER_ENABLE)) {
 		SET_VHT_CAPABILITY_ELE_SU_BFER(pcap, 1);
+		RTW_INFO("[VHT] Declare supporting SU Bfer\n");
 		/* B16 17 18 Number of Sounding Dimensions */
 		rtw_hal_get_def_var(padapter, HAL_DEF_BEAMFORMER_CAP, (u8 *)&rf_num);
 		SET_VHT_CAPABILITY_ELE_SOUNDING_DIMENSIONS(pcap, rf_num);
 		/* B19 MU Beamformer Capable */
-		if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_AP_ENABLE))
+		if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_AP_ENABLE)) {
 			SET_VHT_CAPABILITY_ELE_MU_BFER(pcap, 1);
+			RTW_INFO("[VHT] Declare supporting MU Bfer\n");
+		}
 	}
 
 	/* B12 SU Beamformee Capable */
 	if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_BEAMFORMEE_ENABLE)) {
 		SET_VHT_CAPABILITY_ELE_SU_BFEE(pcap, 1);
+		RTW_INFO("[VHT] Declare supporting SU Bfee\n");
 		/* B13 14 15 Compressed Steering Number of Beamformer Antennas Supported */
 		rtw_hal_get_def_var(padapter, HAL_DEF_BEAMFORMEE_CAP, (u8 *)&rf_num);
 		SET_VHT_CAPABILITY_ELE_BFER_ANT_SUPP(pcap, rf_num);
 		/* B20 SU Beamformee Capable */
-		if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_STA_ENABLE))
+		if (TEST_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_STA_ENABLE)) {
 			SET_VHT_CAPABILITY_ELE_MU_BFEE(pcap, 1);
+			RTW_INFO("[VHT] Declare supporting MU Bfee\n");
+		}
 	}
 
 	/* B21 VHT TXOP PS */

@@ -24,8 +24,8 @@
  * Public  General Config
  */
 #define AUTOCONF_INCLUDED
-#define RTL871X_MODULE_NAME "8822BU"
-#define DRV_NAME "rtl8822bu"
+#define RTL871X_MODULE_NAME "88x2BU"
+#define DRV_NAME "rtl88x2bu"
 
 /* Set CONFIG_RTL8822B from Makefile */
 #ifndef CONFIG_RTL8822B
@@ -42,17 +42,8 @@
 #define CONFIG_80211N_HT	1
 #ifdef CONFIG_80211N_HT
 	#define CONFIG_80211AC_VHT 1
-	/* #define CONFIG_BEAMFORMING */
 
-	#ifdef CONFIG_BEAMFORMING
-		#define CONFIG_PHYDM_BEAMFORMING
-		#ifdef CONFIG_PHYDM_BEAMFORMING
-		#define BEAMFORMING_SUPPORT			1	/*for phydm beamforming*/
-		#define SUPPORT_MU_BF					0
-		#else
-		#define BEAMFORMING_SUPPORT			0	/*for driver beamforming*/
-		#endif
-	#endif
+	/* #define CONFIG_BEAMFORMING */
 #endif
 
 /* set CONFIG_IOCTL_CFG80211 from Makefile */
@@ -75,12 +66,15 @@
  * Internal  General Config
  */
 /* #define CONFIG_H2CLBK */
-#define CONFIG_C2H_PACKET_EN	/* necessary for 8822B */
+
 #define RTW_HALMAC		/* Use HALMAC architecture, necessary for 8822B */
 #define CONFIG_EMBEDDED_FWIMG	1
+#if (CONFIG_EMBEDDED_FWIMG==1)
+	#define	LOAD_FW_HEADER_FROM_DRIVER
+#endif
 /* #define CONFIG_FILE_FWIMG */
 
-/* #define CONFIG_XMIT_ACK */
+#define CONFIG_XMIT_ACK
 #ifdef CONFIG_XMIT_ACK
 	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
 #endif
@@ -95,10 +89,10 @@
 
 #define CONFIG_DFS	1
 
- /* #define CONFIG_SUPPORT_USB_INT */
- #ifdef CONFIG_SUPPORT_USB_INT
-/* #define CONFIG_USB_INTERRUPT_IN_PIPE	1 */
-#endif
+/* #define CONFIG_SUPPORT_USB_INT */
+#ifdef CONFIG_SUPPORT_USB_INT
+	/* #define CONFIG_USB_INTERRUPT_IN_PIPE  1 */
+#endif /* CONFIG_SUPPORT_USB_INT */
 
 /* #ifndef CONFIG_MP_INCLUDED */
 	/* #define CONFIG_IPS	1 */
@@ -109,13 +103,18 @@
 	/* #define SUPPORT_HW_RFOFF_DETECTED	1 */
 
 	#define CONFIG_LPS	1
-	#if defined(CONFIG_LPS) && defined(CONFIG_SUPPORT_USB_INT)
-	/* #define CONFIG_LPS_LCLK	1 */
+	#if defined(CONFIG_LPS)
+		/* #define CONFIG_LPS_LCLK	1 */
 	#endif
 
 	#ifdef CONFIG_LPS_LCLK
-	#define CONFIG_XMIT_THREAD_MODE
-	#endif
+		#define CONFIG_XMIT_THREAD_MODE
+		#ifndef CONFIG_SUPPORT_USB_INT
+			#define LPS_RPWM_WAIT_MS 300
+			#define CONFIG_DETECT_CPWM_BY_POLLING
+		#endif /* !CONFIG_SUPPORT_USB_INT */
+		/* #define DBG_CHECK_FW_PS_STATE */
+	#endif /* CONFIG_LPS_LCLK */
 
 	/* before link */
 	/* #define CONFIG_ANTENNA_DIVERSITY */
@@ -128,7 +127,7 @@
 
 	/*#define CONFIG_CONCURRENT_MODE 1 */
 	#ifdef CONFIG_CONCURRENT_MODE
-		#define CONFIG_HWPORT_SWAP				/* Port0->Sec , Port1->Pri */
+		/* #define CONFIG_HWPORT_SWAP */				/* Port0->Sec , Port1->Pri */
 		/*#define CONFIG_RUNTIME_PORT_SWITCH*/
 		/* #define DBG_RUNTIME_PORT_SWITCH */
 		#define CONFIG_SCAN_BACKOP
@@ -259,17 +258,6 @@
 
 /* #define CONFIG_USB_SUPPORT_ASYNC_VDN_REQ 1 */
 
-#ifdef CONFIG_WOWLAN
-	/* #define CONFIG_GTK_OL */
-	#define CONFIG_ARP_KEEP_ALIVE
-#endif /* CONFIG_WOWLAN */
-
-#ifdef CONFIG_GPIO_WAKEUP
-	#ifndef WAKEUP_GPIO_IDX
-		#define WAKEUP_GPIO_IDX	1	/* WIFI Chip Side */
-	#endif /* WAKEUP_GPIO_IDX */
-#endif /* CONFIG_GPIO_WAKEUP */
-
 /*
  * HAL  Related Config
  */
@@ -350,17 +338,10 @@
 
 #define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
 
-/*#define CONFIG_BEAMFORMING*/
-#ifdef CONFIG_BEAMFORMING
-#define BEAMFORMING_SUPPORT 0	/* Use driver self mechanism, not phydm */
-#define RTW_BEAMFORMING_VERSION_2
-#endif /* CONFIG_BEAMFORMING */
-
 /*
  * Debug Related Config
  */
 #define DBG	1
-/* #define CONFIG_DEBUG_RTL871X */ /* RT_TRACE, RT_PRINT_DATA, _func_enter_, _func_exit_ */
 
 #define CONFIG_PROC_DEBUG
 

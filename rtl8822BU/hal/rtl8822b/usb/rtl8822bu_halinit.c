@@ -97,13 +97,11 @@ u32 rtl8822bu_inirp_init(PADAPTER padapter)
 	u32(*_read_interrupt)(struct intf_hdl *pintfhdl, u32 addr);
 #endif
 
-	_func_enter_;
 
 	_read_port = pintfhdl->io_ops._read_port;
 
 	status = _SUCCESS;
 
-	RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("===> usb_inirp_init\n"));
 
 	precvpriv->ff_hwaddr = RECV_BULK_IN_ADDR;
 
@@ -111,7 +109,6 @@ u32 rtl8822bu_inirp_init(PADAPTER padapter)
 	precvbuf = (struct recv_buf *)precvpriv->precv_buf;
 	for (i = 0; i < NR_RECVBUFF; i++) {
 		if (_read_port(pintfhdl, precvpriv->ff_hwaddr, 0, (u8 *)precvbuf) == _FALSE) {
-			RT_TRACE(_module_hci_hal_init_c_, _drv_err_, ("usb_rx_init: usb_read_port error\n"));
 			status = _FAIL;
 			goto exit;
 		}
@@ -128,16 +125,13 @@ u32 rtl8822bu_inirp_init(PADAPTER padapter)
 	}
 	_read_interrupt = pintfhdl->io_ops._read_interrupt;
 	if (_read_interrupt(pintfhdl, RECV_INT_IN_ADDR) == _FALSE) {
-		RT_TRACE(_module_hci_hal_init_c_, _drv_err_, ("usb_rx_init: usb_read_interrupt error\n"));
 		status = _FAIL;
 	}
 #endif
 
 exit:
 
-	RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("<=== usb_inirp_init\n"));
 
-	_func_exit_;
 
 	return status;
 
@@ -145,11 +139,9 @@ exit:
 
 u32 rtl8822bu_inirp_deinit(PADAPTER padapter)
 {
-	RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("\n ===> usb_rx_deinit\n"));
 
 	rtw_read_port_cancel(padapter);
 
-	RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("\n <=== usb_rx_deinit\n"));
 
 	return _SUCCESS;
 }

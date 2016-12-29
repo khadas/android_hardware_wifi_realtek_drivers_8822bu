@@ -83,7 +83,6 @@ u8 rtw_sdio_f0_read(struct dvobj_priv *d, u32 addr, void *buf, size_t len)
 	int err;
 	u8 ret;
 
-	_func_enter_;
 
 	ret = _SUCCESS;
 	addr = RTW_SDIO_ADDR_F0_GEN(addr);
@@ -94,7 +93,6 @@ u8 rtw_sdio_f0_read(struct dvobj_priv *d, u32 addr, void *buf, size_t len)
 		ret = _FAIL;
 	}
 
-	_func_exit_;
 
 	return ret;
 }

@@ -95,4 +95,12 @@
 #if defined(CONFIG_RTL8723D)
 	#include "rtl8723d/HalEfuseMask8723D_SDIO.h"
 #endif
+
+#if defined(CONFIG_RTL8821C)
+	#include "rtl8821c/HalEfuseMask8821C_SDIO.h"
+#endif
+
+#if defined(CONFIG_RTL8822B)
+	#include "rtl8822b/HalEfuseMask8822B_SDIO.h"
+#endif
 #endif

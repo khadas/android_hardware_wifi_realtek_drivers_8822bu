@@ -30,9 +30,7 @@ void Linkup_workitem_callback(struct work_struct *work)
 	struct mlme_priv *pmlmepriv = container_of(work, struct mlme_priv, Linkup_workitem);
 	_adapter *padapter = container_of(pmlmepriv, _adapter, mlmepriv);
 
-	_func_enter_;
 
-	RT_TRACE(_module_mlme_osdep_c_, _drv_info_, ("+ Linkup_workitem_callback\n"));
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 12))
 	kobject_uevent(&padapter->pnetdev->dev.kobj, KOBJ_LINKUP);
@@ -40,7 +38,6 @@ void Linkup_workitem_callback(struct work_struct *work)
 	kobject_hotplug(&padapter->pnetdev->class_dev.kobj, KOBJ_LINKUP);
 #endif
 
-	_func_exit_;
 }
 
 void Linkdown_workitem_callback(struct work_struct *work)
@@ -48,9 +45,7 @@ void Linkdown_workitem_callback(struct work_struct *work)
 	struct mlme_priv *pmlmepriv = container_of(work, struct mlme_priv, Linkdown_workitem);
 	_adapter *padapter = container_of(pmlmepriv, _adapter, mlmepriv);
 
-	_func_enter_;
 
-	RT_TRACE(_module_mlme_osdep_c_, _drv_info_, ("+ Linkdown_workitem_callback\n"));
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 12))
 	kobject_uevent(&padapter->pnetdev->dev.kobj, KOBJ_LINKDOWN);
@@ -58,7 +53,6 @@ void Linkdown_workitem_callback(struct work_struct *work)
 	kobject_hotplug(&padapter->pnetdev->class_dev.kobj, KOBJ_LINKDOWN);
 #endif
 
-	_func_exit_;
 }
 #endif
 
@@ -90,19 +84,20 @@ void _rtw_scan_timeout_handler(void *FunctionContext)
 
 void _dynamic_check_timer_handlder(void *FunctionContext)
 {
-	_adapter *adapter = (_adapter *)FunctionContext;
+	struct dvobj_priv *pdvobj = (struct dvobj_priv *)FunctionContext;
+	_adapter *adapter = dvobj_get_primary_adapter(pdvobj);
 
 #if (MP_DRIVER == 1)
 	if (adapter->registrypriv.mp_mode == 1 && adapter->mppriv.mp_dm == 0) { /* for MP ODM dynamic Tx power tracking */
 		/* RTW_INFO("_dynamic_check_timer_handlder mp_dm =0 return\n"); */
-		_set_timer(&adapter->mlmepriv.dynamic_chk_timer, 2000);
+		_set_timer(&pdvobj->dynamic_chk_timer, 2000);
 		return;
 	}
 #endif
 
-	rtw_mi_dynamic_check_timer_handlder(adapter);
+	rtw_dynamic_check_timer_handlder(adapter);
 
-	_set_timer(&adapter->mlmepriv.dynamic_chk_timer, 2000);
+	_set_timer(&pdvobj->dynamic_chk_timer, 2000);
 }
 
 #ifdef CONFIG_SET_SCAN_DENY_TIMER
@@ -126,8 +121,6 @@ void rtw_init_mlme_timer(_adapter *padapter)
 	_init_timer(&(pmlmepriv->dfs_master_timer), padapter->pnetdev, rtw_dfs_master_timer_hdl, padapter);
 #endif
 
-	_init_timer(&(pmlmepriv->dynamic_chk_timer), padapter->pnetdev, _dynamic_check_timer_handlder, padapter);
-
 #ifdef CONFIG_SET_SCAN_DENY_TIMER
 	_init_timer(&(pmlmepriv->set_scan_deny_timer), padapter->pnetdev, _rtw_set_scan_deny_timer_hdl, padapter);
 #endif
@@ -145,7 +138,6 @@ extern void rtw_indicate_wx_disassoc_event(_adapter *padapter);
 void rtw_os_indicate_connect(_adapter *adapter)
 {
 	struct mlme_priv *pmlmepriv = &(adapter->mlmepriv);
-	_func_enter_;
 
 #ifdef CONFIG_IOCTL_CFG80211
 	if ((check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE) ||
@@ -165,7 +157,6 @@ void rtw_os_indicate_connect(_adapter *adapter)
 	_set_workitem(&adapter->mlmepriv.Linkup_workitem);
 #endif
 
-	_func_exit_;
 
 }
 
@@ -246,7 +237,6 @@ void rtw_os_indicate_disconnect(_adapter *adapter,  u16 reason, u8 locally_gener
 {
 	/* RT_PMKID_LIST   backupPMKIDList[NUM_PMKID_CACHE]; */
 
-	_func_enter_;
 
 	netif_carrier_off(adapter->pnetdev); /* Do it first for tx broadcast pkt after disconnection issue! */
 
@@ -262,7 +252,6 @@ void rtw_os_indicate_disconnect(_adapter *adapter,  u16 reason, u8 locally_gener
 	/* modify for CONFIG_IEEE80211W, none 11w also can use the same command */
 	rtw_reset_securitypriv_cmd(adapter);
 
-	_func_exit_;
 
 }
 
@@ -272,13 +261,10 @@ void rtw_report_sec_ie(_adapter *adapter, u8 authmode, u8 *sec_ie)
 	u8	*buff, *p, i;
 	union iwreq_data wrqu;
 
-	_func_enter_;
 
-	RT_TRACE(_module_mlme_osdep_c_, _drv_info_, ("+rtw_report_sec_ie, authmode=%d\n", authmode));
 
 	buff = NULL;
 	if (authmode == _WPA_IE_ID_) {
-		RT_TRACE(_module_mlme_osdep_c_, _drv_info_, ("rtw_report_sec_ie, authmode=%d\n", authmode));
 
 		buff = rtw_zmalloc(IW_CUSTOM_MAX);
 		if (NULL == buff) {
@@ -311,9 +297,6 @@ void rtw_report_sec_ie(_adapter *adapter, u8 authmode, u8 *sec_ie)
 		rtw_mfree(buff, IW_CUSTOM_MAX);
 	}
 
-exit:
-
-	_func_exit_;
 
 }
 
@@ -329,6 +312,22 @@ void _link_timer_hdl(void *FunctionContext)
 	_adapter *padapter = (_adapter *)FunctionContext;
 	link_timer_hdl(padapter);
 }
+
+#ifdef CONFIG_RTW_80211R
+void _ft_link_timer_hdl(void *FunctionContext)
+{
+	_adapter *padapter = (_adapter *)FunctionContext;
+
+	ft_link_timer_hdl(padapter);
+}
+
+void _ft_roam_timer_hdl(void *FunctionContext)
+{
+	_adapter *padapter = (_adapter *)FunctionContext;
+
+	ft_roam_timer_hdl(padapter);
+}
+#endif
 
 void _addba_timer_hdl(void *FunctionContext)
 {
@@ -378,6 +377,10 @@ void init_mlme_ext_timer(_adapter *padapter)
 
 	_init_timer(&pmlmeext->survey_timer, padapter->pnetdev, _survey_timer_hdl, padapter);
 	_init_timer(&pmlmeext->link_timer, padapter->pnetdev, _link_timer_hdl, padapter);
+#ifdef CONFIG_RTW_80211R
+	_init_timer(&pmlmeext->ft_link_timer, padapter->pnetdev, _ft_link_timer_hdl, padapter);
+	_init_timer(&pmlmeext->ft_roam_timer, padapter->pnetdev, _ft_roam_timer_hdl, padapter);
+#endif
 
 	/* _init_timer(&pmlmeext->ADDBA_timer, padapter->pnetdev, _addba_timer_hdl, padapter); */
 
@@ -493,9 +496,11 @@ static const struct net_device_ops rtl871x_mgnt_netdev_ops = {
 	.ndo_open = mgnt_netdev_open,
 	.ndo_stop = mgnt_netdev_close,
 	.ndo_start_xmit = mgnt_xmit_entry,
-	/* .ndo_set_mac_address = r871x_net_set_mac_address,
-	 * .ndo_get_stats = r871x_net_get_stats,
-	 * .ndo_do_ioctl = r871x_mp_ioctl, */
+	#if 0
+	.ndo_set_mac_address = r871x_net_set_mac_address,
+	.ndo_get_stats = r871x_net_get_stats,
+	.ndo_do_ioctl = r871x_mp_ioctl,
+	#endif
 };
 #endif
 

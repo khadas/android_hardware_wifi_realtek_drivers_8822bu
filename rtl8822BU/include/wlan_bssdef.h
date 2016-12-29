@@ -519,7 +519,7 @@ typedef struct _NDIS_802_11_TEST {
 
 #endif /* PLATFORM_FREEBSD */
 #ifndef Ndis802_11APMode
-	#define Ndis802_11APMode (Ndis802_11InfrastructureMax+1)
+#define Ndis802_11APMode (Ndis802_11InfrastructureMax+1)
 #endif
 
 typedef struct _WLAN_PHY_INFO {
@@ -546,8 +546,8 @@ typedef struct _WLAN_BCN_INFO {
 *   WLAN_BSSID_EX and get_WLAN_BSSID_EX_sz()
 */
 #ifdef PLATFORM_WINDOWS
-	#pragma pack(push)
-	#pragma pack(1)
+#pragma pack(push)
+#pragma pack(1)
 #endif
 typedef struct _WLAN_BSSID_EX {
 	ULONG  Length;
@@ -565,11 +565,11 @@ typedef struct _WLAN_BSSID_EX {
 	UCHAR  IEs[MAX_IE_SZ];	/* (timestamp, beacon interval, and capability information) */
 }
 #ifndef PLATFORM_WINDOWS
-	__attribute__((packed))
+__attribute__((packed))
 #endif
 WLAN_BSSID_EX, *PWLAN_BSSID_EX;
 #ifdef PLATFORM_WINDOWS
-	#pragma pack(pop)
+#pragma pack(pop)
 #endif
 
 #define BSS_EX_IES(bss_ex) ((bss_ex)->IEs)

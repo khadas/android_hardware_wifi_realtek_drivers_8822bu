@@ -21,7 +21,7 @@
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
 #include <hal_data.h>		/* GET_HAL_SPEC(), HAL_DATA_TYPE */
-#include "../hal_halmac.h"	/* HALMAC_SECURITY_CAM_ENTRY_NUM_8822B */
+#include "../hal_halmac.h"	/* HALMAC API */
 #include "rtl8822b.h"
 
 
@@ -31,13 +31,19 @@ void rtl8822b_init_hal_spec(PADAPTER adapter)
 
 
 	hal_spec = GET_HAL_SPEC(adapter);
+	rtw_halmac_fill_hal_spec(adapter_to_dvobj(adapter), hal_spec);
 
+	hal_spec->ic_name = "rtl8822b";
 	hal_spec->macid_num = 128;
-	hal_spec->sec_cam_ent_num = HALMAC_SECURITY_CAM_ENTRY_NUM_8822B;
-	hal_spec->sec_cap = 0;
+	/* hal_spec->sec_cam_ent_num follow halmac setting */
+	hal_spec->sec_cap = SEC_CAP_CHK_BMC;
+	hal_spec->rfpath_num_2g = 2;
+	hal_spec->rfpath_num_5g = 2;
+	hal_spec->max_tx_cnt = 2;
 	hal_spec->nss_num = 2;
 	hal_spec->band_cap = BAND_CAP_2G | BAND_CAP_5G;
 	hal_spec->bw_cap = BW_CAP_20M | BW_CAP_40M | BW_CAP_80M;
+	hal_spec->port_num = 5;
 	hal_spec->proto_cap = PROTO_CAP_11B | PROTO_CAP_11G | PROTO_CAP_11N | PROTO_CAP_11AC;
 
 	hal_spec->wl_func = 0
@@ -45,6 +51,8 @@ void rtl8822b_init_hal_spec(PADAPTER adapter)
 			    | WL_FUNC_MIRACAST
 			    | WL_FUNC_TDLS
 			    ;
+
+	hal_spec->hci_type = 0;
 }
 
 u32 rtl8822b_power_on(PADAPTER adapter)
@@ -53,7 +61,7 @@ u32 rtl8822b_power_on(PADAPTER adapter)
 	PHAL_DATA_TYPE hal;
 	u8 bMacPwrCtrlOn;
 	int err = 0;
-	u8 ret = _TRUE;
+	u8 ret = _SUCCESS;
 
 
 	d = adapter_to_dvobj(adapter);
@@ -65,8 +73,8 @@ u32 rtl8822b_power_on(PADAPTER adapter)
 
 	err = rtw_halmac_poweron(d);
 	if (err) {
-		RTW_INFO("%s: Power ON Fail!!\n", __FUNCTION__);
-		ret = _FALSE;
+		RTW_ERR("%s: Power ON Fail!!\n", __FUNCTION__);
+		ret = _FAIL;
 		goto out;
 	}
 
@@ -98,7 +106,7 @@ void rtl8822b_power_off(PADAPTER adapter)
 
 	err = rtw_halmac_poweroff(d);
 	if (err) {
-		RTW_INFO("%s: Power OFF Fail!!\n", __FUNCTION__);
+		RTW_ERR("%s: Power OFF Fail!!\n", __FUNCTION__);
 		goto out;
 	}
 
@@ -111,20 +119,12 @@ out:
 	return;
 }
 
-#ifdef CONFIG_EMBEDDED_FWIMG
-/* New FW array is TBD. So use phydm FW.
- * TODO remove extern reference after FW array is defined
- */
-extern u8 Array_MP_8822B_FW_NIC[];
-extern u32 ArrayLength_MP_8822B_FW_NIC;
-#endif
-
 u8 rtl8822b_hal_init(PADAPTER adapter)
 {
 	struct dvobj_priv *d;
 	PHAL_DATA_TYPE hal;
 	int err;
-
+	u8 fw_bin = _TRUE;
 
 	d = adapter_to_dvobj(adapter);
 	hal = GET_HAL_DATA(adapter);
@@ -132,20 +132,34 @@ u8 rtl8822b_hal_init(PADAPTER adapter)
 	adapter->bFWReady = _FALSE;
 	hal->fw_ractrl = _FALSE;
 
-#ifdef CONFIG_EMBEDDED_FWIMG
-	RTW_INFO("%s: Load embedded fw img\n", __FUNCTION__);
-	err = rtw_halmac_init_hal_fw(d, Array_MP_8822B_FW_NIC, ArrayLength_MP_8822B_FW_NIC);
-#else
-	RTW_INFO("%s: Load fw file\n", __FUNCTION__);
-	err = rtw_halmac_init_hal_fw_file(d, REALTEK_CONFIG_PATH "RTL8822Bfw_NIC.bin");
-#endif
+#ifdef CONFIG_FILE_FWIMG
+	rtw_get_phy_file_path(adapter, MAC_FILE_FW_NIC);
+	if (rtw_is_file_readable(rtw_phy_para_file_path) == _TRUE) {
+		RTW_INFO("%s acquire FW from file:%s\n", __FUNCTION__, rtw_phy_para_file_path);
+		fw_bin = _TRUE;
+	} else
+#endif /* CONFIG_FILE_FWIMG */
+	{
+		RTW_INFO("%s fw source from array\n", __FUNCTION__);
+		fw_bin = _FALSE;
+	}
+
+#ifdef CONFIG_FILE_FWIMG
+	if (_TRUE == fw_bin)
+		err = rtw_halmac_init_hal_fw_file(d, rtw_phy_para_file_path);
+	else
+#endif /* CONFIG_FILE_FWIMG */
+		err = rtw_halmac_init_hal_fw(d, array_mp_8822b_fw_nic, array_length_mp_8822b_fw_nic);
+
 	if (err) {
-		RTW_INFO("%s: fail\n", __FUNCTION__);
+		RTW_ERR("%s Download Firmware from %s failed\n", __FUNCTION__, (fw_bin) ? "file" : "array");
 		return _FALSE;
 	}
 
 	
-	RTW_INFO("%s: successful, fw_ver=%d fw_subver=%d\n", __FUNCTION__, hal->FirmwareVersion, hal->FirmwareSubVersion);
+
+	RTW_INFO("%s Download Firmware from %s success\n", __FUNCTION__, (fw_bin) ? "file" : "array");
+	RTW_INFO("%s FW Version:%d SubVersion:%d\n", "NIC", hal->firmware_version, hal->firmware_sub_version);
 
 	/* Sync driver status with hardware setting */
 	rtl8822b_rcr_get(adapter, NULL);
@@ -188,7 +202,7 @@ void rtl8822b_init_misc(PADAPTER adapter)
 	 */
 
 	/* initial channel setting */
-	if (IS_A_CUT(hal->VersionID) || IS_B_CUT(hal->VersionID)) {
+	if (IS_A_CUT(hal->version_id) || IS_B_CUT(hal->version_id)) {
 		/* for A/B cut use under only 5G */
 		u8 i = 0;
 		struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
@@ -208,8 +222,10 @@ void rtl8822b_init_misc(PADAPTER adapter)
 		}
 	}
 
-	hal->CurrentBandType = BAND_MAX;
-	set_channel_bwmode(adapter, adapter->registrypriv.channel, 0, 0);
+	/* Modify to make sure first time change channel(band) would be done properly */
+	hal->current_channel = 0;
+	hal->current_channel_bw = CHANNEL_WIDTH_MAX;
+	hal->current_band_type = BAND_MAX;
 
 	/* initial security setting */
 	invalidate_cam_all(adapter);
@@ -219,6 +235,17 @@ void rtl8822b_init_misc(PADAPTER adapter)
 
 	/* clear rx ctrl frame */
 	rtw_write16(adapter, REG_RXFLTMAP1_8822B, 0);
+
+	/*Enable MAC security engine*/
+	rtw_write16(adapter, REG_CR, (rtw_read16(adapter, REG_CR) | BIT_MAC_SEC_EN));
+
+#ifdef CONFIG_XMIT_ACK
+	/* ack for xmit mgmt frames. */
+	rtw_write32(adapter, REG_FWHW_TXQ_CTRL_8822B,
+		rtw_read32(adapter, REG_FWHW_TXQ_CTRL_8822B) | BIT_EN_QUEUE_RPT_8822B(BIT(4)));
+#endif /* CONFIG_XMIT_ACK */
+
+
 }
 
 u32 rtl8822b_init(PADAPTER adapter)
@@ -234,13 +261,17 @@ u32 rtl8822b_init(PADAPTER adapter)
 
 	rtl8822b_phy_init_haldm(adapter);
 #ifdef CONFIG_BEAMFORMING
-	rtl8822b_phy_init_beamforming(adapter);
+	rtl8822b_phy_bf_init(adapter);
 #endif
 
 #ifdef CONFIG_BT_COEXIST
 	/* Init BT hw config. */
 	if (_TRUE == hal->EEPROMBluetoothCoexist)
 		rtw_btcoex_HAL_Initialize(adapter, _FALSE);
+	else
+		rtw_btcoex_wifionly_hw_config(adapter);
+#else /* CONFIG_BT_COEXIST */
+	rtw_btcoex_wifionly_hw_config(adapter);
 #endif /* CONFIG_BT_COEXIST */
 
 	rtl8822b_init_misc(adapter);
@@ -286,15 +317,15 @@ void rtl8822b_init_default_value(PADAPTER adapter)
 
 	/* init phydm default value */
 	hal->bIQKInitialized = _FALSE;
-	hal->odmpriv.RFCalibrateInfo.TM_Trigger = 0; /* for IQK */
-	hal->odmpriv.RFCalibrateInfo.ThermalValue_HP_index = 0;
+	hal->odmpriv.rf_calibrate_info.tm_trigger = 0; /* for IQK */
+	hal->odmpriv.rf_calibrate_info.thermal_value_hp_index = 0;
 	for (i = 0; i < HP_THERMAL_NUM; i++)
-		hal->odmpriv.RFCalibrateInfo.ThermalValue_HP[i] = 0;
+		hal->odmpriv.rf_calibrate_info.thermal_value_hp[i] = 0;
 
 	/* init Efuse variables */
 	hal->EfuseUsedBytes = 0;
 	hal->EfuseUsedPercentage = 0;
-#ifdef HAL_EFUSE_MEMORY
+
 	hal->EfuseHal.fakeEfuseBank = 0;
 	hal->EfuseHal.fakeEfuseUsedBytes = 0;
 	_rtw_memset(hal->EfuseHal.fakeEfuseContent, 0xFF, EFUSE_MAX_HW_SIZE);
@@ -309,5 +340,5 @@ void rtl8822b_init_default_value(PADAPTER adapter)
 	_rtw_memset(hal->EfuseHal.fakeBTEfuseContent, 0xFF, EFUSE_MAX_BT_BANK * EFUSE_MAX_HW_SIZE);
 	_rtw_memset(hal->EfuseHal.fakeBTEfuseInitMap, 0xFF, EFUSE_BT_MAX_MAP_LEN);
 	_rtw_memset(hal->EfuseHal.fakeBTEfuseModifiedMap, 0xFF, EFUSE_BT_MAX_MAP_LEN);
-#endif
+
 }

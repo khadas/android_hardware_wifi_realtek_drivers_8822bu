@@ -117,8 +117,7 @@ void rtl8814_fw_update_beacon_cmd(_adapter *padapter);
 #define SET_8814A_H2CCMD_P2P_PS_OFFLOAD_DISCOVERY(__pH2CCmd, __Value)			SET_BITS_TO_LE_1BYTE(__pH2CCmd, 6, 1, __Value)
 
 s32 FillH2CCmd_8814(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
-void rtl8814_set_raid_cmd(PADAPTER padapter, u64 bitmap, u8 *arg);
-void rtl8814_Add_RateATid(PADAPTER padapter, u64 rate_bitmap, u8 *arg, u8 rssi_level);
+void rtl8814_set_raid_cmd(PADAPTER padapter, u64 bitmap, u8 *arg, u8 bw);
 void rtl8814_set_wowlan_cmd(_adapter *padapter, u8 enable);
 void rtl8814_set_FwJoinBssReport_cmd(PADAPTER padapter, u8 mstatus);
 void rtl8814_set_FwPwrMode_cmd(PADAPTER padapter, u8 PSMode);
@@ -136,24 +135,11 @@ Set_RA_LDPC_8814(
 	struct sta_info	*psta,
 	BOOLEAN			bLDPC
 );
-int rtl8814_iqk_wait(_adapter *padapter, u32 timeout_ms);
-void rtl8814_iqk_done(_adapter *padapter);
-VOID
-C2HPacketHandler_8814(
-	IN	PADAPTER	Adapter,
-	IN	u8			*Buffer,
-	IN	u8			Length
-);
+
+s32 c2h_handler_8814a(_adapter *adapter, u8 id, u8 seq, u8 plen, u8 *payload);
+
 #ifdef CONFIG_P2P_PS
 	void rtl8814_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
 #endif /* CONFIG_P2P */
-
-s32
-_C2HContentParsing8814(
-	IN	PADAPTER	Adapter,
-	IN	u8			c2hCmdId,
-	IN	u8			c2hCmdLen,
-	IN	u8			*tmpBuf
-);
 
 #endif/* __RTL8814A_CMD_H__ */

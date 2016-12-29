@@ -2,7 +2,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -24,21 +24,21 @@
 
 #define KFREE_VERSION	"1.0"
 
-typedef enum tag_phydm_kfree_channeltosw {
+enum phydm_kfree_channeltosw {
 	PHYDM_2G = 0,
 	PHYDM_5GLB1 = 1,
 	PHYDM_5GLB2 = 2,
 	PHYDM_5GMB1 = 3,
 	PHYDM_5GMB2 = 4,
 	PHYDM_5GHB = 5,
-} PHYDM_KFREE_CHANNELTOSW;
+};
 
 
-VOID
-phydm_ConfigKFree(
-	IN	PVOID	pDM_VOID,
-	IN	u1Byte	channelToSW,
-	IN	pu1Byte	kfreeTable
+void
+phydm_config_kfree(
+	void	*p_dm_void,
+	u8	channel_to_sw,
+	u8	*kfree_table
 );
 
 

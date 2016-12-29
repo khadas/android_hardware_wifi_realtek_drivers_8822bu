@@ -32,6 +32,15 @@ halmac_program_efuse_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_pwr_sub_seq_parer_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 cut,
+	IN u8 fab,
+	IN u8 intf,
+	IN PHALMAC_WLAN_PWR_CFG pPwr_sub_seq_cfg
+);
+
+HALMAC_RET_STATUS
 halmac_parse_c2h_debug_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u8 *pC2h_buf,
@@ -228,8 +237,9 @@ halmac_read_hw_efuse_88xx(
 		value32 = value32 | ((address & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR);
 		HALMAC_REG_WRITE_32(pHalmac_adapter, REG_EFUSE_CTRL, value32 & (~BIT_EF_FLAG));
 
-		counter = 100;
+		counter = 1000000;
 		do {
+			PLATFORM_RTL_DELAY_US(pDriver_adapter, 1);
 			tmp32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_EFUSE_CTRL);
 			counter--;
 			if (0 == counter) {
@@ -352,8 +362,9 @@ halmac_func_write_efuse_88xx(
 	value32 = value32 | ((offset & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR) | (value & BIT_MASK_EF_DATA);
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_EFUSE_CTRL, value32 | BIT_EF_FLAG);
 
-	counter = 100;
+	counter = 1000000;
 	do {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 1);
 		tmp32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_EFUSE_CTRL);
 		counter--;
 		if (0 == counter) {
@@ -423,7 +434,7 @@ halmac_eeprom_parser_88xx(
 
 	PLATFORM_RTL_MEMSET(pDriver_adapter, pLogical_efuse_map, 0xFF, eeprom_size);
 
-	while (1) {
+	do {
 		value8 = *(pPhysical_efuse_map + efuse_index);
 		efuse_read_header = value8;
 
@@ -443,7 +454,7 @@ halmac_eeprom_parser_88xx(
 
 		efuse_index++;
 
-		if (efuse_index >= pHalmac_adapter->hw_config_info.efuse_size - HALMAC_RESERVED_EFUSE_SIZE_88XX - 1)
+		if (efuse_index >= pHalmac_adapter->hw_config_info.efuse_size - HALMAC_PROTECTED_EFUSE_SIZE_88XX - 1)
 			return HALMAC_RET_EEPROM_PARSING_FAIL;
 
 		for (j = 0; j < 4; j++) {
@@ -468,7 +479,7 @@ halmac_eeprom_parser_88xx(
 					eeprom_index++;
 					efuse_index++;
 
-					if (efuse_index > pHalmac_adapter->hw_config_info.efuse_size - HALMAC_RESERVED_EFUSE_SIZE_88XX - 1)
+					if (efuse_index > pHalmac_adapter->hw_config_info.efuse_size - HALMAC_PROTECTED_EFUSE_SIZE_88XX - 1)
 						return HALMAC_RET_EEPROM_PARSING_FAIL;
 
 					value8 = *(pPhysical_efuse_map + efuse_index);
@@ -476,12 +487,12 @@ halmac_eeprom_parser_88xx(
 
 					efuse_index++;
 
-					if (efuse_index > pHalmac_adapter->hw_config_info.efuse_size - HALMAC_RESERVED_EFUSE_SIZE_88XX)
+					if (efuse_index > pHalmac_adapter->hw_config_info.efuse_size - HALMAC_PROTECTED_EFUSE_SIZE_88XX)
 						return HALMAC_RET_EEPROM_PARSING_FAIL;
 				}
 			}
 		}
-	}
+	} while (1);
 
 	pHalmac_adapter->efuse_end = efuse_index;
 
@@ -800,7 +811,7 @@ halmac_check_efuse_enough_88xx(
 		}
 	}
 
-	if ((pHalmac_adapter->hw_config_info.efuse_size - pg_efuse_num - HALMAC_RESERVED_EFUSE_SIZE_88XX - pHalmac_adapter->efuse_end) <= 0)
+	if ((pHalmac_adapter->hw_config_info.efuse_size - pg_efuse_num - HALMAC_PROTECTED_EFUSE_SIZE_88XX - pHalmac_adapter->efuse_end) <= 0)
 		return HALMAC_RET_EFUSE_NOT_ENOUGH;
 
 	return HALMAC_RET_SUCCESS;
@@ -1050,6 +1061,10 @@ halmac_dlfw_end_flow_88xx(
 
 	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_MCUFW_CTRL, (u8)(HALMAC_REG_READ_8(pHalmac_adapter, REG_MCUFW_CTRL) & ~(BIT(0))));
 
+	value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_RSV_CTRL + 1);
+	value8 = (u8)(value8 | BIT(0));
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RSV_CTRL + 1, value8);
+
 	value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_SYS_FUNC_EN + 1);
 	value8 = (u8)(value8 | BIT(2));
 	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_SYS_FUNC_EN + 1, value8); /* Release MCU reset */
@@ -1084,84 +1099,121 @@ halmac_dlfw_end_flow_88xx(
 HALMAC_RET_STATUS
 halmac_pwr_seq_parser_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u8 CUT,
-	IN u8 FAB,
-	IN u8 INTF,
-	IN PHALMAC_WLAN_PWR_CFG PWR_SEQ_CFG
+	IN u8 cut,
+	IN u8 fab,
+	IN u8 intf,
+	IN PHALMAC_WLAN_PWR_CFG *ppPwr_seq_cfg
+)
+{
+	u32 seq_idx = 0;
+	VOID *pDriver_adapter = NULL;
+	HALMAC_RET_STATUS status = HALMAC_RET_SUCCESS;
+	PHALMAC_WLAN_PWR_CFG pSeq_cmd;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+
+	do {
+		pSeq_cmd = &(*ppPwr_seq_cfg[seq_idx]);
+
+		if (NULL == pSeq_cmd)
+			break;
+
+		status = halmac_pwr_sub_seq_parer_88xx(pHalmac_adapter, cut, fab, intf, pSeq_cmd);
+		if (HALMAC_RET_SUCCESS != status) {
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "[Err]pwr sub seq parser fail, status = 0x%X!\n", status);
+			return status;
+		}
+
+		seq_idx++;
+	} while (1);
+
+	return status;
+}
+
+HALMAC_RET_STATUS
+halmac_pwr_sub_seq_parer_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 cut,
+	IN u8 fab,
+	IN u8 intf,
+	IN PHALMAC_WLAN_PWR_CFG pPwr_sub_seq_cfg
 )
 {
 	u8 value;
-	u8 PollingBit = _FALSE;
-	u32 AryIdx = 0;
-	u32 PollingCount;
+	u8 polling_bit;
 	u32 offset;
+	u32 polling_count;
 	VOID *pDriver_adapter = NULL;
-	HALMAC_WLAN_PWR_CFG PWR_SEQ_CMD;
+	PHALMAC_WLAN_PWR_CFG pSub_seq_cmd;
 	PHALMAC_API pHalmac_api;
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	do {
-		PWR_SEQ_CMD = PWR_SEQ_CFG[AryIdx];
+	pSub_seq_cmd = pPwr_sub_seq_cfg;
 
-		if ((PWR_SEQ_CMD.interface_msk & INTF) && (PWR_SEQ_CMD.fab_msk & FAB) && (PWR_SEQ_CMD.cut_msk & CUT)) {
-			switch (PWR_SEQ_CMD.cmd) {
+	do {
+		if ((pSub_seq_cmd->interface_msk & intf) && (pSub_seq_cmd->fab_msk & fab) && (pSub_seq_cmd->cut_msk & cut)) {
+			switch (pSub_seq_cmd->cmd) {
 			case HALMAC_PWR_CMD_WRITE:
-				if (PWR_SEQ_CMD.base == HALMAC_PWR_BASEADDR_SDIO)
-					offset = PWR_SEQ_CMD.offset | SDIO_LOCAL_OFFSET;
+				if (pSub_seq_cmd->base == HALMAC_PWR_BASEADDR_SDIO)
+					offset = pSub_seq_cmd->offset | SDIO_LOCAL_OFFSET;
 				else
-					offset = PWR_SEQ_CMD.offset;
+					offset = pSub_seq_cmd->offset;
 
 				value = HALMAC_REG_READ_8(pHalmac_adapter, offset);
-				value = (u8)(value & (u8)(~(PWR_SEQ_CMD.msk)));
-				value = (u8)(value | (u8)(PWR_SEQ_CMD.value & PWR_SEQ_CMD.msk));
+				value = (u8)(value & (u8)(~(pSub_seq_cmd->msk)));
+				value = (u8)(value | (u8)(pSub_seq_cmd->value & pSub_seq_cmd->msk));
 
 				HALMAC_REG_WRITE_8(pHalmac_adapter, offset, value);
 				break;
 			case HALMAC_PWR_CMD_POLLING:
-				PollingBit = 0;
-				PollingCount = HALMAC_POLLING_READY_TIMEOUT_COUNT;
+				polling_bit = 0;
+				polling_count = HALMAC_POLLING_READY_TIMEOUT_COUNT;
 
-				if (PWR_SEQ_CMD.base == HALMAC_PWR_BASEADDR_SDIO)
-					offset = PWR_SEQ_CMD.offset | SDIO_LOCAL_OFFSET;
+				if (pSub_seq_cmd->base == HALMAC_PWR_BASEADDR_SDIO)
+					offset = pSub_seq_cmd->offset | SDIO_LOCAL_OFFSET;
 				else
-					offset = PWR_SEQ_CMD.offset;
+					offset = pSub_seq_cmd->offset;
 
 				do {
-					PollingCount--;
+					polling_count--;
 					value = HALMAC_REG_READ_8(pHalmac_adapter, offset);
-					value = (u8)(value & PWR_SEQ_CMD.msk);
+					value = (u8)(value & pSub_seq_cmd->msk);
 
-					if (value == (PWR_SEQ_CMD.value & PWR_SEQ_CMD.msk)) {
-						PollingBit = 1;
+					if (value == (pSub_seq_cmd->value & pSub_seq_cmd->msk)) {
+						polling_bit = 1;
 					} else {
-						if (0 == PollingCount) {
-							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "halmac_pwr_seq_parser_88xx HALMAC_RET_PWRSEQ_POLLING_FAIL\n");
+						if (0 == polling_count) {
+							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "[ERR]Pwr cmd polling timeout!!\n");
+							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "[ERR]Pwr cmd offset : %X!!\n", pSub_seq_cmd->offset);
+							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "[ERR]Pwr cmd value : %X!!\n", pSub_seq_cmd->value);
+							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "[ERR]Pwr cmd msk : %X!!\n", pSub_seq_cmd->msk);
+							PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "[ERR]Read offset = %X value = %X!!\n", offset, value);
 							return HALMAC_RET_PWRSEQ_POLLING_FAIL;
 						} else {
 							PLATFORM_RTL_DELAY_US(pDriver_adapter, 50);
 						}
 					}
-				} while (!PollingBit);
+				} while (!polling_bit);
 				break;
 			case HALMAC_PWR_CMD_DELAY:
-				if (PWR_SEQ_CMD.value == HALMAC_PWRSEQ_DELAY_US)
-					PLATFORM_RTL_DELAY_US(pDriver_adapter, PWR_SEQ_CMD.offset);
+				if (pSub_seq_cmd->value == HALMAC_PWRSEQ_DELAY_US)
+					PLATFORM_RTL_DELAY_US(pDriver_adapter, pSub_seq_cmd->offset);
 				else
-					PLATFORM_RTL_DELAY_US(pDriver_adapter, 1000 * PWR_SEQ_CMD.offset);
+					PLATFORM_RTL_DELAY_US(pDriver_adapter, 1000 * pSub_seq_cmd->offset);
 				break;
 			case HALMAC_PWR_CMD_READ:
 				break;
 			case HALMAC_PWR_CMD_END:
 				return HALMAC_RET_SUCCESS;
 			default:
-				PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "halmac_pwr_seq_parser_88xx HALMAC_RET_PWRSEQ_CMD_INCORRECT\n");
 				return HALMAC_RET_PWRSEQ_CMD_INCORRECT;
 			}
 		}
-		AryIdx++;
+		pSub_seq_cmd++;
 	} while (1);
+
 
 	return HALMAC_RET_SUCCESS;
 }
@@ -1587,7 +1639,7 @@ halmac_send_h2c_phy_parameter_88xx(
 			PLATFORM_RTL_FREE(pDriver_adapter, pConfig_para_info->pCfg_para_buf, pConfig_para_info->para_buf_size);
 			pConfig_para_info->pCfg_para_buf = NULL;
 			pConfig_para_info->pPara_buf_w = NULL;
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_H2C, HALMAC_DBG_ERR, "no cfg parameter element!!\n");
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_H2C, HALMAC_DBG_WARN, "no cfg parameter element!!\n");
 
 			if (HALMAC_RET_SUCCESS != halmac_transition_cfg_para_state_88xx(pHalmac_adapter, HALMAC_CFG_PARA_CMD_CONSTRUCT_IDLE))
 				return HALMAC_RET_ERROR_STATE;
@@ -1641,7 +1693,7 @@ halmac_send_h2c_phy_parameter_88xx(
 	}
 
 	if (_FALSE == drv_trigger_send) {
-		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "Buffer full trigger sending H2C!!\n");
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "Buffer full trigger sending H2C!!\n");
 		return HALMAC_RET_PARA_SENDING;
 	}
 
@@ -2294,13 +2346,6 @@ halmac_parse_efuse_data_88xx(
 	VOID *pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	HALMAC_CMD_PROCESS_STATUS process_status = HALMAC_CMD_PROCESS_UNDEFINE;
 
-	pEeprom_map = (u8 *)PLATFORM_RTL_MALLOC(pDriver_adapter, eeprom_size);
-	if (NULL == pEeprom_map) {
-		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_EFUSE, HALMAC_DBG_ERR, "halmac allocate local eeprom map Fail!!\n");
-		return HALMAC_RET_MALLOC_FAIL;
-	}
-	PLATFORM_RTL_MEMSET(pDriver_adapter, pEeprom_map, 0xFF, eeprom_size);
-
 	h2c_seq = (u8)EFUSE_DATA_GET_H2C_SEQ(pC2h_buf);
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_H2C, HALMAC_DBG_TRACE, "Seq num : h2c -> %d c2h -> %d\n", pHalmac_adapter->halmac_state.efuse_state_set.seq_num, h2c_seq);
 	if (h2c_seq != pHalmac_adapter->halmac_state.efuse_state_set.seq_num) {
@@ -2319,8 +2364,15 @@ halmac_parse_efuse_data_88xx(
 	if (0 == segment_id)
 		pHalmac_adapter->efuse_segment_size = segment_size;
 
+	pEeprom_map = (u8 *)PLATFORM_RTL_MALLOC(pDriver_adapter, eeprom_size);
+	if (NULL == pEeprom_map) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_EFUSE, HALMAC_DBG_ERR, "halmac allocate local eeprom map Fail!!\n");
+		return HALMAC_RET_MALLOC_FAIL;
+	}
+	PLATFORM_RTL_MEMSET(pDriver_adapter, pEeprom_map, 0xFF, eeprom_size);
+
 	PLATFORM_MUTEX_LOCK(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
-	PLATFORM_RTL_MEMCPY(pDriver_adapter, pHalmac_adapter->pHalEfuse_map + segment_id * pHalmac_adapter->efuse_segment_size, \
+	PLATFORM_RTL_MEMCPY(pDriver_adapter, pHalmac_adapter->pHalEfuse_map + segment_id * pHalmac_adapter->efuse_segment_size,
 		pC2h_buf + HALMAC_C2H_DATA_OFFSET_88XX, segment_size);
 	PLATFORM_MUTEX_UNLOCK(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
 
@@ -2706,10 +2758,12 @@ halmac_update_sdio_free_page_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 )
 {
-	u32 free_page = 0, free_page2 = 0, oqt_free_page = 0;
+	u32 free_page = 0, free_page2 = 0, free_page3 = 0;
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
 	PHALMAC_SDIO_FREE_SPACE pSdio_free_space;
+	u8 data[12] = {0};
+	HALMAC_RET_STATUS status = HALMAC_RET_SUCCESS;
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
@@ -2717,15 +2771,24 @@ halmac_update_sdio_free_page_88xx(
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_update_sdio_free_page_88xx ==========>\n");
 
 	pSdio_free_space = &(pHalmac_adapter->sdio_free_space);
-
+	/*need to use HALMAC_REG_READ_N, 20160316, Soar*/
+	HALMAC_REG_SDIO_CMD53_READ_N(pHalmac_adapter, REG_SDIO_FREE_TXPG, 12, data);
+/*
 	free_page = HALMAC_REG_READ_32(pHalmac_adapter, REG_SDIO_FREE_TXPG);
 	free_page2 = HALMAC_REG_READ_32(pHalmac_adapter, REG_SDIO_FREE_TXPG2);
+	free_page3 = HALMAC_REG_READ_32(pHalmac_adapter, REG_SDIO_OQT_FREE_TXPG_V1);
+*/
+	free_page = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+	free_page2 = data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
+	free_page3 = data[8] | (data[9] << 8) | (data[10] << 16) | (data[11] << 24);
 
 	pSdio_free_space->high_queue_number = (u16)BIT_GET_HIQ_FREEPG_V1(free_page);
 	pSdio_free_space->normal_queue_number = (u16)BIT_GET_MID_FREEPG_V1(free_page);
 	pSdio_free_space->low_queue_number = (u16)BIT_GET_LOW_FREEPG_V1(free_page2);
 	pSdio_free_space->public_queue_number = (u16)BIT_GET_PUB_FREEPG_V1(free_page2);
-	pSdio_free_space->extra_queue_number = (u16)BIT_GET_EXQ_FREEPG_V1(oqt_free_page);
+	pSdio_free_space->extra_queue_number = (u16)BIT_GET_EXQ_FREEPG_V1(free_page3);
+	pSdio_free_space->ac_oqt_number = (u8)((free_page3 >> 16) & 0xFF);
+	pSdio_free_space->non_ac_oqt_number = (u8)((free_page3 >> 24) & 0xFF);
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_update_sdio_free_page_88xx <==========\n");
 
@@ -2750,6 +2813,7 @@ halmac_update_oqt_free_space_88xx(
 
 	pSdio_free_space->ac_oqt_number = HALMAC_REG_READ_8(pHalmac_adapter, REG_SDIO_OQT_FREE_TXPG_V1 + 2);
 	/* pSdio_free_space->non_ac_oqt_number = (u8)BIT_GET_NOAC_OQT_FREEPG_V1(oqt_free_page); */
+	pSdio_free_space->ac_empty = HALMAC_REG_READ_8(pHalmac_adapter, REG_TXPKT_EMPTY);
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_update_oqt_free_space_88xx <==========\n");
 
@@ -2772,8 +2836,8 @@ halmac_transition_efuse_state_88xx(
 {
 	PHALMAC_EFUSE_STATE_SET pEfuse_state = &(pHalmac_adapter->halmac_state.efuse_state_set);
 
-	if ((HALMAC_EFUSE_CMD_CONSTRUCT_IDLE != pEfuse_state->efuse_cmd_construct_state) \
-	    && (HALMAC_EFUSE_CMD_CONSTRUCT_BUSY != pEfuse_state->efuse_cmd_construct_state) \
+	if ((HALMAC_EFUSE_CMD_CONSTRUCT_IDLE != pEfuse_state->efuse_cmd_construct_state)
+	    && (HALMAC_EFUSE_CMD_CONSTRUCT_BUSY != pEfuse_state->efuse_cmd_construct_state)
 	    && (HALMAC_EFUSE_CMD_CONSTRUCT_H2C_SENT != pEfuse_state->efuse_cmd_construct_state))
 		return HALMAC_RET_ERROR_STATE;
 
@@ -2809,8 +2873,8 @@ halmac_transition_cfg_para_state_88xx(
 {
 	PHALMAC_CFG_PARA_STATE_SET pCfg_para = &(pHalmac_adapter->halmac_state.cfg_para_state_set);
 
-	if ((HALMAC_CFG_PARA_CMD_CONSTRUCT_IDLE != pCfg_para->cfg_para_cmd_construct_state) && \
-	    (HALMAC_CFG_PARA_CMD_CONSTRUCT_CONSTRUCTING != pCfg_para->cfg_para_cmd_construct_state) && \
+	if ((HALMAC_CFG_PARA_CMD_CONSTRUCT_IDLE != pCfg_para->cfg_para_cmd_construct_state) &&
+	    (HALMAC_CFG_PARA_CMD_CONSTRUCT_CONSTRUCTING != pCfg_para->cfg_para_cmd_construct_state) &&
 	    (HALMAC_CFG_PARA_CMD_CONSTRUCT_H2C_SENT != pCfg_para->cfg_para_cmd_construct_state))
 		return HALMAC_RET_ERROR_STATE;
 
@@ -2821,7 +2885,7 @@ halmac_transition_cfg_para_state_88xx(
 		if (HALMAC_CFG_PARA_CMD_CONSTRUCT_H2C_SENT == pCfg_para->cfg_para_cmd_construct_state)
 			return HALMAC_RET_ERROR_STATE;
 	} else if (HALMAC_CFG_PARA_CMD_CONSTRUCT_H2C_SENT == dest_state) {
-		if ((HALMAC_CFG_PARA_CMD_CONSTRUCT_IDLE == pCfg_para->cfg_para_cmd_construct_state) \
+		if ((HALMAC_CFG_PARA_CMD_CONSTRUCT_IDLE == pCfg_para->cfg_para_cmd_construct_state)
 		    || (HALMAC_CFG_PARA_CMD_CONSTRUCT_H2C_SENT == pCfg_para->cfg_para_cmd_construct_state))
 			return HALMAC_RET_ERROR_STATE;
 	}
@@ -3189,7 +3253,7 @@ halmac_verify_send_rsvd_page_88xx(
 
 	PLATFORM_RTL_MEMSET(pDriver_adapter, rsvd_page, 0x00, h2c_pkt_verify_size + pHalmac_adapter->hw_config_info.txdesc_size);
 
-	ret_status = halmac_dump_fifo_88xx(pHalmac_adapter, HAL_FIFO_SEL_RSVD_PAGE, rsvd_page, h2c_pkt_verify_size + pHalmac_adapter->hw_config_info.txdesc_size);
+	ret_status = halmac_dump_fifo_88xx(pHalmac_adapter, HAL_FIFO_SEL_RSVD_PAGE, 0, h2c_pkt_verify_size + pHalmac_adapter->hw_config_info.txdesc_size, rsvd_page);
 
 	if (HALMAC_RET_SUCCESS != ret_status)
 		return ret_status;
@@ -3255,7 +3319,7 @@ halmac_buffer_read_88xx(
 
 	value_read = HALMAC_REG_READ_16(pHalmac_adapter, REG_PKTBUF_DBG_CTRL);
 
-	while (1) {
+	do {
 		HALMAC_REG_WRITE_16(pHalmac_adapter, REG_PKTBUF_DBG_CTRL, (u16)(start_page | (value_read & 0xF000)));
 
 		for (i = 0x8000 + residue; i <= 0x8FFF; i += 4) {
@@ -3268,7 +3332,7 @@ halmac_buffer_read_88xx(
 
 		residue = 0;
 		start_page++;
-	}
+	} while (1);
 
 HALMAC_BUF_READ_OK:
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_PKTBUF_DBG_CTRL, (u16)value_read);
@@ -3329,95 +3393,671 @@ halmac_api_record_id_88xx(
 	pHalmac_adapter->api_record.array_wptr = array_wptr_last;
 }
 
-VOID
-halmac_get_hcpwm_88xx(
+HALMAC_RET_STATUS
+halmac_set_usb_mode_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	OUT u8 *pHcpwm
+	IN HALMAC_USB_MODE usb_mode
 )
 {
+	u32 usb_temp;
+	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
-	u32 hcpwm_offset = 0;
+	HALMAC_USB_MODE current_usb_mode;
 
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface)
-		hcpwm_offset = REG_PCIE_HCPWM1_V1;
-	else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface)
-		hcpwm_offset = 0xFE57;
-	else if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface)
-		hcpwm_offset = REG_SDIO_HCPWM1_V2;
+	current_usb_mode = (HALMAC_REG_READ_8(pHalmac_adapter, REG_SYS_CFG2 + 3) == 0x20) ? HALMAC_USB_MODE_U3 : HALMAC_USB_MODE_U2;
 
-	*pHcpwm = HALMAC_REG_READ_8(pHalmac_adapter, hcpwm_offset);
+	/*check if HW supports usb2_usb3 swtich*/
+	usb_temp = HALMAC_REG_READ_32(pHalmac_adapter, REG_PAD_CTRL2);
+	if (_FALSE == (BIT_GET_USB23_SW_MODE_V1(usb_temp) | (usb_temp & BIT_USB3_USB2_TRANSITION))) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_H2C, HALMAC_DBG_ERR, "HALMAC_HW_USB_MODE usb mode HW unsupport\n");
+		return HALMAC_RET_USB2_3_SWITCH_UNSUPPORT;
+	}
+
+	if (usb_mode == current_usb_mode) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_H2C, HALMAC_DBG_ERR, "HALMAC_HW_USB_MODE usb mode unchange\n");
+		return HALMAC_RET_USB_MODE_UNCHANGE;
+	}
+
+	usb_temp &= ~(BIT_USB23_SW_MODE_V1(0x3));
+
+	if (HALMAC_USB_MODE_U2 == usb_mode) {
+		/* usb3 to usb2 */
+		HALMAC_REG_WRITE_32(pHalmac_adapter, REG_PAD_CTRL2, usb_temp | BIT_USB23_SW_MODE_V1(HALMAC_USB_MODE_U2) | BIT_RSM_EN_V1);
+	} else {
+		/* usb2 to usb3 */
+		HALMAC_REG_WRITE_32(pHalmac_adapter, REG_PAD_CTRL2, usb_temp | BIT_USB23_SW_MODE_V1(HALMAC_USB_MODE_U3) | BIT_RSM_EN_V1);
+	}
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PAD_CTRL2 + 1, 4); /* set counter down timer 4x64 ms */
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_SYS_PW_CTRL, HALMAC_REG_READ_16(pHalmac_adapter, REG_SYS_PW_CTRL) | BIT_APFM_OFFMAC);
+	PLATFORM_RTL_DELAY_US(pDriver_adapter, 1000);
+	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_PAD_CTRL2, HALMAC_REG_READ_32(pHalmac_adapter, REG_PAD_CTRL2) | BIT_NO_PDN_CHIPOFF_V1);
+
+	return HALMAC_RET_SUCCESS;
 }
 
 VOID
-halmac_get_hcpwm2_88xx(
+halmac_enable_bb_rf_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	OUT u16 *pHcpwm2
+	IN u8 enable
 )
 {
+	u8 value8;
+	u32 value32;
 	PHALMAC_API pHalmac_api;
-	u32 hcpwm2_offset = 0;
-
 
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface)
-		hcpwm2_offset = REG_PCIE_HCPWM2_V1;
-	else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface)
-		hcpwm2_offset = 0xFE34;
-	else if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface)
-		hcpwm2_offset = REG_SDIO_HCPWM2_V2;
+	if (1 == enable) {
+		value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_SYS_FUNC_EN);
+		value8 = value8 | BIT(0) | BIT(1);
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_SYS_FUNC_EN, value8);
 
-	*pHcpwm2 = HALMAC_REG_READ_16(pHalmac_adapter, hcpwm2_offset);
+		value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_RF_CTRL);
+		value8 = value8 | BIT(0) | BIT(1) | BIT(2);
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RF_CTRL, value8);
+
+		value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_WLRF1);
+		value32 = value32 | BIT(24) | BIT(25) | BIT(26);
+		HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WLRF1, value32);
+	} else {
+		value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_SYS_FUNC_EN);
+		value8 = value8 & (~(BIT(0) | BIT(1)));
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_SYS_FUNC_EN, value8);
+
+		value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_RF_CTRL);
+		value8 = value8 & (~(BIT(0) | BIT(1) | BIT(2)));
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RF_CTRL, value8);
+
+		value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_WLRF1);
+		value32 = value32 & (~(BIT(24) | BIT(25) | BIT(26)));
+		HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WLRF1, value32);
+	}
 }
 
 VOID
-halmac_set_hrpwm_88xx(
+halmac_config_sdio_tx_page_threshold_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u8 hrpwm
+	IN PHALMAC_TX_PAGE_THRESHOLD_INFO pThreshold_info
 )
 {
 	PHALMAC_API pHalmac_api;
-	u32 hrpwm_offset = 0;
-	u8 hrpwm_original = 0;
 
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface)
-		hrpwm_offset = REG_PCIE_HRPWM1_V1;
-	else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface)
-		hrpwm_offset = 0xFE58;
-	else if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface)
-		hrpwm_offset = REG_SDIO_HRPWM1;
-
-	hrpwm_original = HALMAC_REG_READ_8(pHalmac_adapter, hrpwm_offset);
-	hrpwm = (hrpwm & 0x7F) | ((~hrpwm_original) & 0x80);
-
-	HALMAC_REG_WRITE_8(pHalmac_adapter, hrpwm_offset, hrpwm);
+	switch (pThreshold_info->dma_queue_sel) {
+	case HALMAC_MAP2_HQ:
+			HALMAC_REG_WRITE_32(pHalmac_adapter, REG_TQPNT1, pThreshold_info->threshold);
+		break;
+	case HALMAC_MAP2_NQ:
+			HALMAC_REG_WRITE_32(pHalmac_adapter, REG_TQPNT2, pThreshold_info->threshold);
+		break;
+	case HALMAC_MAP2_LQ:
+			HALMAC_REG_WRITE_32(pHalmac_adapter, REG_TQPNT3, pThreshold_info->threshold);
+		break;
+	case HALMAC_MAP2_EXQ:
+			HALMAC_REG_WRITE_32(pHalmac_adapter, REG_TQPNT4, pThreshold_info->threshold);
+		break;
+	default:
+		break;
+	}
 }
 
 VOID
-halmac_set_hrpwm2_88xx(
+halmac_config_ampdu_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u16 hrpwm2
+	IN PHALMAC_AMPDU_CONFIG pAmpdu_config
 )
 {
 	PHALMAC_API pHalmac_api;
-	u32 hrpwm2_offset = 0;
-	u16 hrpwm2_original = 0;
 
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface)
-		hrpwm2_offset = REG_PCIE_HRPWM2_V1;
-	else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface)
-		hrpwm2_offset = 0xFE36;
-	else if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface)
-		hrpwm2_offset = REG_SDIO_HRPWM2;
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PROT_MODE_CTRL + 2, pAmpdu_config->max_agg_num);
+};
 
-	hrpwm2_original = HALMAC_REG_READ_16(pHalmac_adapter, hrpwm2_offset);
-	hrpwm2 = (hrpwm2 & 0x7FFF) | ((~hrpwm2_original) & 0x8000);
+HALMAC_RET_STATUS
+halmac_check_oqt_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u32 tx_agg_num,
+	IN u8 *pHalmac_buf
+)
+{
+	u32 counter = 10;
 
-	HALMAC_REG_WRITE_16(pHalmac_adapter, hrpwm2_offset, hrpwm2);
+	/*S0, S1 are not allowed to use, 0x4E4[0] should be 0. Soar 20160323*/
+	/*no need to check non_ac_oqt_number. HI and MGQ blocked will cause protocal issue before H_OQT being full*/
+	switch ((HALMAC_QUEUE_SELECT)GET_TX_DESC_QSEL(pHalmac_buf)) {
+	case HALMAC_QUEUE_SELECT_VO:
+	case HALMAC_QUEUE_SELECT_VO_V2:
+	case HALMAC_QUEUE_SELECT_VI:
+	case HALMAC_QUEUE_SELECT_VI_V2:
+	case HALMAC_QUEUE_SELECT_BE:
+	case HALMAC_QUEUE_SELECT_BE_V2:
+	case HALMAC_QUEUE_SELECT_BK:
+	case HALMAC_QUEUE_SELECT_BK_V2:
+		counter = 10;
+		do {
+			if (pHalmac_adapter->sdio_free_space.ac_empty > 0) {
+				pHalmac_adapter->sdio_free_space.ac_empty -= 1;
+				break;
+			}
+
+			if (pHalmac_adapter->sdio_free_space.ac_oqt_number >= tx_agg_num) {
+				pHalmac_adapter->sdio_free_space.ac_oqt_number -= (u8)tx_agg_num;
+				break;
+			}
+
+			halmac_update_oqt_free_space_88xx(pHalmac_adapter);
+
+			counter--;
+			if (0 == counter)
+				return HALMAC_RET_OQT_NOT_ENOUGH;
+		} while (1);
+		break;
+	default:
+		break;
+	}
+
+	return HALMAC_RET_SUCCESS;
 }
+
+HALMAC_RET_STATUS
+halmac_rqpn_parser_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_TRX_MODE halmac_trx_mode,
+	IN PHALMAC_RQPN pRqpn_table
+)
+{
+	u8 search_flag;
+	u32 i;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	search_flag = 0;
+	for (i = 0; i < HALMAC_TRX_MODE_MAX; i++) {
+		if (halmac_trx_mode == pRqpn_table[i].mode) {
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_VO] = pRqpn_table[i].dma_map_vo;
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_VI] = pRqpn_table[i].dma_map_vi;
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_BE] = pRqpn_table[i].dma_map_be;
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_BK] = pRqpn_table[i].dma_map_bk;
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_MG] = pRqpn_table[i].dma_map_mg;
+			pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_HI] = pRqpn_table[i].dma_map_hi;
+			search_flag = 1;
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_rqpn_parser_88xx done\n");
+			break;
+		}
+	}
+
+	if (0 == search_flag) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_RET_TRX_MODE_NOT_SUPPORT 1 switch case not support\n");
+		return HALMAC_RET_TRX_MODE_NOT_SUPPORT;
+	}
+
+	return HALMAC_RET_SUCCESS;
+}
+
+HALMAC_RET_STATUS
+halmac_pg_num_parser_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_TRX_MODE halmac_trx_mode,
+	IN PHALMAC_PG_NUM pPg_num_table
+)
+{
+	u8 search_flag;
+	u16 HPQ_num = 0, LPQ_Nnum = 0, NPQ_num = 0, GAPQ_num = 0;
+	u16 EXPQ_num = 0, PUBQ_num = 0;
+	u32 i = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	search_flag = 0;
+	for (i = 0; i < HALMAC_TRX_MODE_MAX; i++) {
+		if (halmac_trx_mode == pPg_num_table[i].mode) {
+			HPQ_num = pPg_num_table[i].hq_num;
+			LPQ_Nnum = pPg_num_table[i].lq_num;
+			NPQ_num = pPg_num_table[i].nq_num;
+			EXPQ_num = pPg_num_table[i].exq_num;
+			GAPQ_num = pPg_num_table[i].gap_num;
+			PUBQ_num = pHalmac_adapter->txff_allocation.ac_q_pg_num - HPQ_num - LPQ_Nnum - NPQ_num - EXPQ_num - GAPQ_num;
+			search_flag = 1;
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_pg_num_parser_88xx done\n");
+			break;
+		}
+	}
+
+	if (0 == search_flag) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_RET_TRX_MODE_NOT_SUPPORT 1 switch case not support\n");
+		return HALMAC_RET_TRX_MODE_NOT_SUPPORT;
+	}
+
+	if (pHalmac_adapter->txff_allocation.ac_q_pg_num < HPQ_num + LPQ_Nnum + NPQ_num + EXPQ_num + GAPQ_num)
+		return HALMAC_RET_CFG_TXFIFO_PAGE_FAIL;
+
+	pHalmac_adapter->txff_allocation.high_queue_pg_num = HPQ_num;
+	pHalmac_adapter->txff_allocation.low_queue_pg_num = LPQ_Nnum;
+	pHalmac_adapter->txff_allocation.normal_queue_pg_num = NPQ_num;
+	pHalmac_adapter->txff_allocation.extra_queue_pg_num = EXPQ_num;
+	pHalmac_adapter->txff_allocation.pub_queue_pg_num = PUBQ_num;
+
+	return HALMAC_RET_SUCCESS;
+}
+
+HALMAC_RET_STATUS
+halmac_parse_intf_phy_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN PHALMAC_INTF_PHY_PARA pIntf_phy_para,
+	IN HALMAC_INTF_PHY_PLATFORM platform,
+	IN HAL_INTF_PHY intf_phy
+)
+{
+	u16 value;
+	u16 curr_cut;
+	u32 offset;
+	PHALMAC_INTF_PHY_PARA pCurr_phy_para;
+	VOID *pDriver_adapter = NULL;
+	u8 result = HALMAC_RET_SUCCESS;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+
+	switch (pHalmac_adapter->chip_version) {
+	case HALMAC_CHIP_VER_A_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_A;
+		break;
+	case HALMAC_CHIP_VER_B_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_B;
+		break;
+	case HALMAC_CHIP_VER_C_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_C;
+		break;
+	case HALMAC_CHIP_VER_D_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_D;
+		break;
+	case HALMAC_CHIP_VER_E_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_E;
+		break;
+	case HALMAC_CHIP_VER_F_CUT:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_F;
+		break;
+	case HALMAC_CHIP_VER_TEST:
+		curr_cut = (u16)HALMAC_INTF_PHY_CUT_TESTCHIP;
+		break;
+	default:
+		return HALMAC_RET_FAIL;
+	}
+
+	pCurr_phy_para = pIntf_phy_para;
+
+	do {
+		if ((pCurr_phy_para->cut & curr_cut) && (pCurr_phy_para->plaform & (u16)platform)) {
+			offset =  pCurr_phy_para->offset;
+			value = pCurr_phy_para->value;
+
+			if (0xFFFF == offset)
+				break;
+
+			if (HAL_INTF_PHY_USB2 == intf_phy) {
+			} else if (HAL_INTF_PHY_USB3 == intf_phy) {
+			} else if (HAL_INTF_PHY_PCIE_GEN1 == intf_phy) {
+
+				result = halmac_mdio_write_88xx(pHalmac_adapter, (u8)offset, value, HAL_INTF_PHY_PCIE_GEN1);
+
+				if (HALMAC_RET_SUCCESS != result)
+					PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "MDIO write GEN1 fail!\n");
+
+			} else if (HAL_INTF_PHY_PCIE_GEN2 == intf_phy) {
+
+				result = halmac_mdio_write_88xx(pHalmac_adapter, (u8)offset, value, HAL_INTF_PHY_PCIE_GEN2);
+
+				if (HALMAC_RET_SUCCESS != result)
+					PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "MDIO write GEN2 fail!\n");
+			} else {
+			}
+
+		}
+		pCurr_phy_para++;
+	} while (1);
+
+	return HALMAC_RET_SUCCESS;
+}
+
+HALMAC_RET_STATUS
+halmac_dbi_write32_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 addr,
+	IN u32 data
+)
+{
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	u16 write_addr = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_DBI_WDATA_V1, data);
+
+	write_addr = ((addr & 0x0ffc) | (0x000F << 12));
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_DBI_FLAG_V1, write_addr);
+
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_TRACE, "WriteAddr = %x\n", write_addr);
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2, 0x01);
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+
+	count = 20;
+	while (tmp_u1b && (count != 0)) {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+		count--;
+	}
+
+	if (tmp_u1b) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_ERR, "DBI write fail!\n");
+		return HALMAC_RET_FAIL;
+	} else {
+		return HALMAC_RET_SUCCESS;
+	}
+
+}
+
+u32
+halmac_dbi_read32_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 addr
+)
+{
+	u16 read_addr = addr & 0x0ffc;
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	u32 ret = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api; ;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_DBI_FLAG_V1, read_addr);
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2, 0x2);
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+
+	count = 20;
+	while (tmp_u1b && (count != 0)) {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+		count--;
+	}
+
+	if (tmp_u1b) {
+		ret  = 0xFFFF;
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_ERR, "DBI read fail!\n");
+	} else {
+		ret = HALMAC_REG_READ_32(pHalmac_adapter, REG_DBI_RDATA_V1);
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_TRACE, "Read Value = %x\n", ret);
+	}
+
+	return ret;
+
+}
+
+
+HALMAC_RET_STATUS
+halmac_dbi_write8_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 addr,
+	IN u8 data
+)
+{
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	u16 write_addr = 0;
+	u16 remainder = addr & (4 - 1);
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api; ;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_DBI_WDATA_V1 + remainder, data);
+
+	write_addr = ((addr & 0x0ffc) | (BIT(0) << (remainder + 12)));
+
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_DBI_FLAG_V1, write_addr);
+
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_TRACE, "WriteAddr = %x\n", write_addr);
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2, 0x01);
+
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+
+	count = 20;
+	while (tmp_u1b && (count != 0)) {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1+2);
+		count--;
+	}
+
+	if (tmp_u1b) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_ERR, "DBI write fail!\n");
+		return HALMAC_RET_FAIL;
+	} else {
+
+		return HALMAC_RET_SUCCESS;
+	}
+
+}
+
+u8
+halmac_dbi_read8_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 addr
+)
+{
+	u16 read_addr = addr & 0x0ffc;
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	u8 ret = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api; ;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_DBI_FLAG_V1, read_addr);
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2, 0x2);
+
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+
+	count = 20;
+	while (tmp_u1b && (count != 0)) {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_FLAG_V1 + 2);
+		count--;
+	}
+
+	if (tmp_u1b) {
+		ret  = 0xFF;
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_ERR, "DBI read fail!\n");
+	} else {
+		ret = HALMAC_REG_READ_8(pHalmac_adapter, REG_DBI_RDATA_V1 + (addr & (4 - 1)));
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_DBI, HALMAC_DBG_TRACE, "Read Value = %x\n", ret);
+	}
+
+	return ret;
+
+}
+
+
+HALMAC_RET_STATUS
+halmac_mdio_write_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 addr,
+	IN u16 data,
+	IN u8 speed
+)
+{
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+	u8 real_addr = 0;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_MDIO_V1, data);
+
+	/* address : 5bit */
+	real_addr = (addr & 0x1F);
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG, real_addr);
+
+	if (HAL_INTF_PHY_PCIE_GEN1 == speed) {
+
+		/* GEN1 page 0 */
+		if (addr < 0x20) {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b00 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x00);
+
+		/* GEN1 page 1 */
+		} else {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b01 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x01);
+		}
+
+	} else if (HAL_INTF_PHY_PCIE_GEN2 == speed) {
+
+		/* GEN2 page 0 */
+		if (addr < 0x20) {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b10 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x02);
+
+		/* GEN2 page 1 */
+		} else {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b11 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x03);
+		}
+	} else {
+
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "Error Speed !\n");
+	}
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG, HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) | BIT_MDIO_WFLAG_V1);
+
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) & BIT_MDIO_WFLAG_V1 ;
+	count = 20;
+
+	while (tmp_u1b && (count != 0)) {
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) & BIT_MDIO_WFLAG_V1;
+		count--;
+	}
+
+	if (tmp_u1b) {
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "MDIO write fail!\n");
+		return HALMAC_RET_FAIL;
+	} else {
+
+		return HALMAC_RET_SUCCESS;
+	}
+
+}
+
+
+
+u16
+halmac_mdio_read_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 addr,
+	IN u8 speed
+
+)
+{
+	u16 ret = 0;
+	u8 tmp_u1b = 0;
+	u32 count = 0;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+	u8 real_addr = 0;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	/* address : 5bit */
+	real_addr = (addr & 0x1F);
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG, real_addr);
+
+	if (HAL_INTF_PHY_PCIE_GEN1 == speed) {
+		/* GEN1 page 0 */
+		if (addr < 0x20) {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b00 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x00);
+
+		/* GEN1 page 1 */
+		} else {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b01 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x01);
+		}
+
+	} else if (HAL_INTF_PHY_PCIE_GEN2 == speed) {
+
+		/* GEN2 page 0 */
+		if (addr < 0x20) {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b10 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x02);
+
+		/* GEN2 page 1 */
+		} else {
+
+			/* select MDIO PHY Addr : reg 0x3F8[28:24]=5'b11 */
+			HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG + 3, 0x03);
+		}
+	} else {
+
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "Error Speed !\n");
+	}
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_PCIE_MIX_CFG, HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) | BIT_MDIO_RFLAG_V1);
+
+	tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) & BIT_MDIO_RFLAG_V1 ;
+	count = 20;
+
+	while (tmp_u1b && (count != 0)) {
+
+		PLATFORM_RTL_DELAY_US(pDriver_adapter, 10);
+		tmp_u1b = HALMAC_REG_READ_8(pHalmac_adapter, REG_PCIE_MIX_CFG) & BIT_MDIO_RFLAG_V1;
+		count--;
+	}
+
+	if (tmp_u1b) {
+		ret  = 0xFFFF;
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_ERR, "MDIO read fail!\n");
+
+	} else {
+		ret = HALMAC_REG_READ_16(pHalmac_adapter, REG_MDIO_V1+2);
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_MDIO, HALMAC_DBG_TRACE, "Read Value = %x\n", ret);
+	}
+
+	return ret;
+}
+

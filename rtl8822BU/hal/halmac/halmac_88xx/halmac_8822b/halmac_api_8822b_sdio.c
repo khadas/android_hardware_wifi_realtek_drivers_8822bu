@@ -14,6 +14,7 @@ halmac_mac_power_switch_8822b_sdio(
 )
 {
 	u8 interface_mask;
+	u8 value8;
 	u8 rpwm;
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
@@ -29,7 +30,7 @@ halmac_mac_power_switch_8822b_sdio(
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "halmac_mac_power_switch_88xx_sdio halmac_power = %x ==========>\n", halmac_power);
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_TRACE, "halmac_mac_power_switch_88xx_sdio halmac_power = %x ==========>\n", halmac_power);
 
 	interface_mask = HALMAC_PWR_INTF_SDIO_MSK;
 
@@ -42,15 +43,19 @@ halmac_mac_power_switch_8822b_sdio(
 		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_SDIO_HRPWM1, rpwm);
 	}
 
-	if (0xEA == HALMAC_REG_READ_8(pHalmac_adapter, REG_CR))
+	value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_CR);
+	if (0xEA == value8)
 		pHalmac_adapter->halmac_state.mac_power = HALMAC_MAC_POWER_OFF;
+	else
+		pHalmac_adapter->halmac_state.mac_power = HALMAC_MAC_POWER_ON;
 
 	/*Check if power switch is needed*/
-	if (halmac_power == pHalmac_adapter->halmac_state.mac_power) {
+	if (halmac_power == HALMAC_MAC_POWER_ON && pHalmac_adapter->halmac_state.mac_power == HALMAC_MAC_POWER_ON) {
 		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_WARN, "halmac_mac_power_switch power state unchange!\n");
+		return HALMAC_RET_PWR_UNCHANGE;
 	} else {
 		if (HALMAC_MAC_POWER_OFF == halmac_power) {
-			if (HALMAC_RET_SUCCESS != halmac_pwr_seq_parser_88xx(pHalmac_adapter, HALMAC_PWR_CUT_TESTCHIP_MSK, HALMAC_PWR_FAB_TSMC_MSK,
+			if (HALMAC_RET_SUCCESS != halmac_pwr_seq_parser_88xx(pHalmac_adapter, HALMAC_PWR_CUT_ALL_MSK, HALMAC_PWR_FAB_TSMC_MSK,
 				    interface_mask, halmac_8822b_card_disable_flow)) {
 				PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "Handle power off cmd error\n");
 				return HALMAC_RET_POWER_OFF_FAIL;
@@ -59,8 +64,9 @@ halmac_mac_power_switch_8822b_sdio(
 			pHalmac_adapter->halmac_state.mac_power = HALMAC_MAC_POWER_OFF;
 			pHalmac_adapter->halmac_state.ps_state = HALMAC_PS_STATE_UNDEFINE;
 			pHalmac_adapter->halmac_state.dlfw_state = HALMAC_DLFW_NONE;
+			halmac_init_adapter_dynamic_para_88xx(pHalmac_adapter);
 		} else {
-			if (HALMAC_RET_SUCCESS != halmac_pwr_seq_parser_88xx(pHalmac_adapter, HALMAC_PWR_CUT_TESTCHIP_MSK, HALMAC_PWR_FAB_TSMC_MSK,
+			if (HALMAC_RET_SUCCESS != halmac_pwr_seq_parser_88xx(pHalmac_adapter, HALMAC_PWR_CUT_ALL_MSK, HALMAC_PWR_FAB_TSMC_MSK,
 				    interface_mask, halmac_8822b_card_enable_flow)) {
 				PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "Handle power on cmd error\n");
 				return HALMAC_RET_POWER_ON_FAIL;
@@ -71,11 +77,12 @@ halmac_mac_power_switch_8822b_sdio(
 		}
 	}
 
-	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_ERR, "halmac_mac_power_switch_88xx_sdio <==========\n");
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_TRACE, "halmac_mac_power_switch_88xx_sdio <==========\n");
 
 	return HALMAC_RET_SUCCESS;
 }
 
+#if 0
 /**
  * halmac_tx_allowed_sdio_8822b() - check sdio tx reserved page
  * @pHalmac_adapter
@@ -209,4 +216,40 @@ halmac_tx_allowed_sdio_8822b(
 	return HALMAC_RET_SUCCESS;
 }
 
+#endif
 
+
+/**
+ * halmac_phy_cfg_8822b_sdio() - phy config
+ * @pHalmac_adapter
+ * Author : KaiYuan Chang
+ * Return : HALMAC_RET_STATUS
+ */
+HALMAC_RET_STATUS
+halmac_phy_cfg_8822b_sdio(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_INTF_PHY_PLATFORM platform
+)
+{
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+		return HALMAC_RET_ADAPTER_INVALID;
+
+	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+		return HALMAC_RET_API_INVALID;
+
+	halmac_api_record_id_88xx(pHalmac_adapter, HALMAC_API_PHY_CFG);
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_TRACE, "halmac_phy_cfg ==========>\n");
+
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_TRACE, "sdio no phy\n");
+
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_PWR, HALMAC_DBG_TRACE, "halmac_phy_cfg <==========\n");
+
+	return HALMAC_RET_SUCCESS;
+}

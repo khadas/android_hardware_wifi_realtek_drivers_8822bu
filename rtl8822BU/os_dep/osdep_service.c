@@ -26,10 +26,10 @@
 #define RT_TAG	'1178'
 
 #ifdef DBG_MEMORY_LEAK
-	#ifdef PLATFORM_LINUX
-		atomic_t _malloc_cnt = ATOMIC_INIT(0);
-		atomic_t _malloc_size = ATOMIC_INIT(0);
-	#endif
+#ifdef PLATFORM_LINUX
+atomic_t _malloc_cnt = ATOMIC_INIT(0);
+atomic_t _malloc_size = ATOMIC_INIT(0);
+#endif
 #endif /* DBG_MEMORY_LEAK */
 
 
@@ -335,56 +335,41 @@ inline struct sk_buff *_rtw_pskb_copy(struct sk_buff *skb)
 
 inline int _rtw_netif_rx(_nic_hdl ndev, struct sk_buff *skb)
 {
-#ifdef CONFIG_NAPI
-#ifdef CONFIG_GRO
-	_adapter *adapter = (_adapter *) rtw_netdev_priv(ndev);
-	struct registry_priv *reg = &adapter->registrypriv;
-	static int cnt_done[10] = {0};
-	int ret;
-#endif
-#endif
-#ifdef PLATFORM_LINUX
+#if defined(PLATFORM_LINUX)
 	skb->dev = ndev;
-#ifdef CONFIG_NAPI
-#ifdef CONFIG_GRO
-	/*
-	 * enum gro_result {
-	 *  GRO_MERGED,
-	 *  GRO_MERGED_FREE,
-	 *  GRO_HELD,
-	 *  GRO_NORMAL,
-	 *  GRO_DROP,
-	 * }
-	 */
-	ret = napi_gro_receive(&adapter->napi, skb);
-	if (reg->napi_debug) {
-		if (ret < 10)
-			cnt_done[ret]++;
-
-		if (printk_ratelimit()) {
-			RTW_INFO("napi_gro_receive: %d\n", ret);
-			RTW_INFO("0:%d, 1:%d, 2:%d, 3:%d, 4:%d, 5:%d\n",
-				cnt_done[0],
-				cnt_done[1],
-				cnt_done[2],
-				cnt_done[3],
-				cnt_done[4],
-				cnt_done[5]);
-		}
-	}
-	return ret == GRO_DROP ? NET_RX_DROP : NET_RX_SUCCESS;
-#else
-	return netif_receive_skb(skb);
-#endif /* CONFIG_GRO */
-#else
 	return netif_rx(skb);
-#endif /* CONFIG_NAPI */
-#endif /* PLATFORM_LINUX */
-
-#ifdef PLATFORM_FREEBSD
+#elif defined(PLATFORM_FREEBSD)
 	return (*ndev->if_input)(ndev, skb);
-#endif /* PLATFORM_FREEBSD */
+#else
+	rtw_warn_on(1);
+	return -1;
+#endif
 }
+
+#ifdef CONFIG_RTW_NAPI
+inline int _rtw_netif_receive_skb(_nic_hdl ndev, struct sk_buff *skb)
+{
+#if defined(PLATFORM_LINUX)
+	skb->dev = ndev;
+	return netif_receive_skb(skb);
+#else
+	rtw_warn_on(1);
+	return -1;
+#endif
+}
+
+#ifdef CONFIG_RTW_GRO
+inline gro_result_t _rtw_napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+{
+#if defined(PLATFORM_LINUX)
+	return napi_gro_receive(napi, skb);
+#else
+	rtw_warn_on(1);
+	return -1;
+#endif
+}
+#endif /* CONFIG_RTW_GRO */
+#endif /* CONFIG_RTW_NAPI */
 
 void _rtw_skb_queue_purge(struct sk_buff_head *list)
 {
@@ -436,7 +421,7 @@ struct rtw_mem_stat {
 
 struct rtw_mem_stat rtw_mem_type_stat[mstat_tf_idx(MSTAT_TYPE_MAX)];
 #ifdef RTW_MEM_FUNC_STAT
-	struct rtw_mem_stat rtw_mem_func_stat[mstat_ff_idx(MSTAT_FUNC_MAX)];
+struct rtw_mem_stat rtw_mem_func_stat[mstat_ff_idx(MSTAT_FUNC_MAX)];
 #endif
 
 char *MSTAT_TYPE_str[] = {
@@ -510,14 +495,14 @@ void rtw_mstat_update(const enum mstat_f flags, const MSTAT_STATUS status, u32 s
 			ATOMIC_SET(&(rtw_mem_type_stat[i].alloc_cnt), 0);
 			ATOMIC_SET(&(rtw_mem_type_stat[i].alloc_err_cnt), 0);
 		}
-#ifdef RTW_MEM_FUNC_STAT
+		#ifdef RTW_MEM_FUNC_STAT
 		for (i = 0; i < mstat_ff_idx(MSTAT_FUNC_MAX); i++) {
 			ATOMIC_SET(&(rtw_mem_func_stat[i].alloc), 0);
 			ATOMIC_SET(&(rtw_mem_func_stat[i].peak), 0);
 			ATOMIC_SET(&(rtw_mem_func_stat[i].alloc_cnt), 0);
 			ATOMIC_SET(&(rtw_mem_func_stat[i].alloc_err_cnt), 0);
 		}
-#endif
+		#endif
 	}
 
 	switch (status) {
@@ -528,29 +513,29 @@ void rtw_mstat_update(const enum mstat_f flags, const MSTAT_STATUS status, u32 s
 		if (peak < alloc)
 			ATOMIC_SET(&(rtw_mem_type_stat[mstat_tf_idx(flags)].peak), alloc);
 
-#ifdef RTW_MEM_FUNC_STAT
+		#ifdef RTW_MEM_FUNC_STAT
 		ATOMIC_INC(&(rtw_mem_func_stat[mstat_ff_idx(flags)].alloc_cnt));
 		alloc = ATOMIC_ADD_RETURN(&(rtw_mem_func_stat[mstat_ff_idx(flags)].alloc), sz);
 		peak = ATOMIC_READ(&(rtw_mem_func_stat[mstat_ff_idx(flags)].peak));
 		if (peak < alloc)
 			ATOMIC_SET(&(rtw_mem_func_stat[mstat_ff_idx(flags)].peak), alloc);
-#endif
+		#endif
 		break;
 
 	case MSTAT_ALLOC_FAIL:
 		ATOMIC_INC(&(rtw_mem_type_stat[mstat_tf_idx(flags)].alloc_err_cnt));
-#ifdef RTW_MEM_FUNC_STAT
+		#ifdef RTW_MEM_FUNC_STAT
 		ATOMIC_INC(&(rtw_mem_func_stat[mstat_ff_idx(flags)].alloc_err_cnt));
-#endif
+		#endif
 		break;
 
 	case MSTAT_FREE:
 		ATOMIC_DEC(&(rtw_mem_type_stat[mstat_tf_idx(flags)].alloc_cnt));
 		ATOMIC_SUB(&(rtw_mem_type_stat[mstat_tf_idx(flags)].alloc), sz);
-#ifdef RTW_MEM_FUNC_STAT
+		#ifdef RTW_MEM_FUNC_STAT
 		ATOMIC_DEC(&(rtw_mem_func_stat[mstat_ff_idx(flags)].alloc_cnt));
 		ATOMIC_SUB(&(rtw_mem_func_stat[mstat_ff_idx(flags)].alloc), sz);
-#endif
+		#endif
 		break;
 	};
 
@@ -581,8 +566,8 @@ bool match_mstat_sniff_rules(const enum mstat_f flags, const size_t size)
 	int i;
 	for (i = 0; i < mstat_sniff_rule_num; i++) {
 		if (mstat_sniff_rules[i].flags == flags
-		    && mstat_sniff_rules[i].lb <= size
-		    && mstat_sniff_rules[i].hb >= size)
+			&& mstat_sniff_rules[i].lb <= size
+			&& mstat_sniff_rules[i].hb >= size)
 			return _TRUE;
 	}
 
@@ -791,6 +776,48 @@ inline int dbg_rtw_netif_rx(_nic_hdl ndev, struct sk_buff *skb, const enum mstat
 	return ret;
 }
 
+#ifdef CONFIG_RTW_NAPI
+inline int dbg_rtw_netif_receive_skb(_nic_hdl ndev, struct sk_buff *skb, const enum mstat_f flags, const char *func, int line)
+{
+	int ret;
+	unsigned int truesize = skb->truesize;
+
+	if (match_mstat_sniff_rules(flags, truesize))
+		RTW_INFO("DBG_MEM_ALLOC %s:%d %s, truesize=%u\n", func, line, __FUNCTION__, truesize);
+
+	ret = _rtw_netif_receive_skb(ndev, skb);
+
+	rtw_mstat_update(
+		flags
+		, MSTAT_FREE
+		, truesize
+	);
+
+	return ret;
+}
+
+#ifdef CONFIG_RTW_GRO
+inline gro_result_t dbg_rtw_napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb, const enum mstat_f flags, const char *func, int line)
+{
+	int ret;
+	unsigned int truesize = skb->truesize;
+
+	if (match_mstat_sniff_rules(flags, truesize))
+		RTW_INFO("DBG_MEM_ALLOC %s:%d %s, truesize=%u\n", func, line, __FUNCTION__, truesize);
+
+	ret = _rtw_napi_gro_receive(napi, skb);
+
+	rtw_mstat_update(
+		flags
+		, MSTAT_FREE
+		, truesize
+	);
+
+	return ret;
+}
+#endif /* CONFIG_RTW_GRO */
+#endif /* CONFIG_RTW_NAPI */
+
 inline void dbg_rtw_skb_queue_purge(struct sk_buff_head *list, enum mstat_f flags, const char *func, int line)
 {
 	struct sk_buff *skb;
@@ -879,7 +906,7 @@ inline void _rtw_memmove(void *dst, const void *src, u32 sz)
 #if defined(PLATFORM_LINUX)
 	memmove(dst, src, sz);
 #else
-#warning "no implementation\n"
+	#warning "no implementation\n"
 #endif
 }
 
@@ -1923,7 +1950,7 @@ inline int ATOMIC_DEC_RETURN(ATOMIC_T *v)
 * @param mode please refer to linux document
 * @return Linux specific error code
 */
-static int openFile(struct file **fpp, char *path, int flag, int mode)
+static int openFile(struct file **fpp, const char *path, int flag, int mode)
 {
 	struct file *fp;
 
@@ -2000,10 +2027,11 @@ static int writeFile(struct file *fp, char *buf, int len)
 
 /*
 * Test if the specifi @param path is a file and readable
+* If readable, @param sz is got
 * @param path the path of the file to test
 * @return Linux specific error code
 */
-static int isFileReadable(char *path)
+static int isFileReadable(const char *path, u32 *sz)
 {
 	struct file *fp;
 	int ret = 0;
@@ -2020,6 +2048,14 @@ static int isFileReadable(char *path)
 		if (1 != readFile(fp, &buf, 1))
 			ret = PTR_ERR(fp);
 
+		if (ret == 0 && sz) {
+			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
+			*sz = i_size_read(fp->f_path.dentry->d_inode);
+			#else
+			*sz = i_size_read(fp->f_dentry->d_inode);
+			#endif
+		}
+
 		set_fs(oldfs);
 		filp_close(fp, NULL);
 	}
@@ -2033,7 +2069,7 @@ static int isFileReadable(char *path)
 * @param sz how many bytes to read at most
 * @return the byte we've read, or Linux specific error code
 */
-static int retriveFromFile(char *path, u8 *buf, u32 sz)
+static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 {
 	int ret = -1;
 	mm_segment_t oldfs;
@@ -2068,7 +2104,7 @@ static int retriveFromFile(char *path, u8 *buf, u32 sz)
 * @param sz how many bytes to write at most
 * @return the byte we've written, or Linux specific error code
 */
-static int storeToFile(char *path, u8 *buf, u32 sz)
+static int storeToFile(const char *path, u8 *buf, u32 sz)
 {
 	int ret = 0;
 	mm_segment_t oldfs;
@@ -2102,10 +2138,29 @@ static int storeToFile(char *path, u8 *buf, u32 sz)
 * @param path the path of the file to test
 * @return _TRUE or _FALSE
 */
-int rtw_is_file_readable(char *path)
+int rtw_is_file_readable(const char *path)
 {
 #ifdef PLATFORM_LINUX
-	if (isFileReadable(path) == 0)
+	if (isFileReadable(path, NULL) == 0)
+		return _TRUE;
+	else
+		return _FALSE;
+#else
+	/* Todo... */
+	return _FALSE;
+#endif
+}
+
+/*
+* Test if the specifi @param path is a file and readable.
+* If readable, @param sz is got
+* @param path the path of the file to test
+* @return _TRUE or _FALSE
+*/
+int rtw_is_file_readable_with_size(const char *path, u32 *sz)
+{
+#ifdef PLATFORM_LINUX
+	if (isFileReadable(path, sz) == 0)
 		return _TRUE;
 	else
 		return _FALSE;
@@ -2122,7 +2177,7 @@ int rtw_is_file_readable(char *path)
 * @param sz how many bytes to read at most
 * @return the byte we've read
 */
-int rtw_retrieve_from_file(char *path, u8 *buf, u32 sz)
+int rtw_retrieve_from_file(const char *path, u8 *buf, u32 sz)
 {
 #ifdef PLATFORM_LINUX
 	int ret = retriveFromFile(path, buf, sz);
@@ -2140,7 +2195,7 @@ int rtw_retrieve_from_file(char *path, u8 *buf, u32 sz)
 * @param sz how many bytes to write at most
 * @return the byte we've written
 */
-int rtw_store_to_file(char *path, u8 *buf, u32 sz)
+int rtw_store_to_file(const char *path, u8 *buf, u32 sz)
 {
 #ifdef PLATFORM_LINUX
 	int ret = storeToFile(path, buf, sz);
@@ -2270,7 +2325,6 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		ret = register_netdevice(pnetdev);
 
 	if (ret != 0) {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("register_netdev() failed\n"));
 		goto error;
 	}
 
@@ -2547,6 +2601,137 @@ void rtw_cbuf_free(struct rtw_cbuf *cbuf)
 }
 
 /**
+ * map_readN - read a range of map data
+ * @map: map to read
+ * @offset: start address to read
+ * @len: length to read
+ * @buf: pointer of buffer to store data read
+ *
+ * Returns: _SUCCESS or _FAIL
+ */
+int map_readN(const struct map_t *map, u16 offset, u16 len, u8 *buf)
+{
+	const struct map_seg_t *seg;
+	int ret = _FAIL;
+	int i;
+
+	if (len == 0) {
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	if (offset + len > map->len) {
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	_rtw_memset(buf, map->init_value, len);
+
+	for (i = 0; i < map->seg_num; i++) {
+		u8 *c_dst, *c_src;
+		u16 c_len;
+
+		seg = map->segs + i;
+		if (seg->sa + seg->len <= offset || seg->sa >= offset + len)
+			continue;
+
+		if (seg->sa >= offset) {
+			c_dst = buf + (seg->sa - offset);
+			c_src = seg->c;
+			if (seg->sa + seg->len <= offset + len)
+				c_len = seg->len;
+			else
+				c_len = offset + len - seg->sa;
+		} else {
+			c_dst = buf;
+			c_src = seg->c + (offset - seg->sa);
+			if (seg->sa + seg->len >= offset + len)
+				c_len = len;
+			else
+				c_len = seg->sa + seg->len - offset;
+		}
+			
+		_rtw_memcpy(c_dst, c_src, c_len);
+	}
+
+exit:
+	return ret;
+}
+
+/**
+ * map_read8 - read 1 byte of map data
+ * @map: map to read
+ * @offset: address to read
+ *
+ * Returns: value of data of specified offset. map.init_value if offset is out of range
+ */
+u8 map_read8(const struct map_t *map, u16 offset)
+{
+	const struct map_seg_t *seg;
+	u8 val = map->init_value;
+	int i;
+
+	if (offset + 1 > map->len) {
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	for (i = 0; i < map->seg_num; i++) {
+		seg = map->segs + i;
+		if (seg->sa + seg->len <= offset || seg->sa >= offset + 1)
+			continue;
+
+		val = *(seg->c + offset - seg->sa);
+		break;
+	}
+
+exit:
+	return val;
+}
+
+/**
+* is_null -
+*
+* Return	TRUE if c is null character
+*		FALSE otherwise.
+*/
+inline BOOLEAN is_null(char c)
+{
+	if (c == '\0')
+		return _TRUE;
+	else
+		return _FALSE;
+}
+
+/**
+* is_eol -
+*
+* Return	TRUE if c is represent for EOL (end of line)
+*		FALSE otherwise.
+*/
+inline BOOLEAN is_eol(char c)
+{
+	if (c == '\r' || c == '\n')
+		return _TRUE;
+	else
+		return _FALSE;
+}
+
+/**
+* is_space -
+*
+* Return	TRUE if c is represent for space
+*		FALSE otherwise.
+*/
+inline BOOLEAN is_space(char c)
+{
+	if (c == ' ' || c == '\t')
+		return _TRUE;
+	else
+		return _FALSE;
+}
+
+/**
 * IsHexDigit -
 *
 * Return	TRUE if chTmp is represent for hex digit
@@ -2555,8 +2740,8 @@ void rtw_cbuf_free(struct rtw_cbuf *cbuf)
 inline BOOLEAN IsHexDigit(char chTmp)
 {
 	if ((chTmp >= '0' && chTmp <= '9') ||
-	    (chTmp >= 'a' && chTmp <= 'f') ||
-	    (chTmp >= 'A' && chTmp <= 'F'))
+		(chTmp >= 'a' && chTmp <= 'f') ||
+		(chTmp >= 'A' && chTmp <= 'F'))
 		return _TRUE;
 	else
 		return _FALSE;
@@ -2571,7 +2756,7 @@ inline BOOLEAN IsHexDigit(char chTmp)
 inline BOOLEAN is_alpha(char chTmp)
 {
 	if ((chTmp >= 'a' && chTmp <= 'z') ||
-	    (chTmp >= 'A' && chTmp <= 'Z'))
+		(chTmp >= 'A' && chTmp <= 'Z'))
 		return _TRUE;
 	else
 		return _FALSE;

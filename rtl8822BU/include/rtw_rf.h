@@ -52,15 +52,26 @@
 #define CENTER_CH_5G_160M_NUM	3	/* 160M center channels */
 #define CENTER_CH_5G_ALL_NUM	(CENTER_CH_5G_20M_NUM + CENTER_CH_5G_40M_NUM + CENTER_CH_5G_80M_NUM)
 
+extern u8 center_ch_2g[CENTER_CH_2G_NUM];
+extern u8 center_ch_2g_40m[CENTER_CH_2G_40M_NUM];
+
+u8 center_chs_2g_num(u8 bw);
+u8 center_chs_2g(u8 bw, u8 id);
+
 extern u8 center_ch_5g_20m[CENTER_CH_5G_20M_NUM];
 extern u8 center_ch_5g_40m[CENTER_CH_5G_40M_NUM];
+extern u8 center_ch_5g_20m_40m[CENTER_CH_5G_20M_NUM + CENTER_CH_5G_40M_NUM];
 extern u8 center_ch_5g_80m[CENTER_CH_5G_80M_NUM];
 extern u8 center_ch_5g_all[CENTER_CH_5G_ALL_NUM];
 
 u8 center_chs_5g_num(u8 bw);
 u8 center_chs_5g(u8 bw, u8 id);
 
+u8 rtw_get_scch_by_cch_offset(u8 cch, u8 bw, u8 offset);
+
 u8 rtw_get_op_chs_by_cch_bw(u8 cch, u8 bw, u8 **op_chs, u8 *op_ch_num);
+
+u8 rtw_get_ch_group(u8 ch, u8 *group, u8 *cck_group);
 
 /* #define NUM_REGULATORYS	21 */
 #define NUM_REGULATORYS	1
@@ -233,32 +244,32 @@ struct country_chplan {
 };
 
 #ifdef CONFIG_80211AC_VHT
-	#define COUNTRY_CHPLAN_EN_11AC(_ent) ((_ent)->en_11ac)
+#define COUNTRY_CHPLAN_EN_11AC(_ent) ((_ent)->en_11ac)
 #else
-	#define COUNTRY_CHPLAN_EN_11AC(_ent) 0
+#define COUNTRY_CHPLAN_EN_11AC(_ent) 0
 #endif
 
 #if RTW_DEF_MODULE_REGULATORY_CERT
-	#define COUNTRY_CHPLAN_DEF_MODULE_FALGS(_ent) ((_ent)->def_module_flags)
+#define COUNTRY_CHPLAN_DEF_MODULE_FALGS(_ent) ((_ent)->def_module_flags)
 #else
-	#define COUNTRY_CHPLAN_DEF_MODULE_FALGS(_ent) 0
+#define COUNTRY_CHPLAN_DEF_MODULE_FALGS(_ent) 0
 #endif
 
 const struct country_chplan *rtw_get_chplan_from_country(const char *country_code);
 
 #define BB_GAIN_2G 0
 #ifdef CONFIG_IEEE80211_BAND_5GHZ
-	#define BB_GAIN_5GLB1 1
-	#define BB_GAIN_5GLB2 2
-	#define BB_GAIN_5GMB1 3
-	#define BB_GAIN_5GMB2 4
-	#define BB_GAIN_5GHB 5
+#define BB_GAIN_5GLB1 1
+#define BB_GAIN_5GLB2 2
+#define BB_GAIN_5GMB1 3
+#define BB_GAIN_5GMB2 4
+#define BB_GAIN_5GHB 5
 #endif
 
 #ifdef CONFIG_IEEE80211_BAND_5GHZ
-	#define BB_GAIN_NUM 6
+#define BB_GAIN_NUM 6
 #else
-	#define BB_GAIN_NUM 1
+#define BB_GAIN_NUM 1
 #endif
 
 int rtw_ch_to_bb_gain_sel(int ch);

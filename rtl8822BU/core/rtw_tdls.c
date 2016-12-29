@@ -198,7 +198,7 @@ int _issue_nulldata_to_TDLS_peer_STA(_adapter *padapter, unsigned char *da, unsi
 
 	SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
 	pmlmeext->mgnt_seq++;
-	SetFrameSubType(pframe, WIFI_QOS_DATA_NULL);
+	set_frame_sub_type(pframe, WIFI_QOS_DATA_NULL);
 
 	pframe += sizeof(struct rtw_ieee80211_hdr_3addr_qos);
 	pattrib->pktlen = sizeof(struct rtw_ieee80211_hdr_3addr_qos);
@@ -832,9 +832,9 @@ s32 rtw_tdls_do_ch_sw(_adapter *padapter, struct sta_info *ptdls_sta, u8 chnl_ty
 			rtw_set_oper_bw(padapter, bwmode);
 
 			center_ch = rtw_get_center_ch(channel, bwmode, channel_offset);
-			pHalData->CurrentChannel = center_ch;
+			pHalData->current_channel = center_ch;
 			pHalData->CurrentCenterFrequencyIndex1 = center_ch;
-			pHalData->CurrentChannelBW = bwmode;
+			pHalData->current_channel_bw = bwmode;
 			pHalData->nCur40MhzPrimeSC = channel_offset;
 
 			if (bwmode == CHANNEL_WIDTH_80) {
@@ -1338,7 +1338,7 @@ int issue_tdls_dis_rsp(_adapter *padapter, struct tdls_txmgmt *ptxmgmt, u8 priva
 
 	SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
 	pmlmeext->mgnt_seq++;
-	SetFrameSubType(pframe, WIFI_ACTION);
+	set_frame_sub_type(pframe, WIFI_ACTION);
 
 	pframe += sizeof(struct rtw_ieee80211_hdr_3addr);
 	pattrib->pktlen = sizeof(struct rtw_ieee80211_hdr_3addr);
@@ -1560,7 +1560,7 @@ int On_TDLS_Dis_Rsp(_adapter *padapter, union recv_frame *precv_frame)
 	struct rx_pkt_attrib *pattrib = &(precv_frame->u.hdr.attrib);
 	struct tdls_info *ptdlsinfo = &(padapter->tdlsinfo);
 	u8 empty_addr[ETH_ALEN] = { 0x00 };
-	int UndecoratedSmoothedPWDB;
+	int undecorated_smoothed_pwdb;
 	struct tdls_txmgmt txmgmt;
 	int ret = _SUCCESS;
 
@@ -1604,10 +1604,10 @@ int On_TDLS_Dis_Rsp(_adapter *padapter, union recv_frame *precv_frame)
 			}
 		}
 
-		rtw_hal_get_def_var(padapter, HAL_DEF_UNDERCORATEDSMOOTHEDPWDB, &UndecoratedSmoothedPWDB);
+		rtw_hal_get_def_var(padapter, HAL_DEF_UNDERCORATEDSMOOTHEDPWDB, &undecorated_smoothed_pwdb);
 
-		if (pattrib->phy_info.RxPWDBAll + TDLS_SIGNAL_THRESH >= UndecoratedSmoothedPWDB) {
-			RTW_INFO("pattrib->RxPWDBAll=%d, pdmpriv->UndecoratedSmoothedPWDB=%d\n", pattrib->phy_info.RxPWDBAll, UndecoratedSmoothedPWDB);
+		if (pattrib->phy_info.RxPWDBAll + TDLS_SIGNAL_THRESH >= undecorated_smoothed_pwdb) {
+			RTW_INFO("pattrib->RxPWDBAll=%d, pdmpriv->undecorated_smoothed_pwdb=%d\n", pattrib->phy_info.RxPWDBAll, undecorated_smoothed_pwdb);
 			_rtw_memcpy(txmgmt.peer, psa, ETH_ALEN);
 			issue_tdls_setup_req(padapter, &txmgmt, _FALSE);
 		}
@@ -3268,11 +3268,6 @@ void rtw_free_tdls_timer(struct sta_info *psta)
 #endif
 	_cancel_timer_ex(&psta->handshake_timer);
 	_cancel_timer_ex(&psta->pti_timer);
-}
-
-u8	update_sgi_tdls(_adapter *padapter, struct sta_info *psta)
-{
-	return query_ra_short_GI(psta);
 }
 
 u32 update_mask_tdls(_adapter *padapter, struct sta_info *psta)
