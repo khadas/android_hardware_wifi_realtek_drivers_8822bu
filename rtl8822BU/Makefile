@@ -807,7 +807,7 @@ endif
 
 ########### HAL_RTL8822B #################################
 ifeq ($(CONFIG_RTL8822B), y)
-include $(TopDIR)/rtl8822b.mk
+include $(M)/rtl8822b.mk
 endif
 
 ########### HAL_RTL8821C #################################

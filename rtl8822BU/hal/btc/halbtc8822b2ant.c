@@ -1726,7 +1726,7 @@ void halbtc8822b2ant_set_ext_ant_switch(IN struct btc_coexist *btcoexist,
 		break;
 	}
 */
-	if (board_info->ant_div_cfg)
+//	if (board_info->ant_div_cfg)
 		/*ctrl_type = BT_8822B_2ANT_EXT_ANT_SWITCH_CTRL_BY_ANTDIV;*/
 
 	/* Ext switch buffer mux */
