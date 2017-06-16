@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -40,6 +35,19 @@
 #define VALID_CNT				5
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_CE | ODM_WIN))
+
+void phydm_set_noise_data_sum(struct noise_level *noise_data, u8 max_rf_path)
+{
+	u8 rf_path;
+
+	for (rf_path = ODM_RF_PATH_A; rf_path < max_rf_path; rf_path++) {
+		/* printk("%s PATH_%d - sum = %d, VALID_CNT = %d\n",__FUNCTION__,rf_path,noise_data.sum[rf_path], noise_data.valid_cnt[rf_path]); */
+		if (noise_data->valid_cnt[rf_path])
+			noise_data->sum[rf_path] /= noise_data->valid_cnt[rf_path];
+		else
+			noise_data->sum[rf_path]  = 0;
+	}
+}
 
 s16 odm_inband_noise_monitor_n_series(struct PHY_DM_STRUCT	*p_dm_odm, u8 is_pause_dig, u8 igi_value, u32 max_time)
 {
@@ -110,43 +118,38 @@ s16 odm_inband_noise_monitor_n_series(struct PHY_DM_STRUCT	*p_dm_odm, u8 is_paus
 		/* ODM_sleep_ms(10); */
 
 		for (rf_path = ODM_RF_PATH_A; rf_path < max_rf_path; rf_path++) {
-			if ((noise_data.valid_cnt[rf_path] < VALID_CNT) && (noise_data.sval[rf_path] < VALID_MAX && noise_data.sval[rf_path] >= VALID_MIN)) {
-				noise_data.valid_cnt[rf_path]++;
-				noise_data.sum[rf_path] += noise_data.sval[rf_path];
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("rf_path:%d Valid sval = %d\n", rf_path, noise_data.sval[rf_path]));
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Sum of sval = %d,\n", noise_data.sum[rf_path]));
-				if (noise_data.valid_cnt[rf_path] == VALID_CNT) {
-					valid_done++;
-					ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("After divided, rf_path:%d,sum = %d\n", rf_path, noise_data.sum[rf_path]));
-				}
+			if (!(noise_data.valid_cnt[rf_path] < VALID_CNT) || !(noise_data.sval[rf_path] < VALID_MAX && noise_data.sval[rf_path] >= VALID_MIN)) {
+				continue;
+			}
 
+			noise_data.valid_cnt[rf_path]++;
+			noise_data.sum[rf_path] += noise_data.sval[rf_path];
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("rf_path:%d Valid sval = %d\n", rf_path, noise_data.sval[rf_path]));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Sum of sval = %d,\n", noise_data.sum[rf_path]));
+			if (noise_data.valid_cnt[rf_path] == VALID_CNT) {
+				valid_done++;
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("After divided, rf_path:%d,sum = %d\n", rf_path, noise_data.sum[rf_path]));
 			}
 
 		}
 
 		/* printk("####### valid_done:%d #############\n",valid_done); */
 		if ((valid_done == max_rf_path) || (odm_get_progressing_time(p_dm_odm, start) > max_time)) {
-			for (rf_path = ODM_RF_PATH_A; rf_path < max_rf_path; rf_path++) {
-				/* printk("%s PATH_%d - sum = %d, VALID_CNT = %d\n",__FUNCTION__,rf_path,noise_data.sum[rf_path], noise_data.valid_cnt[rf_path]); */
-				if (noise_data.valid_cnt[rf_path])
-					noise_data.sum[rf_path] /= noise_data.valid_cnt[rf_path];
-				else
-					noise_data.sum[rf_path]  = 0;
-			}
+			phydm_set_noise_data_sum(&noise_data, max_rf_path);
 			break;
 		}
 	}
 	reg_c50 = (u8)odm_get_bb_reg(p_dm_odm, REG_OFDM_0_XA_AGC_CORE1, MASKBYTE0);
 	reg_c50 &= ~BIT(7);
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("0x%x = 0x%02x(%d)\n", REG_OFDM_0_XA_AGC_CORE1, reg_c50, reg_c50));
-	p_dm_odm->noise_level.noise[ODM_RF_PATH_A] = (u8)(-110 + reg_c50 + noise_data.sum[ODM_RF_PATH_A]);
+	p_dm_odm->noise_level.noise[ODM_RF_PATH_A] = (s8)(-110 + reg_c50 + noise_data.sum[ODM_RF_PATH_A]);
 	p_dm_odm->noise_level.noise_all += p_dm_odm->noise_level.noise[ODM_RF_PATH_A];
 
 	if (max_rf_path == 2) {
 		reg_c58 = (u8)odm_get_bb_reg(p_dm_odm, REG_OFDM_0_XB_AGC_CORE1, MASKBYTE0);
 		reg_c58 &= ~BIT(7);
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("0x%x = 0x%02x(%d)\n", REG_OFDM_0_XB_AGC_CORE1, reg_c58, reg_c58));
-		p_dm_odm->noise_level.noise[ODM_RF_PATH_B] = (u8)(-110 + reg_c58 + noise_data.sum[ODM_RF_PATH_B]);
+		p_dm_odm->noise_level.noise[ODM_RF_PATH_B] = (s8)(-110 + reg_c58 + noise_data.sum[ODM_RF_PATH_B]);
 		p_dm_odm->noise_level.noise_all += p_dm_odm->noise_level.noise[ODM_RF_PATH_B];
 	}
 	p_dm_odm->noise_level.noise_all /= max_rf_path;
@@ -173,8 +176,8 @@ odm_inband_noise_monitor_ac_series(struct PHY_DM_STRUCT	*p_dm_odm, u8 is_pause_d
 {
 	s32          rxi_buf_anta, rxq_buf_anta; /*rxi_buf_antb, rxq_buf_antb;*/
 	s32	        value32, pwdb_A = 0, sval, noise, sum;
-	bool	        pd_flag;
-	u8			i, valid_cnt;
+	boolean	        pd_flag;
+	u8		valid_cnt;
 	u64	start = 0, func_start = 0, func_end = 0;
 
 
@@ -213,7 +216,7 @@ odm_inband_noise_monitor_ac_series(struct PHY_DM_STRUCT	*p_dm_odm, u8 is_pause_d
 		rxi_buf_anta = (value32 & 0xFFC00) >> 10; /*rxi_buf_anta=RegFA0[19:10]*/
 		rxq_buf_anta = value32 & 0x3FF; /*rxq_buf_anta=RegFA0[19:10]*/
 
-		pd_flag = (bool)((value32 & BIT(31)) >> 31);
+		pd_flag = (boolean)((value32 & BIT(31)) >> 31);
 
 		/*Not in packet detection period or Tx state */
 		if ((!pd_flag) || (rxi_buf_anta != 0x200)) {
@@ -241,17 +244,15 @@ odm_inband_noise_monitor_ac_series(struct PHY_DM_STRUCT	*p_dm_odm, u8 is_pause_d
 
 		sval = pwdb_A;
 
-		if (sval < 0 && sval >= -27) {
-			if (valid_cnt < VALID_CNT) {
-				valid_cnt++;
-				sum += sval;
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Valid sval = %d\n", sval));
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Sum of sval = %d,\n", sum));
-				if ((valid_cnt >= VALID_CNT) || (odm_get_progressing_time(p_dm_odm, start) > max_time)) {
-					sum /= VALID_CNT;
-					ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("After divided, sum = %d\n", sum));
-					break;
-				}
+		if ((sval < 0 && sval >= -27) && (valid_cnt < VALID_CNT)){
+			valid_cnt++;
+			sum += sval;
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Valid sval = %d\n", sval));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("Sum of sval = %d,\n", sum));
+			if ((valid_cnt >= VALID_CNT) || (odm_get_progressing_time(p_dm_odm, start) > max_time)) {
+				sum /= VALID_CNT;
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("After divided, sum = %d\n", sum));
+				break;
 			}
 		}
 	}

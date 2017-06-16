@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef _RTW_RECV_H_
 #define _RTW_RECV_H_
 
@@ -40,11 +35,7 @@
 		#if defined(CONFIG_GSPI_HCI)
 			#define NR_RECVBUFF (32)
 		#elif defined(CONFIG_SDIO_HCI)
-#ifdef CONFIG_RECV_THREAD_MODE
-			#define NR_RECVBUFF (16)
-#else
 			#define NR_RECVBUFF (8)
-#endif
 		#else
 			#define NR_RECVBUFF (8)
 		#endif
@@ -265,6 +256,7 @@ struct rx_pkt_attrib	{
 	u8	key_index;
 
 	u8	data_rate;
+	u8 ch; /* RX channel */
 	u8	bw;
 	u8	stbc;
 	u8	ldpc;
@@ -375,7 +367,7 @@ struct recv_priv {
 
 #ifdef CONFIG_RECV_THREAD_MODE
 	_sema	recv_sema;
-	_sema	terminate_recvthread_sema;
+
 #endif
 
 	/* _queue	blk_strms[MAX_RX_NUMBLKS];    */ /* keeping the block ack frame until return ack */

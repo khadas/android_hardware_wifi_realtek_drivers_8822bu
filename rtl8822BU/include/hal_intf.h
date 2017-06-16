@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_INTF_H__
 #define __HAL_INTF_H__
 
@@ -44,6 +39,14 @@ enum _CHIP_TYPE {
 	RTL8821C,
 	MAX_CHIP_TYPE
 };
+
+#ifdef RTW_HALMAC
+enum fw_mem {
+	FW_EMEM,
+	FW_IMEM,
+	FW_DMEM,
+};
+#endif
 
 extern const u32 _chip_type_to_odm_ic_type[];
 #define chip_type_to_odm_ic_type(chip_type) (((chip_type) >= MAX_CHIP_TYPE) ? _chip_type_to_odm_ic_type[MAX_CHIP_TYPE] : _chip_type_to_odm_ic_type[(chip_type)])
@@ -105,6 +108,9 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_LPS_POFF_DEINIT,
 	HW_VAR_LPS_POFF_SET_MODE,
 	HW_VAR_LPS_POFF_WOW_EN,
+#endif
+#ifdef CONFIG_LPS_PG
+	HW_VAR_LPS_PG_HANDLE,
 #endif
 	HW_VAR_TRIGGER_GPIO_0,
 	HW_VAR_BT_SET_COEXIST,
@@ -174,6 +180,11 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_CH_SW_NEED_TO_TAKE_CARE_IQK_INFO,
 	HW_VAR_CH_SW_IQK_INFO_BACKUP,
 	HW_VAR_CH_SW_IQK_INFO_RESTORE,
+
+	HW_VAR_DBI,
+	HW_VAR_MDIO,
+	HW_VAR_L1OFF_CAPABILITY,
+	HW_VAR_L1OFF_NIC_SUPPORT,
 #ifdef CONFIG_TDLS
 	HW_VAR_TDLS_WRCR,
 	HW_VAR_TDLS_RS_RCR,
@@ -253,12 +264,23 @@ typedef s32(*c2h_id_filter)(_adapter *adapter, u8 id, u8 seq, u8 plen, u8 *paylo
 
 struct txpwr_idx_comp;
 
+struct macid_cfg {
+	u8 mac_id;
+	u8 rate_id;
+	u8 bandwidth;
+	u8 short_gi;
+	u8 ignore_bw;
+	u8 rsvd;
+	u16 rsvd1;
+	u64 ra_mask;
+};
+
 struct hal_ops {
 	/*** initialize section ***/
 	void	(*read_chip_version)(_adapter *padapter);
 	void	(*init_default_value)(_adapter *padapter);
 	void	(*intf_chip_configure)(_adapter *padapter);
-	void	(*read_adapter_info)(_adapter *padapter);
+	u8	(*read_adapter_info)(_adapter *padapter);
 	u32(*hal_power_on)(_adapter *padapter);
 	void	(*hal_power_off)(_adapter *padapter);
 	u32(*hal_init)(_adapter *padapter);
@@ -339,7 +361,7 @@ struct hal_ops {
 	void	(*GetHalODMVarHandler)(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID pValue1, PVOID pValue2);
 	void	(*SetHalODMVarHandler)(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID pValue1, BOOLEAN bSet);
 
-	void	(*UpdateRAMaskHandler)(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level);
+	void	(*update_ra_mask_handler)(_adapter *padapter, struct sta_info *psta, struct macid_cfg *h2c_macid_cfg);
 	void	(*SetBeaconRelatedRegistersHandler)(_adapter *padapter);
 
 	u8(*interface_ps_func)(_adapter *padapter, HAL_INTF_PS_FUNC efunc_id, u8 *val);
@@ -383,10 +405,14 @@ struct hal_ops {
 #else
 	s32(*c2h_handler)(_adapter *adapter, u8 id, u8 seq, u8 plen, u8 *payload);
 #endif
+	void (*reqtxrpt)(_adapter *padapter, u8 macid);
 	s32(*fill_h2c_cmd)(PADAPTER, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
 	void (*fill_fake_txdesc)(PADAPTER, u8 *pDesc, u32 BufferLen,
 				 u8 IsPsPoll, u8 IsBTQosNull, u8 bDataFrame);
 	s32(*fw_dl)(_adapter *adapter, u8 wowlan);
+#ifdef RTW_HALMAC
+	s32 (*fw_mem_dl)(_adapter *adapter, enum fw_mem mem);
+#endif
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN) || defined(CONFIG_PCI_HCI)
 	void (*clear_interrupt)(_adapter *padapter);
@@ -403,6 +429,11 @@ struct hal_ops {
 	u8(*init_mac_register)(PADAPTER);
 	u8(*init_phy)(PADAPTER);
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_PCI_HCI
+	void (*hal_set_l1ssbackdoor_handler)(_adapter *padapter, u8 enable);
+#endif
+
 };
 
 typedef	enum _RT_EEPROM_TYPE {
@@ -600,7 +631,7 @@ void rtw_hal_set_hwreg(PADAPTER padapter, u8 variable, u8 *val);
 void rtw_hal_get_hwreg(PADAPTER padapter, u8 variable, u8 *val);
 
 void rtw_hal_chip_configure(_adapter *padapter);
-void rtw_hal_read_chip_info(_adapter *padapter);
+u8 rtw_hal_read_chip_info(_adapter *padapter);
 void rtw_hal_read_chip_version(_adapter *padapter);
 
 u8 rtw_hal_set_def_var(_adapter *padapter, HAL_DEF_VARIABLE eVariable, PVOID pValue);
@@ -621,6 +652,12 @@ u8 rtw_hal_check_ips_status(_adapter *padapter);
 
 #if defined(CONFIG_PCI_HCI)
 	void	rtw_hal_irp_reset(_adapter *padapter);
+void	rtw_hal_pci_dbi_write(_adapter *padapter, u16 addr, u8 data);
+u8	rtw_hal_pci_dbi_read(_adapter *padapter, u16 addr);
+void	rtw_hal_pci_mdio_write(_adapter *padapter, u8 addr, u16 data);
+u16	rtw_hal_pci_mdio_read(_adapter *padapter, u8 addr);
+u8	rtw_hal_pci_l1off_nic_support(_adapter *padapter);
+u8	rtw_hal_pci_l1off_capability(_adapter *padapter);
 #endif
 
 u8	rtw_hal_intf_ps_func(_adapter *padapter, HAL_INTF_PS_FUNC efunc_id, u8 *val);
@@ -635,8 +672,8 @@ void	rtw_hal_free_xmit_priv(_adapter *padapter);
 s32	rtw_hal_init_recv_priv(_adapter *padapter);
 void	rtw_hal_free_recv_priv(_adapter *padapter);
 
-void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level);
-void rtw_update_ramask(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level);
+void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level, u8 is_update_bw);
+void rtw_update_ramask(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level, u8 is_update_bw);
 
 void	rtw_hal_start_thread(_adapter *padapter);
 void	rtw_hal_stop_thread(_adapter *padapter);
@@ -647,6 +684,7 @@ u32	rtw_hal_read_bbreg(_adapter *padapter, u32 RegAddr, u32 BitMask);
 void	rtw_hal_write_bbreg(_adapter *padapter, u32 RegAddr, u32 BitMask, u32 Data);
 u32	rtw_hal_read_rfreg(_adapter *padapter, u32 eRFPath, u32 RegAddr, u32 BitMask);
 void	rtw_hal_write_rfreg(_adapter *padapter, u32 eRFPath, u32 RegAddr, u32 BitMask, u32 Data);
+
 
 #define phy_query_bb_reg(Adapter, RegAddr, BitMask) rtw_hal_read_bbreg((Adapter), (RegAddr), (BitMask))
 #define phy_set_bb_reg(Adapter, RegAddr, BitMask, Data) rtw_hal_write_bbreg((Adapter), (RegAddr), (BitMask), (Data))
@@ -746,6 +784,7 @@ u8 rtw_hal_ops_check(_adapter *padapter);
 #ifdef RTW_HALMAC
 	u8 rtw_hal_init_mac_register(PADAPTER);
 	u8 rtw_hal_init_phy(PADAPTER);
+s32 rtw_hal_fw_mem_dl(_adapter *padapter, enum fw_mem mem);
 #endif /* RTW_HALMAC */
 
 #endif /* __HAL_INTF_H__ */

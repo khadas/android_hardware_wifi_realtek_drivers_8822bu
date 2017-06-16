@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef __HALMAC__HW_CFG_H__
 #define __HALMAC__HW_CFG_H__
 
@@ -107,6 +122,12 @@
 #define HALMAC_8195A_SUPPORT	1
 #else
 #define HALMAC_8195A_SUPPORT	0
+#endif
+
+#ifdef CONFIG_RTL8821B
+#define HALMAC_8821B_SUPPORT	1
+#else
+#define HALMAC_8821B_SUPPORT	0
 #endif
 
 #ifdef CONFIG_RTL8196F

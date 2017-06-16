@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,17 +11,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMDIG_H__
 #define    __PHYDMDIG_H__
 
-#define DIG_VERSION	"1.24"	/* 2016.06.01  Stanley. Modify IGI setting for 1R-CCA path-B */
+#define DIG_VERSION	"1.32"	/* 2016.09.02  YuChen. add CCK PD for 8197F*/
+#define DIG_HW		0
 
 /* Pause DIG & CCKPD */
 #define		DM_DIG_MAX_PAUSE_TYPE		0x7
@@ -35,15 +31,15 @@ enum dig_goupcheck_level {
 };
 
 struct _dynamic_initial_gain_threshold_ {
-	bool		is_stop_dig;		/* for debug */
-	bool		is_ignore_dig;
-	bool		is_psd_in_progress;
+	boolean		is_stop_dig;		/* for debug */
+	boolean		is_ignore_dig;
+	boolean		is_psd_in_progress;
 
 	u8		dig_enable_flag;
 	u8		dig_ext_port_stage;
 
-	int			rssi_low_thresh;
-	int			rssi_high_thresh;
+	int		rssi_low_thresh;
+	int		rssi_high_thresh;
 
 	u32		fa_low_thresh;
 	u32		fa_high_thresh;
@@ -65,13 +61,16 @@ struct _dynamic_initial_gain_threshold_ {
 	u8		rx_gain_range_min;
 	u8		rssi_val_min;
 
+#if PHYDM_SUPPORT_CCKPD
 	u8		pre_cck_cca_thres;
 	u8		cur_cck_cca_thres;
+	u32		cck_fa_ma;
 	u8		pre_cck_pd_state;
 	u8		cur_cck_pd_state;
 	u8		cck_pd_backup;
 	u8		pause_cckpd_level;
 	u8		pause_cckpd_value[DM_DIG_MAX_PAUSE_TYPE + 1];
+#endif
 
 	u8		large_fa_hit;
 	u8		large_fa_timeout;		/*if (large_fa_hit), monitor "large_fa_timeout" sec, if timeout, large_fa_hit=0*/
@@ -80,8 +79,8 @@ struct _dynamic_initial_gain_threshold_ {
 
 	u8		dig_dynamic_min_0;
 	u8		dig_dynamic_min_1;
-	bool		is_media_connect_0;
-	bool		is_media_connect_1;
+	boolean		is_media_connect_0;
+	boolean		is_media_connect_1;
 
 	u32		ant_div_rssi_max;
 	u32		RSSI_max;
@@ -91,12 +90,12 @@ struct _dynamic_initial_gain_threshold_ {
 	u8		pause_dig_level;
 	u8		pause_dig_value[DM_DIG_MAX_PAUSE_TYPE + 1];
 
-	u32		cck_fa_ma;
 	enum dig_goupcheck_level		dig_go_up_check_level;
+	u8		aaa_default;
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
-	bool					is_tp_target;
-	bool					is_noise_est;
+	boolean					is_tp_target;
+	boolean					is_noise_est;
 	u32					tp_train_th_min;
 	u8					igi_offset_a;
 	u8					igi_offset_b;
@@ -110,6 +109,10 @@ struct _dynamic_initial_gain_threshold_ {
 	u8		big_jump_step1:3;
 	u8		big_jump_step2:2;
 	u8		big_jump_step3:2;
+#endif
+
+#if (DIG_HW == 1)
+	u8		pre_rssi_min;
 #endif
 };
 
@@ -136,14 +139,16 @@ struct _FALSE_ALARM_STATISTICS {
 	u32		cnt_ofdm_crc32_ok;
 	u32		cnt_ht_crc32_error;
 	u32		cnt_ht_crc32_ok;
+	u32		cnt_ht_crc32_error_agg;
+	u32		cnt_ht_crc32_ok_agg;
 	u32		cnt_vht_crc32_error;
 	u32		cnt_vht_crc32_ok;
 	u32		cnt_crc32_error_all;
 	u32		cnt_crc32_ok_all;
-	bool		cck_block_enable;
-	bool		ofdm_block_enable;
+	boolean		cck_block_enable;
+	boolean		ofdm_block_enable;
 	u32		dbg_port0;
-	bool		edcca_flag;
+	boolean		edcca_flag;
 };
 
 enum dm_dig_op_e {
@@ -211,6 +216,14 @@ enum phydm_pause_level {
 	PHYDM_PAUSE_LEVEL_7 = DM_DIG_MAX_PAUSE_TYPE		/* maximum level */
 };
 
+/*CCK PD*/
+#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
+	#if (RTL8197F_SUPPORT == 1)
+    #define     AAA_BASE    p_dm_odm->priv->pshare->rf_ft_var.dbg_aaa_base   /*4*/
+    #define     AAA_STEP    p_dm_odm->priv->pshare->rf_ft_var.dbg_aaa_step   /*2*/
+	#endif
+#endif
+
 #define		DM_DIG_THRESH_HIGH			40
 #define		DM_DIG_THRESH_LOW			35
 
@@ -221,8 +234,13 @@ enum phydm_pause_level {
 #define		DM_DIG_MIN_NIC				0x20
 #define		DM_DIG_MAX_OF_MIN_NIC		0x3e
 
+#if (DIG_HW == 1)
+#define		DM_DIG_MAX_AP					p_dm_odm->priv->pshare->rf_ft_var.dbg_dig_upper /* 0x3e */
+#define		DM_DIG_MIN_AP					((p_dm_odm->support_ic_type & (ODM_RTL8812 | ODM_RTL8822B)) ? 0x1c : 0x20)/* 0x1c */
+#else
 #define		DM_DIG_MAX_AP					0x3e
 #define		DM_DIG_MIN_AP					0x20
+#endif
 #define		DM_DIG_MAX_OF_MIN			0x2A	/* 0x32 */
 #define		DM_DIG_MIN_AP_DFS				0x20
 
@@ -234,7 +252,11 @@ enum phydm_pause_level {
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	#define		DM_DIG_MAX_AP_COVERAGR		0x26
+#if (DIG_HW == 1)
+	#define		DM_DIG_MIN_AP_COVERAGE		((p_dm_odm->support_ic_type & (ODM_RTL8812 | ODM_RTL8822B)) ? 0x1c : 0x20)
+#else
 	#define		DM_DIG_MIN_AP_COVERAGE		0x1c
+#endif
 	#define		DM_DIG_MAX_OF_MIN_COVERAGE	0x22
 
 	#define		dm_dig_tp_target_th0			500
@@ -332,7 +354,7 @@ odm_write_cck_cca_thres(
 	u8					cur_cck_cca_thres
 );
 
-bool
+boolean
 phydm_dig_go_up_check(
 	void		*p_dm_void
 );

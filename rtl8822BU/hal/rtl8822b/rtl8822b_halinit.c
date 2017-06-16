@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822B_HALINIT_C_
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
@@ -40,7 +35,8 @@ void rtl8822b_init_hal_spec(PADAPTER adapter)
 	hal_spec->rfpath_num_2g = 2;
 	hal_spec->rfpath_num_5g = 2;
 	hal_spec->max_tx_cnt = 2;
-	hal_spec->nss_num = 2;
+	hal_spec->tx_nss_num = 2;
+	hal_spec->rx_nss_num = 2;
 	hal_spec->band_cap = BAND_CAP_2G | BAND_CAP_5G;
 	hal_spec->bw_cap = BW_CAP_20M | BW_CAP_40M | BW_CAP_80M;
 	hal_spec->port_num = 5;
@@ -81,11 +77,6 @@ u32 rtl8822b_power_on(PADAPTER adapter)
 	bMacPwrCtrlOn = _TRUE;
 	rtw_hal_set_hwreg(adapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
 
-#ifdef CONFIG_BT_COEXIST
-	hal = GET_HAL_DATA(adapter);
-	if (hal->EEPROMBluetoothCoexist)
-		rtw_btcoex_PowerOnSetting(adapter);
-#endif /* CONFIG_BT_COEXIST */
 out:
 	return ret;
 }
@@ -113,7 +104,7 @@ void rtl8822b_power_off(PADAPTER adapter)
 	bMacPwrCtrlOn = _FALSE;
 	rtw_hal_set_hwreg(adapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
 
-	adapter->bFWReady = _FALSE;
+	GET_HAL_DATA(adapter)->bFWReady = _FALSE;
 
 out:
 	return;
@@ -129,7 +120,7 @@ u8 rtl8822b_hal_init(PADAPTER adapter)
 	d = adapter_to_dvobj(adapter);
 	hal = GET_HAL_DATA(adapter);
 
-	adapter->bFWReady = _FALSE;
+	hal->bFWReady = _FALSE;
 	hal->fw_ractrl = _FALSE;
 
 #ifdef CONFIG_FILE_FWIMG
@@ -159,11 +150,12 @@ u8 rtl8822b_hal_init(PADAPTER adapter)
 	
 
 	RTW_INFO("%s Download Firmware from %s success\n", __FUNCTION__, (fw_bin) ? "file" : "array");
-	RTW_INFO("%s FW Version:%d SubVersion:%d\n", "NIC", hal->firmware_version, hal->firmware_sub_version);
+	RTW_INFO("%s FW Version:%d SubVersion:%d FW size:%d\n", "NIC",
+		hal->firmware_version, hal->firmware_sub_version, hal->firmware_size);
 
 	/* Sync driver status with hardware setting */
 	rtl8822b_rcr_get(adapter, NULL);
-	adapter->bFWReady = _TRUE;
+	hal->bFWReady = _TRUE;
 	hal->fw_ractrl = _TRUE;
 
 	return _TRUE;
@@ -245,7 +237,6 @@ void rtl8822b_init_misc(PADAPTER adapter)
 		rtw_read32(adapter, REG_FWHW_TXQ_CTRL_8822B) | BIT_EN_QUEUE_RPT_8822B(BIT(4)));
 #endif /* CONFIG_XMIT_ACK */
 
-
 }
 
 u32 rtl8822b_init(PADAPTER adapter)
@@ -289,7 +280,7 @@ u32 rtl8822b_deinit(PADAPTER adapter)
 	d = adapter_to_dvobj(adapter);
 	hal = GET_HAL_DATA(adapter);
 
-	adapter->bFWReady = _FALSE;
+	hal->bFWReady = _FALSE;
 	hal->fw_ractrl = _FALSE;
 
 	err = rtw_halmac_deinit_hal(d);
@@ -307,7 +298,8 @@ void rtl8822b_init_default_value(PADAPTER adapter)
 
 	hal = GET_HAL_DATA(adapter);
 
-	adapter->registrypriv.wireless_mode = WIRELESS_MODE_24G | WIRELESS_MODE_5G;
+	if (adapter->registrypriv.wireless_mode == WIRELESS_MODE_MAX)
+		adapter->registrypriv.wireless_mode = WIRELESS_MODE_24G | WIRELESS_MODE_5G;
 
 	/* init default value */
 	hal->fw_ractrl = _FALSE;

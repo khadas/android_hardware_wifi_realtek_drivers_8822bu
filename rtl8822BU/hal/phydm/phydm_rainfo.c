@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -238,7 +233,8 @@ odm_ra_para_adjust_init(
 #endif
 	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_RA_DBG, ODM_DBG_LOUD, ("odm_ra_para_adjust_init\n"));
 
-	if (p_dm_odm->support_ic_type & (ODM_RTL8188F | ODM_RTL8195A | ODM_RTL8703B | ODM_RTL8723B | ODM_RTL8188E | ODM_RTL8723D))
+/* JJ ADD 20161014 */
+	if (p_dm_odm->support_ic_type & (ODM_RTL8188F | ODM_RTL8195A | ODM_RTL8703B | ODM_RTL8723B | ODM_RTL8188E | ODM_RTL8723D | ODM_RTL8710B))
 		p_ra_table->rate_length = rate_size_ht_1ss;
 	else if (p_dm_odm->support_ic_type & (ODM_RTL8192E | ODM_RTL8197F))
 		p_ra_table->rate_length = rate_size_ht_2ss;
@@ -303,11 +299,15 @@ odm_c2h_ra_para_report_handler(
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+#if (defined(CONFIG_RA_DBG_CMD))
 	struct _rate_adaptive_table_			*p_ra_table = &p_dm_odm->dm_ra_table;
+#endif
 
 	u8	para_idx = cmd_buf[0]; /*Retry Penalty, NH, NL*/
+#if (defined(CONFIG_RA_DBG_CMD))
 	u8	rate_type_start = cmd_buf[1];
 	u8	rate_type_length = cmd_len - 2;
+#endif
 	u8	i;
 
 
@@ -418,10 +418,6 @@ phydm_ra_dynamic_retry_count(
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	struct _rate_adaptive_table_		*p_ra_table = &p_dm_odm->dm_ra_table;
-	struct sta_info		*p_entry;
-	u8	i, retry_offset;
-	u32	ma_rx_tp;
 
 	if (!(p_dm_odm->support_ability & ODM_BB_DYNAMIC_ARFR))
 		return;
@@ -538,7 +534,6 @@ phydm_ra_dynamic_retry_limit(
 #if (defined(CONFIG_RA_DYNAMIC_RTY_LIMIT))
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _rate_adaptive_table_		*p_ra_table = &p_dm_odm->dm_ra_table;
-	struct sta_info		*p_entry;
 	u8	i, retry_offset;
 	u32	ma_rx_tp;
 
@@ -707,16 +702,14 @@ phydm_c2h_ra_report_handler(
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _rate_adaptive_table_		*p_ra_table = &p_dm_odm->dm_ra_table;
-	u8	legacy_table[12] = {1, 2, 5, 11, 6, 9, 12, 18, 24, 36, 48, 54};
 	u8	macid = cmd_buf[1];
 	u8	rate = cmd_buf[0];
 	u8	rate_idx = rate & 0x7f; /*remove bit7 SGI*/
-	u8	pre_rate = p_ra_table->link_tx_rate[macid];
 	u8	rate_order;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	struct _ADAPTER	*adapter = p_dm_odm->adapter;
 
-	GET_HAL_DATA(adapter)->current_ra_rate = hw_rate_to_m_rate(rate_idx);
+	GET_HAL_DATA(adapter)->CurrentRARate = HwRateToMRate(rate_idx);
 #endif
 
 
@@ -790,7 +783,7 @@ odm_rssi_monitor_init(
 
 	p_ra_table->PT_collision_pre = true;	/*used in odm_dynamic_arfb_select(WIN only)*/
 
-	p_hal_data->undecorated_smoothed_pwdb = -1;
+	p_hal_data->UndecoratedSmoothedPWDB = -1;
 	p_hal_data->ra_rpt_linked = false;
 #endif
 
@@ -805,12 +798,13 @@ odm_ra_post_action_on_assoc(
 	void	*p_dm_void
 )
 {
+#if 0
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	/*
-		p_dm_odm->h2c_rarpt_connect = 1;
-		odm_rssi_monitor_check(p_dm_odm);
-		p_dm_odm->h2c_rarpt_connect = 0;
-	*/
+
+	p_dm_odm->h2c_rarpt_connect = 1;
+	odm_rssi_monitor_check(p_dm_odm);
+	p_dm_odm->h2c_rarpt_connect = 0;
+#endif
 }
 
 void
@@ -856,7 +850,7 @@ odm_rssi_monitor_check_mp(
 	struct _rate_adaptive_table_			*p_ra_table = &p_dm_odm->dm_ra_table;
 	u8			h2c_parameter[H2C_0X42_LENGTH] = {0};
 	u32			i;
-	bool			is_ext_ra_info = true;
+	boolean			is_ext_ra_info = true;
 	u8			cmdlen = H2C_0X42_LENGTH;
 	u8			tx_bf_en = 0, stbc_en = 0;
 
@@ -864,15 +858,15 @@ odm_rssi_monitor_check_mp(
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
 	struct sta_info		*p_entry = NULL;
 	s32			tmp_entry_max_pwdb = 0, tmp_entry_min_pwdb = 0xff;
-	PMGNT_INFO		p_mgnt_info = &adapter->mgnt_info;
-	PMGNT_INFO		p_default_mgnt_info = &adapter->mgnt_info;
+	PMGNT_INFO		p_mgnt_info = &adapter->MgntInfo;
+	PMGNT_INFO		p_default_mgnt_info = &adapter->MgntInfo;
 	u64			cur_tx_ok_cnt = 0, cur_rx_ok_cnt = 0;
 #if (BEAMFORMING_SUPPORT == 1)
 #ifndef BEAMFORMING_VERSION_1
 	enum beamforming_cap beamform_cap = BEAMFORMING_CAP_NONE;
 #endif
 #endif
-	struct _ADAPTER	*p_loop_adapter = get_default_adapter(adapter);
+	struct _ADAPTER	*p_loop_adapter = GetDefaultAdapter(adapter);
 
 	if (p_dm_odm->support_ic_type == ODM_RTL8188E) {
 		is_ext_ra_info = false;
@@ -882,48 +876,48 @@ odm_rssi_monitor_check_mp(
 	while (p_loop_adapter) {
 
 		if (p_loop_adapter != NULL) {
-			p_mgnt_info = &p_loop_adapter->mgnt_info;
-			cur_tx_ok_cnt = p_loop_adapter->tx_stats.num_tx_bytes_unicast - p_mgnt_info->last_tx_ok_cnt;
-			cur_rx_ok_cnt = p_loop_adapter->rx_stats.num_rx_bytes_unicast - p_mgnt_info->last_rx_ok_cnt;
-			p_mgnt_info->last_tx_ok_cnt = cur_tx_ok_cnt;
-			p_mgnt_info->last_rx_ok_cnt = cur_rx_ok_cnt;
+			p_mgnt_info = &p_loop_adapter->MgntInfo;
+			cur_tx_ok_cnt = p_loop_adapter->TxStats.NumTxBytesUnicast - p_mgnt_info->lastTxOkCnt;
+			cur_rx_ok_cnt = p_loop_adapter->RxStats.NumRxBytesUnicast - p_mgnt_info->lastRxOkCnt;
+			p_mgnt_info->lastTxOkCnt = cur_tx_ok_cnt;
+			p_mgnt_info->lastRxOkCnt = cur_rx_ok_cnt;
 		}
 
 		for (i = 0; i < ASSOCIATE_ENTRY_NUM; i++) {
 
-			if (is_ap_mode_exist(p_loop_adapter)) {
-				if (get_first_ext_adapter(p_loop_adapter) != NULL &&
-				    get_first_ext_adapter(p_loop_adapter) == p_loop_adapter)
-					p_entry = asoc_entry_enum_station(p_loop_adapter, i);
-				else if (get_first_go_port(p_loop_adapter) != NULL &&
-					 is_first_go_adapter(p_loop_adapter))
-					p_entry = asoc_entry_enum_station(p_loop_adapter, i);
+			if (IsAPModeExist(p_loop_adapter)) {
+				if (GetFirstExtAdapter(p_loop_adapter) != NULL &&
+				    GetFirstExtAdapter(p_loop_adapter) == p_loop_adapter)
+				p_entry = AsocEntry_EnumStation(p_loop_adapter, i);
+				else if (GetFirstGOPort(p_loop_adapter) != NULL &&
+					 IsFirstGoAdapter(p_loop_adapter))
+				p_entry = AsocEntry_EnumStation(p_loop_adapter, i);
 			} else {
-				if (get_default_adapter(p_loop_adapter) == p_loop_adapter)
-					p_entry = asoc_entry_enum_station(p_loop_adapter, i);
+				if (GetDefaultAdapter(p_loop_adapter) == p_loop_adapter)
+					p_entry = AsocEntry_EnumStation(p_loop_adapter, i);
 			}
 
 			if (p_entry != NULL) {
-				if (p_entry->is_associated) {
+				if (p_entry->bAssociated) {
 
-					RT_DISP_ADDR(FDM, DM_PWDB, ("p_entry->mac_addr ="), p_entry->mac_addr);
+					RT_DISP_ADDR(FDM, DM_PWDB, ("p_entry->mac_addr ="), p_entry->MacAddr);
 					RT_DISP(FDM, DM_PWDB, ("p_entry->rssi = 0x%x(%d)\n",
 						p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->rssi_stat.undecorated_smoothed_pwdb));
 
 					/* 2 BF_en */
 #if (BEAMFORMING_SUPPORT == 1)
 #ifndef BEAMFORMING_VERSION_1
-					beamform_cap = phydm_beamforming_get_entry_beam_cap_by_mac_id(p_dm_odm, p_entry->associated_mac_id);
+					beamform_cap = phydm_beamforming_get_entry_beam_cap_by_mac_id(p_dm_odm, p_entry->AssociatedMacId);
 					if (beamform_cap & (BEAMFORMER_CAP_HT_EXPLICIT | BEAMFORMER_CAP_VHT_SU))
 						tx_bf_en = 1;
 #else
-					if (beamform_get_support_beamformer_cap(get_default_adapter(adapter), p_entry))
+					if (Beamform_GetSupportBeamformerCap(GetDefaultAdapter(adapter), p_entry))
 						tx_bf_en = 1;
 #endif
 #endif
 					/* 2 STBC_en */
-					if ((IS_WIRELESS_MODE_AC(adapter) && TEST_FLAG(p_entry->vht_info.STBC, STBC_VHT_ENABLE_TX)) ||
-					    TEST_FLAG(p_entry->ht_info.STBC, STBC_HT_ENABLE_TX))
+					if ((IS_WIRELESS_MODE_AC(adapter) && TEST_FLAG(p_entry->VHTInfo.STBC, STBC_VHT_ENABLE_TX)) ||
+					    TEST_FLAG(p_entry->HTInfo.STBC, STBC_HT_ENABLE_TX))
 						stbc_en = 1;
 
 					if (p_entry->rssi_stat.undecorated_smoothed_pwdb < tmp_entry_min_pwdb)
@@ -968,7 +962,7 @@ odm_rssi_monitor_check_mp(
 
 					h2c_parameter[2] = (u8)(p_entry->rssi_stat.undecorated_smoothed_pwdb & 0xFF);
 					/* h2c_parameter[1] = 0x20;   */ /* fw v12 cmdid 5:use max macid ,for nic ,default macid is 0 ,max macid is 1 */
-					h2c_parameter[0] = (p_entry->associated_mac_id);
+					h2c_parameter[0] = (p_entry->AssociatedMacId);
 
 					odm_fill_h2c_cmd(p_dm_odm, ODM_H2C_RSSI_REPORT, cmdlen, h2c_parameter);
 				}
@@ -976,29 +970,29 @@ odm_rssi_monitor_check_mp(
 				break;
 		}
 
-		p_loop_adapter = get_next_ext_adapter(p_loop_adapter);
+		p_loop_adapter = GetNextExtAdapter(p_loop_adapter);
 	}
 
 
 	/*Default port*/
 	if (tmp_entry_max_pwdb != 0) {	/* If associated entry is found */
-		p_hal_data->entry_max_undecorated_smoothed_pwdb = tmp_entry_max_pwdb;
+		p_hal_data->EntryMaxUndecoratedSmoothedPWDB = tmp_entry_max_pwdb;
 		RT_DISP(FDM, DM_PWDB, ("EntryMaxPWDB = 0x%x(%d)\n",	tmp_entry_max_pwdb, tmp_entry_max_pwdb));
 	} else
-		p_hal_data->entry_max_undecorated_smoothed_pwdb = 0;
+		p_hal_data->EntryMaxUndecoratedSmoothedPWDB = 0;
 
 	if (tmp_entry_min_pwdb != 0xff) { /* If associated entry is found */
-		p_hal_data->entry_min_undecorated_smoothed_pwdb = tmp_entry_min_pwdb;
+		p_hal_data->EntryMinUndecoratedSmoothedPWDB = tmp_entry_min_pwdb;
 		RT_DISP(FDM, DM_PWDB, ("EntryMinPWDB = 0x%x(%d)\n", tmp_entry_min_pwdb, tmp_entry_min_pwdb));
 
 	} else
-		p_hal_data->entry_min_undecorated_smoothed_pwdb = 0;
+		p_hal_data->EntryMinUndecoratedSmoothedPWDB = 0;
 
 	/* Default porti sent RSSI to FW */
-	if (p_hal_data->is_use_ra_mask) {
+	if (p_hal_data->bUseRAMask) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_RSSI_MONITOR, ODM_DBG_LOUD, ("1 RA First Link, RSSI[%d] = ((%d)) , ra_rpt_linked = ((%d))\n",
-			WIN_DEFAULT_PORT_MACID, p_hal_data->undecorated_smoothed_pwdb, p_hal_data->ra_rpt_linked));
-		if (p_hal_data->undecorated_smoothed_pwdb > 0) {
+			WIN_DEFAULT_PORT_MACID, p_hal_data->UndecoratedSmoothedPWDB, p_hal_data->ra_rpt_linked));
+		if (p_hal_data->UndecoratedSmoothedPWDB > 0) {
 
 			PRT_HIGH_THROUGHPUT			p_ht_info = GET_HT_INFO(p_default_mgnt_info);
 			PRT_VERY_HIGH_THROUGHPUT	p_vht_info = GET_VHT_INFO(p_default_mgnt_info);
@@ -1011,14 +1005,14 @@ odm_rssi_monitor_check_mp(
 			if (beamform_cap & (BEAMFORMER_CAP_HT_EXPLICIT | BEAMFORMER_CAP_VHT_SU))
 				tx_bf_en = 1;
 #else
-			if (beamform_get_support_beamformer_cap(get_default_adapter(adapter), NULL))
+			if (Beamform_GetSupportBeamformerCap(GetDefaultAdapter(adapter), NULL))
 				tx_bf_en = 1;
 #endif
 #endif
 
 			/* STBC_en*/
-			if ((IS_WIRELESS_MODE_AC(adapter) && TEST_FLAG(p_vht_info->vht_cur_stbc, STBC_VHT_ENABLE_TX)) ||
-			    TEST_FLAG(p_ht_info->ht_cur_stbc, STBC_HT_ENABLE_TX))
+			if ((IS_WIRELESS_MODE_AC(adapter) && TEST_FLAG(p_vht_info->VhtCurStbc, STBC_VHT_ENABLE_TX)) ||
+			    TEST_FLAG(p_ht_info->HtCurStbc, STBC_HT_ENABLE_TX))
 				stbc_en = 1;
 
 			h2c_parameter[4] = (p_ra_table->RA_threshold_offset & 0x7f) | (p_ra_table->RA_offset_direction << 7);
@@ -1062,7 +1056,7 @@ odm_rssi_monitor_check_mp(
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_NOISY_DETECT, ODM_DBG_LOUD, ("[RSSIMonitorCheckMP] h2c_parameter=%x\n", h2c_parameter[3]));
 			}
 
-			h2c_parameter[2] = (u8)(p_hal_data->undecorated_smoothed_pwdb & 0xFF);
+			h2c_parameter[2] = (u8)(p_hal_data->UndecoratedSmoothedPWDB & 0xFF);
 			/*h2c_parameter[1] = 0x20;*/	/* fw v12 cmdid 5:use max macid ,for nic ,default macid is 0 ,max macid is 1*/
 			h2c_parameter[0] = WIN_DEFAULT_PORT_MACID;		/* fw v12 cmdid 5:use max macid ,for nic ,default macid is 0 ,max macid is 1*/
 
@@ -1078,17 +1072,17 @@ odm_rssi_monitor_check_mp(
 			odm_fill_h2c_cmd(p_dm_odm, ODM_H2C_RSSI_REPORT, cmdlen, h2c_parameter);
 		}
 	} else
-		platform_efio_write_1byte(adapter, 0x4fe, (u8)p_hal_data->undecorated_smoothed_pwdb);
+		PlatformEFIOWrite1Byte(adapter, 0x4fe, (u8)p_hal_data->UndecoratedSmoothedPWDB);
 
 	if ((p_dm_odm->support_ic_type == ODM_RTL8812) || (p_dm_odm->support_ic_type == ODM_RTL8192E))
 		odm_rssi_dump_to_register(p_dm_odm);
 
 
 	{
-		struct _ADAPTER *p_loop_adapter = get_default_adapter(adapter);
-		bool		default_pointer_value, *p_is_link_temp = &default_pointer_value;
+		struct _ADAPTER *p_loop_adapter = GetDefaultAdapter(adapter);
+		boolean		default_pointer_value, *p_is_link_temp = &default_pointer_value;
 		s32	global_rssi_min = 0xFF, local_rssi_min;
-		bool		is_link = false;
+		boolean		is_link = false;
 
 		while (p_loop_adapter) {
 			local_rssi_min = phydm_find_minimum_rssi(p_dm_odm, p_loop_adapter, p_is_link_temp);
@@ -1100,23 +1094,23 @@ odm_rssi_monitor_check_mp(
 			if ((local_rssi_min < global_rssi_min) && (*p_is_link_temp))
 				global_rssi_min = local_rssi_min;
 
-			p_loop_adapter = get_next_ext_adapter(p_loop_adapter);
+			p_loop_adapter = GetNextExtAdapter(p_loop_adapter);
 		}
 
-		p_hal_data->is_linked = is_link;
-		odm_cmn_info_update(&p_hal_data->dm_out_src, ODM_CMNINFO_LINK, (u64)is_link);
+		p_hal_data->bLinked = is_link;
+		odm_cmn_info_update(&p_hal_data->DM_OutSrc, ODM_CMNINFO_LINK, (u64)is_link);
 
 		if (is_link)
-			odm_cmn_info_update(&p_hal_data->dm_out_src, ODM_CMNINFO_RSSI_MIN, (u64)global_rssi_min);
+			odm_cmn_info_update(&p_hal_data->DM_OutSrc, ODM_CMNINFO_RSSI_MIN, (u64)global_rssi_min);
 		else
-			odm_cmn_info_update(&p_hal_data->dm_out_src, ODM_CMNINFO_RSSI_MIN, 0);
+			odm_cmn_info_update(&p_hal_data->DM_OutSrc, ODM_CMNINFO_RSSI_MIN, 0);
 
 	}
 
 #endif	/*  #if (DM_ODM_SUPPORT_TYPE == ODM_WIN) */
 }
 
-#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && !defined(DM_ODM_CE_MAC80211)
 /*H2C_RSSI_REPORT*/
 s8 phydm_rssi_report(struct PHY_DM_STRUCT *p_dm_odm, u8 mac_id)
 {
@@ -1140,6 +1134,9 @@ s8 phydm_rssi_report(struct PHY_DM_STRUCT *p_dm_odm, u8 mac_id)
 	}
 
 	if (IS_MCAST(p_entry->hwaddr))  /*if(psta->mac_id ==1)*/
+		return _FAIL;
+
+	if (p_dm_odm->is_in_lps_pg)
 		return _FAIL;
 
 	if (p_entry->rssi_stat.undecorated_smoothed_pwdb == (-1)) {
@@ -1177,7 +1174,9 @@ s8 phydm_rssi_report(struct PHY_DM_STRUCT *p_dm_odm, u8 mac_id)
 			STBC_TX = TEST_FLAG(p_entry->vhtpriv.stbc_cap, STBC_VHT_ENABLE_TX);
 		else
 #endif
+#ifdef CONFIG_80211N_HT
 			STBC_TX = TEST_FLAG(p_entry->htpriv.stbc_cap, STBC_HT_ENABLE_TX);
+#endif
 	}
 
 	h2c_parameter[0] = (u8)(p_entry->mac_id & 0xFF);
@@ -1258,6 +1257,87 @@ void phydm_ra_rssi_rpt_wk(void *p_context)
 }
 #endif
 
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+void
+odm_rssi_monitor_check_ce(
+	void		*p_dm_void
+)
+{
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+	struct _rate_adaptive_table_	*p_ra_table = &p_dm_odm->dm_ra_table;
+	struct rtl_priv		*rtlpriv = (struct rtl_priv *)p_dm_odm->adapter;
+	struct rtl_mac *mac = rtl_mac(rtlpriv);
+	struct rtl_sta_info           *p_entry;
+	int	i;
+	int	tmp_entry_min_pwdb = 0xff;
+	unsigned long	cur_tx_ok_cnt = 0, cur_rx_ok_cnt = 0;
+	u8 UL_DL_STATE = 0, STBC_TX = 0, tx_bf_en = 0;
+	u8 h2c_parameter[H2C_0X42_LENGTH] = {0};
+	u8 cmdlen = H2C_0X42_LENGTH;
+	u8 macid = 0;
+
+	if (p_dm_odm->is_linked != _TRUE)
+		return;
+
+	for (i = 0; i < ODM_ASSOCIATE_ENTRY_NUM; i++) {
+		p_entry = (struct rtl_sta_info *)p_dm_odm->p_odm_sta_info[i];
+		if (!IS_STA_VALID(p_entry))
+			continue;
+
+		if (is_multicast_ether_addr(p_entry->mac_addr) ||
+		    is_broadcast_ether_addr(p_entry->mac_addr))
+			continue;
+
+		if (p_entry->rssi_stat.undecorated_smoothed_pwdb == (-1))
+			continue;
+
+		/* calculate min_pwdb */
+		if (p_entry->rssi_stat.undecorated_smoothed_pwdb < tmp_entry_min_pwdb)
+			tmp_entry_min_pwdb = p_entry->rssi_stat.undecorated_smoothed_pwdb;
+
+		/* report RSSI */
+		cur_tx_ok_cnt = rtlpriv->stats.txbytesunicast_inperiod;
+		cur_rx_ok_cnt = rtlpriv->stats.rxbytesunicast_inperiod;
+
+		if (cur_rx_ok_cnt > (cur_tx_ok_cnt * 6))
+			UL_DL_STATE = 1;
+		else
+			UL_DL_STATE = 0;
+
+		if (mac->opmode == NL80211_IFTYPE_AP ||
+		    mac->opmode == NL80211_IFTYPE_ADHOC) {
+			struct ieee80211_sta *sta =
+				container_of((void *)p_entry, struct ieee80211_sta, drv_priv);
+			macid = sta->aid + 1;
+		}
+
+		h2c_parameter[0] = macid;
+		h2c_parameter[2] = p_entry->rssi_stat.undecorated_smoothed_pwdb & 0x7F;
+
+		if (UL_DL_STATE)
+			h2c_parameter[3] |= RAINFO_BE_RX_STATE;
+
+		if (tx_bf_en)
+			h2c_parameter[3] |= RAINFO_BF_STATE;
+		if (STBC_TX)
+			h2c_parameter[3] |= RAINFO_STBC_STATE;
+		if (p_dm_odm->noisy_decision)
+			h2c_parameter[3] |= RAINFO_NOISY_STATE;
+
+		if (p_entry->rssi_stat.is_send_rssi == RA_RSSI_STATE_SEND) {
+			h2c_parameter[3] |= RAINFO_INIT_RSSI_RATE_STATE;
+			p_entry->rssi_stat.is_send_rssi = RA_RSSI_STATE_HOLD;
+		}
+
+		h2c_parameter[4] = (p_ra_table->RA_threshold_offset & 0x7f) | (p_ra_table->RA_offset_direction << 7);
+
+		odm_fill_h2c_cmd(p_dm_odm, ODM_H2C_RSSI_REPORT, cmdlen, h2c_parameter);
+	}
+
+	if (tmp_entry_min_pwdb != 0xff)
+		p_dm_odm->rssi_min = tmp_entry_min_pwdb;
+}
+#else
 void
 odm_rssi_monitor_check_ce(
 	void		*p_dm_void
@@ -1311,6 +1391,7 @@ odm_rssi_monitor_check_ce(
 	/* odm_cmn_info_update(&p_hal_data->odmpriv,ODM_CMNINFO_RSSI_MIN, pdmpriv->min_undecorated_pwdb_for_dm); */
 #endif/* if (DM_ODM_SUPPORT_TYPE == ODM_CE) */
 }
+#endif
 
 
 void
@@ -1325,13 +1406,13 @@ odm_rssi_monitor_check_ap(
 	struct _rate_adaptive_table_			*p_ra_table = &p_dm_odm->dm_ra_table;
 	u8			h2c_parameter[H2C_0X42_LENGTH] = {0};
 	u32			 i;
-	bool			is_ext_ra_info = true;
+	boolean			is_ext_ra_info = true;
 	u8			cmdlen = H2C_0X42_LENGTH;
 	u8			tx_bf_en = 0, stbc_en = 0;
 
 	struct rtl8192cd_priv	*priv		= p_dm_odm->priv;
 	struct sta_info	*pstat;
-	bool			act_bfer = false;
+	boolean			act_bfer = false;
 
 #if (BEAMFORMING_SUPPORT == 1)
 	u8	idx = 0xff;
@@ -1482,15 +1563,15 @@ odm_rate_adaptive_mask_init(
 	struct _ODM_RATE_ADAPTIVE	*p_odm_ra = &p_dm_odm->rate_adaptive;
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	PMGNT_INFO		p_mgnt_info = &p_dm_odm->adapter->mgnt_info;
+	PMGNT_INFO		p_mgnt_info = &p_dm_odm->adapter->MgntInfo;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_dm_odm->adapter);
 
-	p_mgnt_info->ratr_state = DM_RATR_STA_INIT;
+	p_mgnt_info->Ratr_State = DM_RATR_STA_INIT;
 
-	if (p_mgnt_info->dm_type == dm_type_by_driver)
-		p_hal_data->is_use_ra_mask = true;
+	if (p_mgnt_info->DM_Type == dm_type_by_driver)
+		p_hal_data->bUseRAMask = true;
 	else
-		p_hal_data->is_use_ra_mask = false;
+		p_hal_data->bUseRAMask = false;
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	p_odm_ra->type = dm_type_by_driver;
@@ -1623,6 +1704,17 @@ phydm_trans_platform_bw(
 	else if (BW == HT_CHANNEL_WIDTH_5)
 		BW = PHYDM_BW_5;
 
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+
+	if (BW == HT_CHANNEL_WIDTH_20)
+		BW = PHYDM_BW_20;
+
+	else if (BW == HT_CHANNEL_WIDTH_20_40)
+		BW = PHYDM_BW_40;
+
+	else if (BW == HT_CHANNEL_WIDTH_80)
+		BW = PHYDM_BW_80;
+
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 
 	if (BW == CHANNEL_WIDTH_20)
@@ -1750,6 +1842,7 @@ phydm_trans_platform_wireless_mode(
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
 
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 
 	if (wireless_mode == WIRELESS_11A)
@@ -1899,6 +1992,7 @@ phydm_rate_id_mapping(
 
 	case PHYDM_WIRELESS_MODE_AC_24G:
 	{
+		/*Becareful to set "Lowest rate" while using PHYDM_ARFR4_AC_3SS in 2.4G/5G*/
 		if (phydm_BW >= PHYDM_BW_80) {
 			if (phydm_rf_type == PHYDM_RF_1T1R)
 				rate_id_idx = PHYDM_ARFR1_AC_1SS;
@@ -1910,8 +2004,10 @@ phydm_rate_id_mapping(
 
 			if (phydm_rf_type == PHYDM_RF_1T1R)
 				rate_id_idx = PHYDM_ARFR2_AC_2G_1SS;
-			else
+			else if (phydm_rf_type == PHYDM_RF_2T2R)
 				rate_id_idx = PHYDM_ARFR3_AC_2G_2SS;
+			else
+				rate_id_idx = PHYDM_ARFR4_AC_3SS;
 		}
 	}
 	break;
@@ -1940,7 +2036,6 @@ phydm_update_hal_ra_mask(
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	u32			mask_rate_threshold;
 	u8			phydm_rf_type;
 	u8			phydm_BW;
 	u32			ratr_bitmap = *ratr_bitmap_lsb_in, ratr_bitmap_msb = *ratr_bitmap_msb_in;
@@ -2083,7 +2178,6 @@ phydm_RA_level_decision(
 )
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	u8	ra_lowest_rate;
 	u8	ra_rate_floor_table[RA_FLOOR_TABLE_SIZE] = {20, 34, 38, 42, 46, 50, 100}; /*MCS0 ~ MCS4 , VHT1SS MCS0 ~ MCS4 , G 6M~24M*/
 	u8	new_ratr_state = 0;
 	u8	i;
@@ -2125,87 +2219,102 @@ odm_refresh_rate_adaptive_mask_mp(
 	struct _ADAPTER				*p_adapter	 =  p_dm_odm->adapter;
 	struct _ADAPTER				*p_target_adapter = NULL;
 	HAL_DATA_TYPE			*p_hal_data = GET_HAL_DATA(p_adapter);
-	PMGNT_INFO				p_mgnt_info = get_default_mgnt_info(p_adapter);
+	PMGNT_INFO				p_mgnt_info = GetDefaultMgntInfo(p_adapter);
+	struct _ADAPTER			*p_loop_adapter = GetDefaultAdapter(p_adapter);
+	PMGNT_INFO					p_loop_mgnt_info = &(p_loop_adapter->MgntInfo);
+	HAL_DATA_TYPE				*p_loop_hal_data = GET_HAL_DATA(p_loop_adapter);
+	
 	u32		i;
 	struct sta_info *p_entry;
 	u8		ratr_state_new;
 
-	if (p_adapter->is_driver_stopped) {
+	if (p_adapter->bDriverStopped) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_TRACE, ("<---- odm_refresh_rate_adaptive_mask(): driver is going to unload\n"));
 		return;
 	}
 
-	if (!p_hal_data->is_use_ra_mask) {
+	if (!p_hal_data->bUseRAMask) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("<---- odm_refresh_rate_adaptive_mask(): driver does not control rate adaptive mask\n"));
 		return;
 	}
 
 	/* if default port is connected, update RA table for default port (infrastructure mode only) */
-	if (p_mgnt_info->m_assoc && (!ACTING_AS_AP(p_adapter))) {
-		odm_refresh_ldpc_rts_mp(p_adapter, p_dm_odm, p_mgnt_info->m_mac_id,  p_mgnt_info->iot_peer, p_hal_data->undecorated_smoothed_pwdb);
+	/* Need to consider other ports for P2P cases*/
+
+	while(p_loop_adapter){
+
+		p_loop_mgnt_info = &(p_loop_adapter->MgntInfo);
+		p_loop_hal_data = GET_HAL_DATA(p_loop_adapter);
+	
+		if (p_loop_mgnt_info->mAssoc && (!ACTING_AS_AP(p_loop_adapter))) {
+			odm_refresh_ldpc_rts_mp(p_loop_adapter, p_dm_odm, p_loop_mgnt_info->mMacId, p_loop_mgnt_info->IOTPeer, p_loop_hal_data->UndecoratedSmoothedPWDB);
 		/*ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Infrasture mode\n"));*/
 
 #if RA_MASK_PHYDMLIZE_WIN
-		ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_hal_data->undecorated_smoothed_pwdb, p_mgnt_info->ratr_state);
+			ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_loop_hal_data->UndecoratedSmoothedPWDB, p_loop_mgnt_info->Ratr_State);
 
-		if ((p_mgnt_info->ratr_state != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
+			if ((p_loop_mgnt_info->Ratr_State != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
 
 			p_ra_table->force_update_ra_mask_count = 0;
-			ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), p_mgnt_info->bssid);
+				ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), p_loop_mgnt_info->Bssid);
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Update RA Level: ((%x)) -> ((%x)),  RSSI = ((%d))\n\n",
-				p_mgnt_info->ratr_state, ratr_state_new, p_hal_data->undecorated_smoothed_pwdb));
+					p_mgnt_info->Ratr_State, ratr_state_new, p_loop_hal_data->UndecoratedSmoothedPWDB));
 
-			p_mgnt_info->ratr_state = ratr_state_new;
-			p_adapter->hal_func.update_hal_ra_mask_handler(p_adapter, p_mgnt_info->m_mac_id, NULL, ratr_state_new);
-		} else {
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Stay in RA level  = (( %d ))\n\n", ratr_state_new));
-			/**/
-		}
+				p_loop_mgnt_info->Ratr_State = ratr_state_new;
+				p_adapter->HalFunc.UpdateHalRAMaskHandler(p_loop_adapter, p_loop_mgnt_info->mMacId, NULL, ratr_state_new);
+			} else {
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Stay in RA level  = (( %d ))\n\n", ratr_state_new));
+				/**/
+			}
 
 #else
-		if (odm_ra_state_check(p_dm_odm, p_hal_data->undecorated_smoothed_pwdb, p_mgnt_info->is_set_tx_power_training_by_oid, &p_mgnt_info->ratr_state)) {
-			ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr : "), p_mgnt_info->bssid);
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_hal_data->undecorated_smoothed_pwdb, p_mgnt_info->ratr_state));
-			p_adapter->hal_func.update_hal_ra_mask_handler(p_adapter, p_mgnt_info->m_mac_id, NULL, p_mgnt_info->ratr_state);
-		} else if (p_dm_odm->is_change_state) {
-			ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr : "), p_mgnt_info->bssid);
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Change Power Training state, is_disable_power_training = %d\n", p_dm_odm->is_disable_power_training));
-			p_adapter->hal_func.update_hal_ra_mask_handler(p_adapter, p_mgnt_info->m_mac_id, NULL, p_mgnt_info->ratr_state);
-		}
+			if (odm_ra_state_check(p_dm_odm, p_hal_data->UndecoratedSmoothedPWDB, p_mgnt_info->bSetTXPowerTrainingByOid, &p_mgnt_info->Ratr_State)) {
+				ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr : "), p_mgnt_info->Bssid);
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_hal_data->UndecoratedSmoothedPWDB, p_mgnt_info->Ratr_State));
+				p_adapter->HalFunc.UpdateHalRAMaskHandler(p_adapter, p_mgnt_info->mMacId, NULL, p_mgnt_info->Ratr_State);
+			} else if (p_dm_odm->is_change_state) {
+				ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr : "), p_mgnt_info->Bssid);
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Change Power Training state, is_disable_power_training = %d\n", p_dm_odm->is_disable_power_training));
+				p_adapter->HalFunc.UpdateHalRAMaskHandler(p_adapter, p_mgnt_info->mMacId, NULL, p_mgnt_info->Ratr_State);
+			}
 #endif
+
+		}
+
+		p_loop_adapter = GetNextExtAdapter(p_loop_adapter);
 	}
 
 	/*  */
 	/* The following part configure AP/VWifi/IBSS rate adaptive mask. */
 	/*  */
 
-	if (p_mgnt_info->m_ibss)	/* Target: AP/IBSS peer. */
-		p_target_adapter = get_default_adapter(p_adapter);
+	if (p_mgnt_info->mIbss)	/* Target: AP/IBSS peer. */
+		p_target_adapter = GetDefaultAdapter(p_adapter);
 	else
-		p_target_adapter = get_first_ap_adapter(p_adapter);
+		p_target_adapter = GetFirstAPAdapter(p_adapter);
 
 	/* if extension port (softap) is started, updaet RA table for more than one clients associate */
 	if (p_target_adapter != NULL) {
 		for (i = 0; i < ODM_ASSOCIATE_ENTRY_NUM; i++) {
 
-			p_entry = asoc_entry_enum_station(p_target_adapter, i);
+			p_entry = AsocEntry_EnumStation(p_target_adapter, i);
 
 			if (IS_STA_VALID(p_entry)) {
 
-				odm_refresh_ldpc_rts_mp(p_adapter, p_dm_odm, p_entry->associated_mac_id, p_entry->iot_peer, p_entry->rssi_stat.undecorated_smoothed_pwdb);
+				odm_refresh_ldpc_rts_mp(p_target_adapter, p_dm_odm, p_entry->AssociatedMacId, p_entry->IOTPeer, p_entry->rssi_stat.undecorated_smoothed_pwdb);
 
 #if RA_MASK_PHYDMLIZE_WIN
-				ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->ratr_state);
+				ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->Ratr_State);
 
-				if ((p_entry->ratr_state != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
+				if ((p_entry->Ratr_State != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
 
 					p_ra_table->force_update_ra_mask_count = 0;
-					ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), p_entry->mac_addr);
+					ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), p_entry->MacAddr);
 					ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Update Tx RA Level: ((%x)) -> ((%x)),  RSSI = ((%d))\n",
-						p_entry->ratr_state, ratr_state_new,  p_entry->rssi_stat.undecorated_smoothed_pwdb));
+						p_entry->Ratr_State, ratr_state_new,  p_entry->rssi_stat.undecorated_smoothed_pwdb));
 
-					p_entry->ratr_state = ratr_state_new;
-					p_adapter->hal_func.update_hal_ra_mask_handler(p_adapter, p_entry->associated_mac_id, NULL, ratr_state_new);
+					p_entry->Ratr_State = ratr_state_new;
+					p_adapter->HalFunc.UpdateHalRAMaskHandler(p_target_adapter, p_entry->AssociatedMacId, p_entry, ratr_state_new);
 				} else {
 					ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Stay in RA level  = (( %d ))\n\n", ratr_state_new));
 					/**/
@@ -2214,13 +2323,13 @@ odm_refresh_rate_adaptive_mask_mp(
 
 #else
 
-				if (odm_ra_state_check(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_mgnt_info->is_set_tx_power_training_by_oid, &p_entry->ratr_state)) {
+				if (odm_ra_state_check(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_mgnt_info->bSetTXPowerTrainingByOid, &p_entry->Ratr_State)) {
 					ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target STA addr : "), p_entry->mac_addr);
-					ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->ratr_state));
-					p_adapter->hal_func.update_hal_ra_mask_handler(p_target_adapter, p_entry->associated_mac_id, p_entry, p_entry->ratr_state);
+					ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->Ratr_State));
+					p_adapter->hal_func.update_hal_ra_mask_handler(p_target_adapter, p_entry->AssociatedMacId, p_entry, p_entry->Ratr_State);
 				} else if (p_dm_odm->is_change_state) {
 					ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Change Power Training state, is_disable_power_training = %d\n", p_dm_odm->is_disable_power_training));
-					p_adapter->hal_func.update_hal_ra_mask_handler(p_adapter, p_mgnt_info->m_mac_id, NULL, p_mgnt_info->ratr_state);
+					p_adapter->HalFunc.UpdateHalRAMaskHandler(p_adapter, p_mgnt_info->mMacId, NULL, p_mgnt_info->Ratr_State);
 				}
 #endif
 
@@ -2231,8 +2340,8 @@ odm_refresh_rate_adaptive_mask_mp(
 #if RA_MASK_PHYDMLIZE_WIN
 
 #else
-	if (p_mgnt_info->is_set_tx_power_training_by_oid)
-		p_mgnt_info->is_set_tx_power_training_by_oid = false;
+	if (p_mgnt_info->bSetTXPowerTrainingByOid)
+		p_mgnt_info->bSetTXPowerTrainingByOid = false;
 #endif
 #endif	/*  #if (DM_ODM_SUPPORT_TYPE == ODM_WIN) */
 }
@@ -2247,15 +2356,19 @@ odm_refresh_rate_adaptive_mask_ce(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _rate_adaptive_table_			*p_ra_table = &p_dm_odm->dm_ra_table;
 	struct _ADAPTER	*p_adapter	 =  p_dm_odm->adapter;
+#if ((RTL8812A_SUPPORT == 1) || (RTL8821A_SUPPORT == 1))
 	struct _ODM_RATE_ADAPTIVE		*p_ra = &p_dm_odm->rate_adaptive;
+#endif
 	u32		i;
 	struct sta_info *p_entry;
 	u8		ratr_state_new;
 
+#ifndef DM_ODM_CE_MAC80211
 	if (RTW_CANNOT_RUN(p_adapter)) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_TRACE, ("<---- odm_refresh_rate_adaptive_mask(): driver is going to unload\n"));
 		return;
 	}
+#endif
 
 	if (!p_dm_odm->is_use_ra_mask) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("<---- odm_refresh_rate_adaptive_mask(): driver does not control rate adaptive mask\n"));
@@ -2266,57 +2379,70 @@ odm_refresh_rate_adaptive_mask_ce(
 
 		p_entry = p_dm_odm->p_odm_sta_info[i];
 
-		if (IS_STA_VALID(p_entry)) {
+		if (!IS_STA_VALID(p_entry)) {
+			continue;
+		}
 
-			if (IS_MCAST(p_entry->hwaddr))
-				continue;
+#ifdef DM_ODM_CE_MAC80211
+		if (is_multicast_ether_addr(p_entry->mac_addr))
+			continue;
+		else if (is_broadcast_ether_addr(p_entry->mac_addr))
+			continue;
+#else
+		if (IS_MCAST(p_entry->hwaddr))
+			continue;
+#endif
 
 #if ((RTL8812A_SUPPORT == 1) || (RTL8821A_SUPPORT == 1))
-			if ((p_dm_odm->support_ic_type == ODM_RTL8812) || (p_dm_odm->support_ic_type == ODM_RTL8821)) {
-				if (p_entry->rssi_stat.undecorated_smoothed_pwdb < p_ra->ldpc_thres) {
-					p_ra->is_use_ldpc = true;
-					p_ra->is_lower_rts_rate = true;
-					if ((p_dm_odm->support_ic_type == ODM_RTL8821) && (p_dm_odm->cut_version == ODM_CUT_A))
-						set_ra_ldpc_8812(p_entry, true);
-					/* dbg_print("RSSI=%d, is_use_ldpc = true\n", p_hal_data->undecorated_smoothed_pwdb); */
-				} else if (p_entry->rssi_stat.undecorated_smoothed_pwdb > (p_ra->ldpc_thres - 5)) {
-					p_ra->is_use_ldpc = false;
-					p_ra->is_lower_rts_rate = false;
-					if ((p_dm_odm->support_ic_type == ODM_RTL8821) && (p_dm_odm->cut_version == ODM_CUT_A))
-						set_ra_ldpc_8812(p_entry, false);
-					/* dbg_print("RSSI=%d, is_use_ldpc = false\n", p_hal_data->undecorated_smoothed_pwdb); */
-				}
+		if ((p_dm_odm->support_ic_type == ODM_RTL8812) || (p_dm_odm->support_ic_type == ODM_RTL8821)) {
+			if (p_entry->rssi_stat.undecorated_smoothed_pwdb < p_ra->ldpc_thres) {
+				p_ra->is_use_ldpc = true;
+				p_ra->is_lower_rts_rate = true;
+				if ((p_dm_odm->support_ic_type == ODM_RTL8821) && (p_dm_odm->cut_version == ODM_CUT_A))
+					set_ra_ldpc_8812(p_entry, true);
+				/* dbg_print("RSSI=%d, is_use_ldpc = true\n", p_hal_data->undecorated_smoothed_pwdb); */
+			} else if (p_entry->rssi_stat.undecorated_smoothed_pwdb > (p_ra->ldpc_thres - 5)) {
+				p_ra->is_use_ldpc = false;
+				p_ra->is_lower_rts_rate = false;
+				if ((p_dm_odm->support_ic_type == ODM_RTL8821) && (p_dm_odm->cut_version == ODM_CUT_A))
+					set_ra_ldpc_8812(p_entry, false);
+				/* dbg_print("RSSI=%d, is_use_ldpc = false\n", p_hal_data->undecorated_smoothed_pwdb); */
 			}
+		}
 #endif
 
 #if RA_MASK_PHYDMLIZE_CE
-			ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->rssi_level);
+		ratr_state_new = phydm_RA_level_decision(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->rssi_level);
 
-			if ((p_entry->rssi_level != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
+		if ((p_entry->rssi_level != ratr_state_new) || (p_ra_table->force_update_ra_mask_count >= FORCED_UPDATE_RAMASK_PERIOD)) {
 
-				p_ra_table->force_update_ra_mask_count = 0;
-				/*ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), pstat->hwaddr);*/
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Update Tx RA Level: ((%x)) -> ((%x)),  RSSI = ((%d))\n",
-					p_entry->rssi_level, ratr_state_new, p_entry->rssi_stat.undecorated_smoothed_pwdb));
+			p_ra_table->force_update_ra_mask_count = 0;
+			/*ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Target AP addr :"), pstat->hwaddr);*/
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Update Tx RA Level: ((%x)) -> ((%x)),  RSSI = ((%d))\n",
+						p_entry->rssi_level, ratr_state_new, p_entry->rssi_stat.undecorated_smoothed_pwdb));
 
-				p_entry->rssi_level = ratr_state_new;
-				rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level);
-			} else {
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Stay in RA level  = (( %d ))\n\n", ratr_state_new));
-				/**/
-			}
+			p_entry->rssi_level = ratr_state_new;
+#ifdef DM_ODM_CE_MAC80211
+			rtl_hal_update_ra_mask(p_adapter, p_entry, p_entry->rssi_level);
 #else
-			if (true == odm_ra_state_check(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, false, &p_entry->rssi_level)) {
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->rssi_level));
-				/* printk("RSSI:%d, RSSI_LEVEL:%d\n", pstat->rssi_stat.undecorated_smoothed_pwdb, pstat->rssi_level); */
-				rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level);
-			} else if (p_dm_odm->is_change_state) {
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Change Power Training state, is_disable_power_training = %d\n", p_dm_odm->is_disable_power_training));
-				rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level);
-			}
+			rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level, _FALSE);
+#endif
+		} else {
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Stay in RA level  = (( %d ))\n\n", ratr_state_new));
+			/**/
+		}
+#else
+		if (true == odm_ra_state_check(p_dm_odm, p_entry->rssi_stat.undecorated_smoothed_pwdb, false, &p_entry->rssi_level)) {
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("RSSI:%d, RSSI_LEVEL:%d\n", p_entry->rssi_stat.undecorated_smoothed_pwdb, p_entry->rssi_level));
+			/* printk("RSSI:%d, RSSI_LEVEL:%d\n", pstat->rssi_stat.undecorated_smoothed_pwdb, pstat->rssi_level); */
+			rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level, _FALSE);
+		} else if (p_dm_odm->is_change_state) {
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_RA_MASK, ODM_DBG_LOUD, ("Change Power Training state, is_disable_power_training = %d\n", p_dm_odm->is_disable_power_training));
+			rtw_hal_update_ra_mask(p_entry, p_entry->rssi_level, _FALSE);
+		}
 #endif
 
-		}
+
 	}
 
 #endif
@@ -2453,7 +2579,7 @@ odm_refresh_basic_rate_mask(
 	static u8		stage = 0;
 	u8			cur_stage = 0;
 	OCTET_STRING	os_rate_set;
-	PMGNT_INFO		p_mgnt_info = get_default_mgnt_info(adapter);
+	PMGNT_INFO		p_mgnt_info = GetDefaultMgntInfo(adapter);
 	u8			rate_set[5] = {MGN_1M, MGN_2M, MGN_5_5M, MGN_11M, MGN_6M};
 
 	if (p_dm_odm->support_ic_type != ODM_RTL8812 && p_dm_odm->support_ic_type != ODM_RTL8821)
@@ -2470,11 +2596,11 @@ odm_refresh_basic_rate_mask(
 
 	if (cur_stage != stage) {
 		if (cur_stage == 1) {
-			fill_octet_string(os_rate_set, rate_set, 5);
-			filter_support_rate(p_mgnt_info->m_brates, &os_rate_set, false);
-			adapter->hal_func.set_hw_reg_handler(adapter, HW_VAR_BASIC_RATE, (u8 *)&os_rate_set);
+			FillOctetString(os_rate_set, rate_set, 5);
+			FilterSupportRate(p_mgnt_info->mBrates, &os_rate_set, false);
+			phydm_set_hw_reg_handler_interface(p_dm_odm, HW_VAR_BASIC_RATE, (u8 *)&os_rate_set);
 		} else if (cur_stage == 3 && (stage == 1 || stage == 2))
-			adapter->hal_func.set_hw_reg_handler(adapter, HW_VAR_BASIC_RATE, (u8 *)(&p_mgnt_info->m_brates));
+			phydm_set_hw_reg_handler_interface(p_dm_odm, HW_VAR_BASIC_RATE, (u8 *)(&p_mgnt_info->mBrates));
 	}
 
 	stage = cur_stage;
@@ -2487,7 +2613,6 @@ phydm_rate_order_compute(
 	u8	rate_idx
 )
 {
-	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u8		rate_order = 0;
 
 	if (rate_idx >= ODM_RATEVHTSS4MCS0) {
@@ -2604,7 +2729,7 @@ u8
 odm_find_rts_rate(
 	void			*p_dm_void,
 	u8			tx_rate,
-	bool			is_erp_protect
+	boolean			is_erp_protect
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -2717,14 +2842,15 @@ odm_set_ra_dm_arfb_by_noisy(
 void
 odm_update_noisy_state(
 	void		*p_dm_void,
-	bool		is_noisy_state_from_c2h
+	boolean		is_noisy_state_from_c2h
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 
+/* JJ ADD 20161014 */
 	/*dbg_print("Get C2H Command! NoisyState=0x%x\n ", is_noisy_state_from_c2h);*/
 	if (p_dm_odm->support_ic_type == ODM_RTL8821  || p_dm_odm->support_ic_type == ODM_RTL8812  ||
-	    p_dm_odm->support_ic_type == ODM_RTL8723B || p_dm_odm->support_ic_type == ODM_RTL8192E || p_dm_odm->support_ic_type == ODM_RTL8188E || p_dm_odm->support_ic_type == ODM_RTL8723D)
+	    p_dm_odm->support_ic_type == ODM_RTL8723B || p_dm_odm->support_ic_type == ODM_RTL8192E || p_dm_odm->support_ic_type == ODM_RTL8188E || p_dm_odm->support_ic_type == ODM_RTL8723D || p_dm_odm->support_ic_type == ODM_RTL8710B)
 		p_dm_odm->is_noisy_state = is_noisy_state_from_c2h;
 	odm_set_ra_dm_arfb_by_noisy(p_dm_odm);
 };
@@ -2736,7 +2862,9 @@ phydm_update_pwr_track(
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	u8			path_idx = 0;
+#endif
 
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("Pwr Track Get rate=0x%x\n", rate));
 
@@ -2786,40 +2914,40 @@ s32
 phydm_find_minimum_rssi(
 	struct PHY_DM_STRUCT		*p_dm_odm,
 	struct _ADAPTER		*p_adapter,
-	OUT	bool			*p_is_link_temp
+	OUT	boolean			*p_is_link_temp
 
 )
 {
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-	PMGNT_INFO		p_mgnt_info = &(p_adapter->mgnt_info);
-	bool			act_as_ap = ACTING_AS_AP(p_adapter);
+	PMGNT_INFO		p_mgnt_info = &(p_adapter->MgntInfo);
+	boolean			act_as_ap = ACTING_AS_AP(p_adapter);
 
 	/* 1.Determine the minimum RSSI */
-	if ((!p_mgnt_info->is_media_connect) ||
-	    (act_as_ap && (p_hal_data->entry_min_undecorated_smoothed_pwdb == 0))) {/* We should check AP mode and Entry info.into consideration, revised by Roger, 2013.10.18*/
+	if ((!p_mgnt_info->bMediaConnect) ||
+	    (act_as_ap && (p_hal_data->EntryMinUndecoratedSmoothedPWDB == 0))) {/* We should check AP mode and Entry info.into consideration, revised by Roger, 2013.10.18*/
 
-		p_hal_data->min_undecorated_pwdb_for_dm = 0;
+		p_hal_data->MinUndecoratedPWDBForDM = 0;
 		*p_is_link_temp = false;
 
 	} else
 		*p_is_link_temp = true;
 
 
-	if (p_mgnt_info->is_media_connect) {	/* Default port*/
+	if (p_mgnt_info->bMediaConnect) {	/* Default port*/
 
-		if (act_as_ap || p_mgnt_info->m_ibss) {
-			p_hal_data->min_undecorated_pwdb_for_dm = p_hal_data->entry_min_undecorated_smoothed_pwdb;
+		if (act_as_ap || p_mgnt_info->mIbss) {
+			p_hal_data->MinUndecoratedPWDBForDM = p_hal_data->EntryMinUndecoratedSmoothedPWDB;
 			/**/
 		} else {
-			p_hal_data->min_undecorated_pwdb_for_dm = p_hal_data->undecorated_smoothed_pwdb;
+			p_hal_data->MinUndecoratedPWDBForDM = p_hal_data->UndecoratedSmoothedPWDB;
 			/**/
 		}
 	} else { /* associated entry pwdb*/
-		p_hal_data->min_undecorated_pwdb_for_dm = p_hal_data->entry_min_undecorated_smoothed_pwdb;
+		p_hal_data->MinUndecoratedPWDBForDM = p_hal_data->EntryMinUndecoratedSmoothedPWDB;
 		/**/
 	}
 
-	return p_hal_data->min_undecorated_pwdb_for_dm;
+	return p_hal_data->MinUndecoratedPWDBForDM;
 }
 
 void
@@ -2829,7 +2957,7 @@ odm_update_init_rate_work_item_callback(
 {
 	struct _ADAPTER	*adapter = (struct _ADAPTER *)p_context;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 	u8		p = 0;
 
 	if (p_dm_odm->support_ic_type == ODM_RTL8821) {
@@ -2864,39 +2992,39 @@ odm_rssi_dump_to_register(
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 
 	if (p_dm_odm->support_ic_type == ODM_RTL8812) {
-		platform_efio_write_1byte(adapter, REG_A_RSSI_DUMP_JAGUAR, adapter->rx_stats.rx_rssi_percentage[0]);
-		platform_efio_write_1byte(adapter, REG_B_RSSI_DUMP_JAGUAR, adapter->rx_stats.rx_rssi_percentage[1]);
+		PlatformEFIOWrite1Byte(adapter, REG_A_RSSI_DUMP_JAGUAR, adapter->RxStats.RxRSSIPercentage[0]);
+		PlatformEFIOWrite1Byte(adapter, REG_B_RSSI_DUMP_JAGUAR, adapter->RxStats.RxRSSIPercentage[1]);
 
 		/* Rx EVM*/
-		platform_efio_write_1byte(adapter, REG_S1_RXEVM_DUMP_JAGUAR, adapter->rx_stats.rx_evm_dbm[0]);
-		platform_efio_write_1byte(adapter, REG_S2_RXEVM_DUMP_JAGUAR, adapter->rx_stats.rx_evm_dbm[1]);
+		PlatformEFIOWrite1Byte(adapter, REG_S1_RXEVM_DUMP_JAGUAR, adapter->RxStats.RxEVMdbm[0]);
+		PlatformEFIOWrite1Byte(adapter, REG_S2_RXEVM_DUMP_JAGUAR, adapter->RxStats.RxEVMdbm[1]);
 
 		/* Rx SNR*/
-		platform_efio_write_1byte(adapter, REG_A_RX_SNR_DUMP_JAGUAR, (u8)(adapter->rx_stats.rx_snr_db[0]));
-		platform_efio_write_1byte(adapter, REG_B_RX_SNR_DUMP_JAGUAR, (u8)(adapter->rx_stats.rx_snr_db[1]));
+		PlatformEFIOWrite1Byte(adapter, REG_A_RX_SNR_DUMP_JAGUAR, (u8)(adapter->RxStats.RxSNRdB[0]));
+		PlatformEFIOWrite1Byte(adapter, REG_B_RX_SNR_DUMP_JAGUAR, (u8)(adapter->RxStats.RxSNRdB[1]));
 
 		/* Rx Cfo_Short*/
-		platform_efio_write_2byte(adapter, REG_A_CFO_SHORT_DUMP_JAGUAR, adapter->rx_stats.rx_cfo_short[0]);
-		platform_efio_write_2byte(adapter, REG_B_CFO_SHORT_DUMP_JAGUAR, adapter->rx_stats.rx_cfo_short[1]);
+		PlatformEFIOWrite2Byte(adapter, REG_A_CFO_SHORT_DUMP_JAGUAR, adapter->RxStats.RxCfoShort[0]);
+		PlatformEFIOWrite2Byte(adapter, REG_B_CFO_SHORT_DUMP_JAGUAR, adapter->RxStats.RxCfoShort[1]);
 
 		/* Rx Cfo_Tail*/
-		platform_efio_write_2byte(adapter, REG_A_CFO_LONG_DUMP_JAGUAR, adapter->rx_stats.rx_cfo_tail[0]);
-		platform_efio_write_2byte(adapter, REG_B_CFO_LONG_DUMP_JAGUAR, adapter->rx_stats.rx_cfo_tail[1]);
+		PlatformEFIOWrite2Byte(adapter, REG_A_CFO_LONG_DUMP_JAGUAR, adapter->RxStats.RxCfoTail[0]);
+		PlatformEFIOWrite2Byte(adapter, REG_B_CFO_LONG_DUMP_JAGUAR, adapter->RxStats.RxCfoTail[1]);
 	} else if (p_dm_odm->support_ic_type == ODM_RTL8192E) {
-		platform_efio_write_1byte(adapter, REG_A_RSSI_DUMP_92E, adapter->rx_stats.rx_rssi_percentage[0]);
-		platform_efio_write_1byte(adapter, REG_B_RSSI_DUMP_92E, adapter->rx_stats.rx_rssi_percentage[1]);
+		PlatformEFIOWrite1Byte(adapter, REG_A_RSSI_DUMP_92E, adapter->RxStats.RxRSSIPercentage[0]);
+		PlatformEFIOWrite1Byte(adapter, REG_B_RSSI_DUMP_92E, adapter->RxStats.RxRSSIPercentage[1]);
 		/* Rx EVM*/
-		platform_efio_write_1byte(adapter, REG_S1_RXEVM_DUMP_92E, adapter->rx_stats.rx_evm_dbm[0]);
-		platform_efio_write_1byte(adapter, REG_S2_RXEVM_DUMP_92E, adapter->rx_stats.rx_evm_dbm[1]);
+		PlatformEFIOWrite1Byte(adapter, REG_S1_RXEVM_DUMP_92E, adapter->RxStats.RxEVMdbm[0]);
+		PlatformEFIOWrite1Byte(adapter, REG_S2_RXEVM_DUMP_92E, adapter->RxStats.RxEVMdbm[1]);
 		/* Rx SNR*/
-		platform_efio_write_1byte(adapter, REG_A_RX_SNR_DUMP_92E, (u8)(adapter->rx_stats.rx_snr_db[0]));
-		platform_efio_write_1byte(adapter, REG_B_RX_SNR_DUMP_92E, (u8)(adapter->rx_stats.rx_snr_db[1]));
+		PlatformEFIOWrite1Byte(adapter, REG_A_RX_SNR_DUMP_92E, (u8)(adapter->RxStats.RxSNRdB[0]));
+		PlatformEFIOWrite1Byte(adapter, REG_B_RX_SNR_DUMP_92E, (u8)(adapter->RxStats.RxSNRdB[1]));
 		/* Rx Cfo_Short*/
-		platform_efio_write_2byte(adapter, REG_A_CFO_SHORT_DUMP_92E, adapter->rx_stats.rx_cfo_short[0]);
-		platform_efio_write_2byte(adapter, REG_B_CFO_SHORT_DUMP_92E, adapter->rx_stats.rx_cfo_short[1]);
+		PlatformEFIOWrite2Byte(adapter, REG_A_CFO_SHORT_DUMP_92E, adapter->RxStats.RxCfoShort[0]);
+		PlatformEFIOWrite2Byte(adapter, REG_B_CFO_SHORT_DUMP_92E, adapter->RxStats.RxCfoShort[1]);
 		/* Rx Cfo_Tail*/
-		platform_efio_write_2byte(adapter, REG_A_CFO_LONG_DUMP_92E, adapter->rx_stats.rx_cfo_tail[0]);
-		platform_efio_write_2byte(adapter, REG_B_CFO_LONG_DUMP_92E, adapter->rx_stats.rx_cfo_tail[1]);
+		PlatformEFIOWrite2Byte(adapter, REG_A_CFO_LONG_DUMP_92E, adapter->RxStats.RxCfoTail[0]);
+		PlatformEFIOWrite2Byte(adapter, REG_B_CFO_LONG_DUMP_92E, adapter->RxStats.RxCfoTail[1]);
 	}
 }
 
@@ -2909,7 +3037,7 @@ odm_refresh_ldpc_rts_mp(
 	s32				undecorated_smoothed_pwdb
 )
 {
-	bool					is_ctl_ldpc = false;
+	boolean					is_ctl_ldpc = false;
 	struct _ODM_RATE_ADAPTIVE		*p_ra = &p_dm_odm->rate_adaptive;
 
 	if (p_dm_odm->support_ic_type != ODM_RTL8821 && p_dm_odm->support_ic_type != ODM_RTL8812)
@@ -2923,9 +3051,9 @@ odm_refresh_ldpc_rts_mp(
 
 	if (is_ctl_ldpc) {
 		if (undecorated_smoothed_pwdb < (p_ra->ldpc_thres - 5))
-			mgnt_set_tx_ldpc(p_adapter, m_mac_id, true);
+			MgntSet_TX_LDPC(p_adapter, m_mac_id, true);
 		else if (undecorated_smoothed_pwdb > p_ra->ldpc_thres)
-			mgnt_set_tx_ldpc(p_adapter, m_mac_id, false);
+			MgntSet_TX_LDPC(p_adapter, m_mac_id, false);
 	}
 
 	if (undecorated_smoothed_pwdb < (p_ra->rts_thres - 5))
@@ -2939,7 +3067,7 @@ void
 odm_dynamic_arfb_select(
 	void		*p_dm_void,
 	u8			rate,
-	bool			collision_state
+	boolean			collision_state
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -3047,8 +3175,11 @@ odm_rate_adaptive_state_ap_init(
 )
 {
 	struct _ADAPTER		*adapter = (struct _ADAPTER *)PADAPTER_VOID;
-	p_entry->ratr_state = DM_RATR_STA_INIT;
+	p_entry->Ratr_State = DM_RATR_STA_INIT;
 }
+
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE) /*#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)*/
 
 static void
@@ -3342,11 +3473,11 @@ odm_get_rate_bitmap(
 
 #if (RA_MASK_PHYDMLIZE_CE || RA_MASK_PHYDMLIZE_AP || RA_MASK_PHYDMLIZE_WIN)
 
-bool
+boolean
 odm_ra_state_check(
 	void			*p_dm_void,
 	s32			RSSI,
-	bool			is_force_update,
+	boolean			is_force_update,
 	u8			*p_ra_tr_state
 )
 {

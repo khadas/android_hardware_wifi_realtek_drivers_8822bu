@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BU_OPS_C_
 
 #include <drv_types.h>			/* PADAPTER, basic_types.h and etc. */
@@ -41,6 +36,7 @@ void rtl8822bu_set_hw_type(struct dvobj_priv *pdvobj)
 static void sethwreg(PADAPTER padapter, u8 variable, u8 *val)
 {
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
+	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
 	struct pwrctrl_priv *pwrctl = adapter_to_pwrctl(padapter);
 	struct registry_priv *registry_par = &padapter->registrypriv;
 	int status = 0;
@@ -48,7 +44,38 @@ static void sethwreg(PADAPTER padapter, u8 variable, u8 *val)
 	switch (variable) {
 	case HW_VAR_RXDMA_AGG_PG_TH:
 #ifdef CONFIG_USB_RX_AGGREGATION
+		if (pdvobjpriv->traffic_stat.cur_tx_tp < 1 && pdvobjpriv->traffic_stat.cur_rx_tp < 1) {
+			/* for low traffic, do not usb AGGREGATION */
+			pHalData->rxagg_usb_timeout = 0x01;
+			pHalData->rxagg_usb_size = 0;
 
+		} else {
+#ifdef CONFIG_PLATFORM_NOVATEK_NT72668
+			pHalData->rxagg_usb_timeout = 0x20;
+			pHalData->rxagg_usb_size = 0x03;
+#elif defined(CONFIG_PLATFORM_HISILICON)
+			/* use 16k to workaround for HISILICON platform */
+			pHalData->rxagg_usb_timeout = 8;
+			pHalData->rxagg_usb_size = 3;
+#else
+			/* default setting */
+			pHalData->rxagg_usb_timeout = 0x20;
+			pHalData->rxagg_usb_size = 0x05;
+#endif
+		}
+		rtw_halmac_rx_agg_switch(pdvobjpriv, _TRUE);
+#if 0
+		RTW_INFO("\n==========RAFFIC_STATISTIC==============\n");
+		RTW_INFO("cur_tx_bytes:%lld\n", pdvobjpriv->traffic_stat.cur_tx_bytes);
+		RTW_INFO("cur_rx_bytes:%lld\n", pdvobjpriv->traffic_stat.cur_rx_bytes);
+
+		RTW_INFO("last_tx_bytes:%lld\n", pdvobjpriv->traffic_stat.last_tx_bytes);
+		RTW_INFO("last_rx_bytes:%lld\n", pdvobjpriv->traffic_stat.last_rx_bytes);
+
+		RTW_INFO("cur_tx_tp:%d\n", pdvobjpriv->traffic_stat.cur_tx_tp);
+		RTW_INFO("cur_rx_tp:%d\n", pdvobjpriv->traffic_stat.cur_rx_tp);
+		RTW_INFO("\n========================\n");
+#endif
 #endif
 		break;
 	case HW_VAR_SET_RPWM:
@@ -87,6 +114,19 @@ static void sethwreg(PADAPTER padapter, u8 variable, u8 *val)
 			}
 		}
 		break;
+	case HW_VAR_SET_REQ_FW_PS:
+	{
+		/*
+		 * 1. driver write 0x8f[4]=1
+		 *    request fw ps state (only can write bit4)
+		 */
+		u8 req_fw_ps = 0;
+
+		req_fw_ps = rtw_read8(padapter, 0x8f);
+		req_fw_ps |= 0x10;
+		rtw_write8(padapter, 0x8f, req_fw_ps);
+	}
+	break;
 	default:
 		rtl8822b_sethwreg(padapter, variable, val);
 		break;
@@ -103,6 +143,17 @@ static void gethwreg(PADAPTER padapter, u8 variable, u8 *val)
 		*val = rtw_read8(padapter, REG_USB_HCPWM_8822B);
 		/* RTW_INFO("##### REG_USB_HCPWM(0x%02x) = 0x%02x #####\n", REG_USB_HCPWM_8822B, *val); */
 #endif /* CONFIG_LPS_LCLK */
+		break;
+	case HW_VAR_RPWM_TOG:
+#ifdef CONFIG_LPS_LCLK
+		*val = rtw_read8(padapter, REG_USB_HRPWM_8822B);
+		*val &= BIT_TOGGLING_8822B;
+#endif /* CONFIG_LPS_LCLK */
+		break;
+
+	case HW_VAR_FW_PS_STATE:
+		/* driver read dword 0x88 to get fw ps state */
+		*((u16 *)val) = rtw_read16(padapter, 0x88);
 		break;
 	default:
 		rtl8822b_gethwreg(padapter, variable, val);
@@ -181,12 +232,15 @@ static u8 rtl8822bu_ps_func(PADAPTER padapter, HAL_INTF_PS_FUNC efunc_id, u8 *va
  *	2. Read registers to initialize
  *	3. Other vaiables initialization
  */
-static void read_adapter_info(PADAPTER padapter)
+static u8 read_adapter_info(PADAPTER padapter)
 {
+	u8 ret = _FAIL;
+
 	/*
 	 * 1. Read Efuse/EEPROM to initialize
 	 */
-	rtl8822b_read_efuse(padapter);
+	if (rtl8822b_read_efuse(padapter) != _SUCCESS)
+		goto exit;
 
 	/*
 	 * 2. Read registers to initialize
@@ -195,6 +249,11 @@ static void read_adapter_info(PADAPTER padapter)
 	/*
 	 * 3. Other Initialization
 	 */
+
+	ret = _SUCCESS;
+
+exit:
+	return ret;
 }
 
 

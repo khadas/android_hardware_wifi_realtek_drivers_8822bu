@@ -1,8 +1,27 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HALMAC_FUNC_88XX_H_
 #define _HALMAC_FUNC_88XX_H_
 
 #include "../halmac_type.h"
 
+VOID
+halmac_init_offload_feature_state_machine_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter
+);
 
 HALMAC_RET_STATUS
 halmac_send_h2c_pkt_88xx(
@@ -98,6 +117,13 @@ halmac_read_hw_efuse_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_update_fw_info_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 *pHamacl_fw,
+	IN u32 halmac_fw_size
+);
+
+HALMAC_RET_STATUS
 halmac_dlfw_to_mem_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u8 *pRam_code,
@@ -133,6 +159,11 @@ halmac_dlfw_end_flow_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_free_dl_fw_end_flow_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter
+);
+
+HALMAC_RET_STATUS
 halmac_pwr_seq_parser_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u8 cut,
@@ -148,26 +179,11 @@ halmac_get_h2c_buff_free_space_88xx(
 );
 
 HALMAC_RET_STATUS
-halmac_send_h2c_set_pwr_mode_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN PHALMAC_FWLPS_OPTION pHal_FwLps_Opt
-);
-
-HALMAC_RET_STATUS
 halmac_func_send_original_h2c_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u8 *original_h2c,
 	IN u16 *seq,
 	IN u8 ack
-);
-
-HALMAC_RET_STATUS
-halmac_media_status_rpt_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u8 op_mode,
-	IN u8 mac_id_ind,
-	IN u8 mac_id,
-	IN u8 mac_id_end
 );
 
 HALMAC_RET_STATUS
@@ -388,12 +404,6 @@ halmac_restore_mac_register_88xx(
 	IN u32 restore_num
 );
 
-VOID
-halmac_api_record_id_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN HALMAC_API_ID api_id
-);
-
 HALMAC_RET_STATUS
 halmac_set_usb_mode_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
@@ -423,7 +433,8 @@ HALMAC_RET_STATUS
 halmac_check_oqt_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u32 tx_agg_num,
-	IN u8 *pHalmac_buf
+	IN u8 *pHalmac_buf,
+	IN u8 macid_counter
 );
 
 HALMAC_RET_STATUS
@@ -487,6 +498,41 @@ VOID
 halmac_config_ampdu_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN PHALMAC_AMPDU_CONFIG pAmpdu_config
+);
+
+VOID
+halmac_rx_shift_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 enable
+);
+
+HALMAC_RET_STATUS
+halmac_usbphy_write_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 addr,
+	IN u16 data,
+	IN u8 speed
+);
+
+u16
+halmac_usbphy_read_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 addr,
+	IN u8 speed
+);
+
+HALMAC_RET_STATUS
+halmac_ltecoex_reg_read_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 offset,
+	OUT u32 *pValue
+);
+
+HALMAC_RET_STATUS
+halmac_ltecoex_reg_write_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 offset,
+	IN u32 value
 );
 
 #endif /* _HALMAC_FUNC_88XX_H_ */

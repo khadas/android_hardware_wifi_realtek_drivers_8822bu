@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_MLME_H_
 #define __RTW_MLME_H_
 
@@ -30,6 +25,9 @@
  *	Increase the scanning timeout because of increasing the SURVEY_TO value. */
 
 #define SCANNING_TIMEOUT 8000
+#ifdef	CONFIG_CHNL_LOAD_MAGT
+#define CLM_SCANNING_TIMEOUT 9000
+#endif
 #ifdef CONFIG_SCAN_BACKOP
 #define CONC_SCANNING_TIMEOUT_SINGLE_BAND 10000
 #define CONC_SCANNING_TIMEOUT_DUAL_BAND 15000
@@ -96,23 +94,39 @@ void rtw_wfd_st_switch(struct sta_info *sta, bool on);
 #define MLME_IS_MONITOR(adapter) (MLME_STATE((adapter)) & WIFI_MONITOR_STATE)
 #define MLME_IS_MP(adapter) (MLME_STATE((adapter)) & WIFI_MP_STATE)
 #ifdef CONFIG_P2P
+	#define MLME_IS_PD(adapter) rtw_p2p_chk_role(&(adapter)->wdinfo, P2P_ROLE_DEVICE)
 	#define MLME_IS_GC(adapter) rtw_p2p_chk_role(&(adapter)->wdinfo, P2P_ROLE_CLIENT)
 	#define MLME_IS_GO(adapter) rtw_p2p_chk_role(&(adapter)->wdinfo, P2P_ROLE_GO)
 #else /* !CONFIG_P2P */
+	#define MLME_IS_PD(adapter) 0
 	#define MLME_IS_GC(adapter) 0
 	#define MLME_IS_GO(adapter) 0
 #endif /* !CONFIG_P2P */
+
+#if defined(CONFIG_IOCTL_CFG80211) && defined(CONFIG_P2P)
+#define MLME_IS_ROCH(adapter) (rtw_cfg80211_get_is_roch(adapter) == _TRUE)
+#else
+#define MLME_IS_ROCH(adapter) 0
+#endif
+
 #define MLME_IS_MSRC(adapter) rtw_chk_miracast_mode((adapter), MIRACAST_SOURCE)
 #define MLME_IS_MSINK(adapter) rtw_chk_miracast_mode((adapter), MIRACAST_SINK)
 
-#define MLME_STATE_FMT "%s%s%s%s%s%s%s%s%s%s%s%s%s%s"
+#ifdef CONFIG_IOCTL_CFG80211
+#define MLME_IS_MGMT_TX(adapter) rtw_cfg80211_get_is_mgmt_tx(adapter)
+#else
+#define MLME_IS_MGMT_TX(adapter) 0
+#endif
+
+#define MLME_STATE_FMT "%s%s%s%s%s%s%s%s%s%s%s%s"
 #define MLME_STATE_ARG(adapter) \
-	MLME_IS_STA((adapter)) ? (MLME_IS_GC((adapter)) ? " GC" : " STA") : "", \
-	MLME_IS_AP((adapter)) ? (MLME_IS_GO((adapter)) ? " GO" : " AP") : "", \
-	MLME_IS_ADHOC((adapter)) ? " ADHOC" : "", \
-	MLME_IS_ADHOC_MASTER((adapter)) ? " ADHOC_M" : "", \
-	MLME_IS_MONITOR((adapter)) ? " MONITOR" : "", \
+	MLME_IS_STA((adapter)) ? (MLME_IS_GC((adapter)) ? " GC" : " STA") : \
+	MLME_IS_AP((adapter)) ? (MLME_IS_GO((adapter)) ? " GO" : " AP") : \
+	MLME_IS_ADHOC((adapter)) ? " ADHOC" : \
+	MLME_IS_ADHOC_MASTER((adapter)) ? " ADHOC_M" : \
+	MLME_IS_MONITOR((adapter)) ? " MONITOR" : \
 	MLME_IS_MP((adapter)) ? " MP" : "", \
+	MLME_IS_PD((adapter)) ? " PD" : "", \
 	MLME_IS_MSRC((adapter)) ? " MSRC" : "", \
 	MLME_IS_MSINK((adapter)) ? " MSINK" : "", \
 	(MLME_STATE((adapter)) & WIFI_SITE_MONITOR) ? " SCAN" : "", \
@@ -120,6 +134,8 @@ void rtw_wfd_st_switch(struct sta_info *sta, bool on);
 	(MLME_STATE((adapter)) & WIFI_ASOC_STATE) ? " ASOC" : "", \
 	(MLME_STATE((adapter)) & WIFI_OP_CH_SWITCHING) ? " OP_CH_SW" : "", \
 	(MLME_STATE((adapter)) & WIFI_UNDER_WPS) ? " WPS" : "", \
+	MLME_IS_ROCH((adapter)) ? " ROCH" : "", \
+	MLME_IS_MGMT_TX((adapter)) ? " MGMT_TX" : "", \
 	(MLME_STATE((adapter)) & WIFI_SLEEP_STATE) ? " SLEEP" : ""
 
 #define _FW_UNDER_LINKING	WIFI_UNDER_LINKING
@@ -179,13 +195,6 @@ SHALL not lock up more than one locks at a time!
 
 #define traffic_threshold	10
 #define	traffic_scan_period	500
-
-struct sitesurvey_ctrl {
-	u64	last_tx_pkts;
-	uint	last_rx_pkts;
-	sint	traffic_busy;
-	_timer	sitesurvey_ctrl_timer;
-};
 
 typedef struct _RT_LINK_DETECT_T {
 	u32				NumTxOkInPeriod;
@@ -297,6 +306,7 @@ struct cfg80211_wifidirect_info {
 	ATOMIC_T ro_ch_cookie_gen;
 	u64 remain_on_ch_cookie;
 	bool is_ro_ch;
+	struct wireless_dev *ro_ch_wdev;
 	u32 last_ro_ch_time; /* this will be updated at the beginning and end of ro_ch */
 };
 #endif /* CONFIG_IOCTL_CFG80211 */
@@ -583,9 +593,6 @@ struct mlme_priv {
 
 	u8	*nic_hdl;
 
-#ifdef SUPPLICANT_RTK_VERSION_LOWER_THAN_JB42
-	u8	not_indic_disco;
-#endif
 	_list		*pscanned;
 	_queue	free_bss_pool;
 	_queue	scanned_queue;
@@ -606,6 +613,7 @@ struct mlme_priv {
 #ifdef CONFIG_ARP_KEEP_ALIVE
 	/* for arp offload keep alive */
 	u8 bGetGateway;
+	u8	GetGatewayTryCnt;
 	u8	gw_mac_addr[6];
 	u8	gw_ip[4];
 #endif
@@ -669,8 +677,6 @@ struct mlme_priv {
 	RT_LINK_DETECT_T	LinkDetectInfo;
 
 	u8	acm_mask; /* for wmm acm mask */
-	const struct country_chplan *country_ent;
-	u8	ChannelPlan;
 	RT_SCAN_TYPE	scan_mode; /* active: 1, passive: 0 */
 
 	u8 *wps_probe_req_ie;
@@ -720,31 +726,38 @@ struct mlme_priv {
 #endif
 	u8 *assoc_req;
 	u32 assoc_req_len;
+
 	u8 *assoc_rsp;
 	u32 assoc_rsp_len;
 
-	u8 *wps_beacon_ie;
 	/* u8 *wps_probe_req_ie; */
-	u8 *wps_probe_resp_ie;
-	u8 *wps_assoc_resp_ie; /* for CONFIG_IOCTL_CFG80211, this IE could include p2p ie / wfd ie */
-
-	u32 wps_beacon_ie_len;
 	/* u32 wps_probe_req_ie_len; */
+
+	u8 *wps_beacon_ie;
+	u32 wps_beacon_ie_len;
+
+	u8 *wps_probe_resp_ie;
 	u32 wps_probe_resp_ie_len;
-	u32 wps_assoc_resp_ie_len; /* for CONFIG_IOCTL_CFG80211, this IE len could include p2p ie / wfd ie */
+
+	u8 *wps_assoc_resp_ie;
+	u32 wps_assoc_resp_ie_len;
 
 	u8 *p2p_beacon_ie;
-	u8 *p2p_probe_req_ie;
-	u8 *p2p_probe_resp_ie;
-	u8 *p2p_go_probe_resp_ie; /* for GO	 */
-	u8 *p2p_assoc_req_ie;
-	u8 *p2p_assoc_resp_ie;
-
 	u32 p2p_beacon_ie_len;
+
+	u8 *p2p_probe_req_ie;
 	u32 p2p_probe_req_ie_len;
+
+	u8 *p2p_probe_resp_ie;
 	u32 p2p_probe_resp_ie_len;
-	u32 p2p_go_probe_resp_ie_len; /* for GO */
+
+	u8 *p2p_go_probe_resp_ie;		/* for GO */
+	u32 p2p_go_probe_resp_ie_len;	/* for GO */
+
+	u8 *p2p_assoc_req_ie;
 	u32 p2p_assoc_req_ie_len;
+
+	u8 *p2p_assoc_resp_ie;
 	u32 p2p_assoc_resp_ie_len;
 
 	_lock	bcn_update_lock;
@@ -756,21 +769,23 @@ struct mlme_priv {
 #endif /* #if defined (CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME) */
 
 #if defined(CONFIG_WFD) && defined(CONFIG_IOCTL_CFG80211)
-
 	u8 *wfd_beacon_ie;
-	u8 *wfd_probe_req_ie;
-	u8 *wfd_probe_resp_ie;
-	u8 *wfd_go_probe_resp_ie; /* for GO	 */
-	u8 *wfd_assoc_req_ie;
-	u8 *wfd_assoc_resp_ie;
-
 	u32 wfd_beacon_ie_len;
-	u32 wfd_probe_req_ie_len;
-	u32 wfd_probe_resp_ie_len;
-	u32 wfd_go_probe_resp_ie_len; /* for GO */
-	u32 wfd_assoc_req_ie_len;
-	u32 wfd_assoc_resp_ie_len;
 
+	u8 *wfd_probe_req_ie;
+	u32 wfd_probe_req_ie_len;
+
+	u8 *wfd_probe_resp_ie;
+	u32 wfd_probe_resp_ie_len;
+
+	u8 *wfd_go_probe_resp_ie;		/* for GO */
+	u32 wfd_go_probe_resp_ie_len;	/* for GO */
+
+	u8 *wfd_assoc_req_ie;
+	u32 wfd_assoc_req_ie_len;
+
+	u8 *wfd_assoc_resp_ie;
+	u32 wfd_assoc_resp_ie_len;
 #endif
 
 #ifdef RTK_DMP_PLATFORM
@@ -874,8 +889,6 @@ void rtw_sta_timeout_event_callback(_adapter *adapter, u8 *pbuf);
 void rtw_update_ft_stainfo(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
 void rtw_ft_reassoc_event_callback(_adapter *padapter, u8 *pbuf);
 #endif
-extern void rtw_join_timeout_handler(RTW_TIMER_HDL_ARGS);
-extern void _rtw_scan_timeout_handler(RTW_TIMER_HDL_ARGS);
 
 thread_return event_thread(thread_context context);
 
@@ -1023,22 +1036,20 @@ extern void rtw_update_registrypriv_dev_network(_adapter *adapter);
 
 extern void rtw_get_encrypt_decrypt_from_registrypriv(_adapter *adapter);
 
-extern void _rtw_join_timeout_handler(_adapter *adapter);
-extern void rtw_scan_timeout_handler(_adapter *adapter);
+extern void rtw_join_timeout_handler(void *ctx);
+extern void rtw_scan_timeout_handler(void *ctx);
 
-extern void _dynamic_check_timer_handlder(void *FunctionContext);
-extern void rtw_dynamic_check_timer_handlder(_adapter *adapter);
+extern void rtw_dynamic_check_timer_handlder(void *ctx);
 extern void rtw_iface_dynamic_check_timer_handlder(_adapter *adapter);
 
 #ifdef CONFIG_SET_SCAN_DENY_TIMER
 bool rtw_is_scan_deny(_adapter *adapter);
 void rtw_clear_scan_deny(_adapter *adapter);
-void rtw_set_scan_deny_timer_hdl(_adapter *adapter);
+void rtw_set_scan_deny_timer_hdl(void *ctx);
 void rtw_set_scan_deny(_adapter *adapter, u32 ms);
 #else
 #define rtw_is_scan_deny(adapter) _FALSE
 #define rtw_clear_scan_deny(adapter) do {} while (0)
-#define rtw_set_scan_deny_timer_hdl(adapter) do {} while (0)
 #define rtw_set_scan_deny(adapter, ms) do {} while (0)
 #endif
 
@@ -1144,7 +1155,7 @@ void rtw_sta_media_status_rpt_cmd_hdl(_adapter *adapter, struct sta_media_status
 #ifdef CONFIG_INTEL_PROXIM
 void rtw_proxim_enable(_adapter *padapter);
 void rtw_proxim_disable(_adapter *padapter);
-void rtw_proxim_send_packet(_adapter *padapter, u8 *pbuf, u16 len, u8 hw_rate);
+void rtw_proxim_send_packet(_adapter *padapter, u8 *pbuf, u16 len, u8 m_rate);
 #endif /* CONFIG_INTEL_PROXIM */
 
 #define IPV4_SRC(_iphdr)			(((u8 *)(_iphdr)) + 12)

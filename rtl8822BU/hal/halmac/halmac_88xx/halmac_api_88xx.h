@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HALMAC_API_88XX_H_
 #define _HALMAC_API_88XX_H_
 
@@ -27,6 +42,14 @@ halmac_mount_api_88xx(
 HALMAC_RET_STATUS
 halmac_download_firmware_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 *pHamacl_fw,
+	IN u32 halmac_fw_size
+);
+
+HALMAC_RET_STATUS
+halmac_free_download_firmware_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_DLFW_MEM dlfw_mem,
 	IN u8 *pHamacl_fw,
 	IN u32 halmac_fw_size
 );
@@ -144,6 +167,20 @@ halmac_write_efuse_bt_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_read_efuse_bt_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u32 halmac_offset,
+	OUT u8 *pValue,
+	IN HALMAC_EFUSE_BANK halmac_efuse_bank
+);
+
+HALMAC_RET_STATUS
+halmac_cfg_efuse_auto_check_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u8 enable
+);
+
+HALMAC_RET_STATUS
 halmac_pg_efuse_by_map_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN PHALMAC_PG_EFUSE_INFO pPg_efuse_info,
@@ -193,40 +230,6 @@ halmac_read_logical_efuse_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
 	IN u32 halmac_offset,
 	OUT u8 *pValue
-);
-
-HALMAC_RET_STATUS
-halmac_cfg_fwlps_option_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN PHALMAC_FWLPS_OPTION pLps_option
-);
-
-HALMAC_RET_STATUS
-halmac_cfg_fwips_option_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN PHALMAC_FWIPS_OPTION pIps_option
-);
-
-HALMAC_RET_STATUS
-halmac_enter_wowlan_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN PHALMAC_WOWLAN_OPTION pWowlan_option
-);
-
-HALMAC_RET_STATUS
-halmac_leave_wowlan_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter
-);
-
-HALMAC_RET_STATUS
-halmac_enter_ps_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN HALMAC_PS_STATE ps_state
-);
-
-HALMAC_RET_STATUS
-halmac_leave_ps_88xx(
-	IN PHALMAC_ADAPTER pHalmac_adapter
 );
 
 HALMAC_RET_STATUS
@@ -420,6 +423,18 @@ halmac_ctrl_ch_switch_88xx(
 );
 
 HALMAC_RET_STATUS
+halmac_p2pps_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN PHALMAC_P2PPS	pP2PPS
+);
+
+static HALMAC_RET_STATUS
+halmac_func_p2pps_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN PHALMAC_P2PPS	pP2PPS
+);
+
+HALMAC_RET_STATUS
 halmac_clear_ch_info_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 );
@@ -433,7 +448,7 @@ halmac_send_general_info_88xx(
 HALMAC_RET_STATUS
 halmac_start_iqk_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u8 clear
+	IN PHALMAC_IQK_PARA pIqk_para
 );
 
 HALMAC_RET_STATUS
@@ -579,9 +594,45 @@ halmac_cfg_csi_rate_88xx(
 );
 
 HALMAC_RET_STATUS
-halmac_sdio_cmd53_4byte_88xx(
+halmac_txfifo_is_empty_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
-	IN u8 enable
+	IN u32 chk_num
+);
+
+HALMAC_RET_STATUS
+halmac_download_flash_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	IN u8 *pHalmac_fw,
+	IN u32 halmac_fw_size,
+	IN u32 rom_address
+);
+
+HALMAC_RET_STATUS
+halmac_read_flash_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	u32 addr
+);
+
+HALMAC_RET_STATUS
+halmac_erase_flash_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	u8 erase_cmd,
+	u32 addr
+);
+
+HALMAC_RET_STATUS
+halmac_check_flash_88xx(
+	IN PHALMAC_ADAPTER	pHalmac_adapter,
+	IN u8 *pHalmac_fw,
+	IN u32 halmac_fw_size,
+	IN u32 addr
+);
+
+HALMAC_RET_STATUS
+halmac_cfg_edca_para_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN HALMAC_ACQ_ID acq_id,
+	IN PHALMAC_EDCA_PARA pEdca_para
 );
 
 #endif/* _HALMAC_API_H_ */

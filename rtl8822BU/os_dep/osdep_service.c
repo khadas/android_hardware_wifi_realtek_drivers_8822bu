@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #define _OSDEP_SERVICE_C_
@@ -1066,18 +1061,18 @@ void rtw_list_insert_tail(_list *plist, _list *phead)
 
 }
 
-void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc)
+void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc, void *ctx)
 {
 	_adapter *adapter = (_adapter *)padapter;
 
 #ifdef PLATFORM_LINUX
-	_init_timer(ptimer, adapter->pnetdev, pfunc, adapter);
+	_init_timer(ptimer, adapter->pnetdev, pfunc, ctx);
 #endif
 #ifdef PLATFORM_FREEBSD
-	_init_timer(ptimer, adapter->pifp, pfunc, adapter->mlmepriv.nic_hdl);
+	_init_timer(ptimer, adapter->pifp, pfunc, ctx);
 #endif
 #ifdef PLATFORM_WINDOWS
-	_init_timer(ptimer, adapter->hndis_adapter, pfunc, adapter->mlmepriv.nic_hdl);
+	_init_timer(ptimer, adapter->hndis_adapter, pfunc, ctx);
 #endif
 }
 
@@ -1176,7 +1171,43 @@ u32 _rtw_down_sema(_sema *sema)
 #endif
 }
 
+inline void thread_exit(_completion *comp)
+{
+#ifdef PLATFORM_LINUX
+	complete_and_exit(comp, 0);
+#endif
 
+#ifdef PLATFORM_FREEBSD
+	printf("%s", "RTKTHREAD_exit");
+#endif
+
+#ifdef PLATFORM_OS_CE
+	ExitThread(STATUS_SUCCESS);
+#endif
+
+#ifdef PLATFORM_OS_XP
+	PsTerminateSystemThread(STATUS_SUCCESS);
+#endif
+}
+
+inline void _rtw_init_completion(_completion *comp)
+{
+#ifdef PLATFORM_LINUX
+	init_completion(comp);
+#endif
+}
+inline void _rtw_wait_for_comp_timeout(_completion *comp)
+{
+#ifdef PLATFORM_LINUX
+	wait_for_completion_timeout(comp, msecs_to_jiffies(3000));
+#endif
+}
+inline void _rtw_wait_for_comp(_completion *comp)
+{
+#ifdef PLATFORM_LINUX
+	wait_for_completion(comp);
+#endif
+}
 
 void	_rtw_mutex_init(_mutex *pmutex)
 {
@@ -2273,20 +2304,19 @@ RETURN:
 	return;
 }
 
-/*
-* Jeff: this function should be called under ioctl (rtnl_lock is accquired) while
-* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-*/
 int rtw_change_ifname(_adapter *padapter, const char *ifname)
 {
+	struct dvobj_priv *dvobj;
 	struct net_device *pnetdev;
 	struct net_device *cur_pnetdev;
 	struct rereg_nd_name_data *rereg_priv;
 	int ret;
+	u8 rtnl_lock_needed;
 
 	if (!padapter)
 		goto error;
 
+	dvobj = adapter_to_dvobj(padapter);
 	cur_pnetdev = padapter->pnetdev;
 	rereg_priv = &padapter->rereg_nd_name_priv;
 
@@ -2296,11 +2326,11 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		rereg_priv->old_pnetdev = NULL;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-	if (!rtnl_is_locked())
+	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+
+	if (rtnl_lock_needed)
 		unregister_netdev(cur_pnetdev);
 	else
-#endif
 		unregister_netdevice(cur_pnetdev);
 
 	rereg_priv->old_pnetdev = cur_pnetdev;
@@ -2317,11 +2347,9 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 
 	_rtw_memcpy(pnetdev->dev_addr, adapter_mac_addr(padapter), ETH_ALEN);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-	if (!rtnl_is_locked())
+	if (rtnl_lock_needed)
 		ret = register_netdev(pnetdev);
 	else
-#endif
 		ret = register_netdevice(pnetdev);
 
 	if (ret != 0) {
@@ -2701,6 +2729,15 @@ inline BOOLEAN is_null(char c)
 		return _TRUE;
 	else
 		return _FALSE;
+}
+
+inline BOOLEAN is_all_null(char *c, int len)
+{
+	for (; len > 0; len--)
+		if (c[len - 1] != '\0')
+			return _FALSE;
+
+	return _TRUE;
 }
 
 /**

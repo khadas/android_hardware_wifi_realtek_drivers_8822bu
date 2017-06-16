@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -63,6 +58,137 @@
 #else
 	#define GET_VERSION(ic, txt) GET_VERSION_MP(ic, txt)
 #endif
+
+void
+phydm_rx_statistic_cal(
+	struct PHY_DM_STRUCT				*p_phydm,
+	u8									*p_phy_status,
+	struct _odm_per_pkt_info_				*p_pktinfo
+)
+{
+#if (ODM_PHY_STATUS_NEW_TYPE_SUPPORT == 1)
+	struct _phy_status_rpt_jaguar2_type1	*p_phy_sta_rpt = (struct _phy_status_rpt_jaguar2_type1 *)p_phy_status;
+#endif
+	u8									date_rate = (p_pktinfo->data_rate & 0x7f);
+
+	if (date_rate <= ODM_RATE54M) {
+		
+		p_phydm->phy_dbg_info.num_qry_legacy_pkt[date_rate]++;
+		/**/	
+	} else if (date_rate <= ODM_RATEMCS31) {
+		
+		p_phydm->phy_dbg_info.num_qry_ht_pkt[date_rate - ODM_RATEMCS0]++;
+		p_phydm->phy_dbg_info.ht_pkt_not_zero = true;
+			
+	} 
+	#if ODM_IC_11AC_SERIES_SUPPORT
+	else if (date_rate <= ODM_RATEVHTSS4MCS9) {
+
+		#if (ODM_PHY_STATUS_NEW_TYPE_SUPPORT == 1)
+		if ((p_phy_sta_rpt->gid != 0) && (p_phy_sta_rpt->gid != 63) && (p_phydm->support_ic_type & ODM_IC_PHY_STATUE_NEW_TYPE)) {
+
+			p_phydm->phy_dbg_info.num_qry_mu_vht_pkt[date_rate - ODM_RATEVHTSS1MCS0]++;
+			p_phydm->phy_dbg_info.num_of_ppdu[p_pktinfo->ppdu_cnt] = date_rate | BIT(7);
+			p_phydm->phy_dbg_info.gid_num[p_pktinfo->ppdu_cnt] = p_phy_sta_rpt->gid;
+			
+		} else 
+		#endif
+		{
+			p_phydm->phy_dbg_info.num_qry_vht_pkt[date_rate - ODM_RATEVHTSS1MCS0]++;
+			p_phydm->phy_dbg_info.vht_pkt_not_zero = true;
+			#if (ODM_PHY_STATUS_NEW_TYPE_SUPPORT == 1)
+			p_phydm->phy_dbg_info.num_of_ppdu[p_pktinfo->ppdu_cnt] = date_rate;
+			p_phydm->phy_dbg_info.gid_num[p_pktinfo->ppdu_cnt] = p_phy_sta_rpt->gid;
+			#endif
+		}
+	}
+	#endif
+}
+
+void
+phydm_reset_avg_rssi_for_ss(
+	struct PHY_DM_STRUCT	*p_dm_odm
+)
+{
+	p_dm_odm->phy_dbg_info.rssi_cck_sum = 0;
+	p_dm_odm->phy_dbg_info.rssi_cck_cnt = 0;
+
+	p_dm_odm->phy_dbg_info.rssi_ofdm_sum = 0;
+	p_dm_odm->phy_dbg_info.rssi_ofdm_cnt = 0;
+
+	p_dm_odm->phy_dbg_info.rssi_1ss_sum = 0;
+	p_dm_odm->phy_dbg_info.rssi_1ss_cnt = 0;
+
+	p_dm_odm->phy_dbg_info.rssi_2ss_sum[0] = 0;
+	p_dm_odm->phy_dbg_info.rssi_2ss_sum[1] = 0;
+	p_dm_odm->phy_dbg_info.rssi_2ss_cnt = 0;
+
+	p_dm_odm->phy_dbg_info.rssi_3ss_sum[0] = 0;
+	p_dm_odm->phy_dbg_info.rssi_3ss_sum[1] = 0;
+	p_dm_odm->phy_dbg_info.rssi_3ss_sum[2] = 0;
+	p_dm_odm->phy_dbg_info.rssi_3ss_cnt = 0;
+
+	p_dm_odm->phy_dbg_info.rssi_4ss_sum[0] = 0;
+	p_dm_odm->phy_dbg_info.rssi_4ss_sum[1] = 0;
+	p_dm_odm->phy_dbg_info.rssi_4ss_sum[2] = 0;
+	p_dm_odm->phy_dbg_info.rssi_4ss_sum[3] = 0;
+	p_dm_odm->phy_dbg_info.rssi_4ss_cnt = 0;
+
+}
+
+void
+phydm_avg_rssi_for_ss(
+	struct PHY_DM_STRUCT			*p_dm_odm,
+	struct _odm_phy_status_info_		*p_phy_info,
+	struct _odm_per_pkt_info_			*p_pktinfo
+)
+{
+	u8	rate_ss = phydm_rate_to_num_ss(p_dm_odm, p_pktinfo->data_rate);
+	
+	if (p_pktinfo->data_rate <= ODM_RATE11M) {
+		p_dm_odm->phy_dbg_info.rssi_cck_sum += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_cck_cnt++;
+	} else if (p_pktinfo->data_rate <= ODM_RATE54M) {
+		p_dm_odm->phy_dbg_info.rssi_ofdm_sum += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_ofdm_cnt++;
+	} else if (rate_ss == 1) {
+		p_dm_odm->phy_dbg_info.rssi_1ss_sum += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_1ss_cnt++;
+	} else if (rate_ss == 2) {
+		p_dm_odm->phy_dbg_info.rssi_2ss_sum[0] += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_2ss_sum[1] += p_phy_info->rx_mimo_signal_strength[1];
+		p_dm_odm->phy_dbg_info.rssi_2ss_cnt++;
+	} else if (rate_ss == 3) {
+		p_dm_odm->phy_dbg_info.rssi_3ss_sum[0] += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_3ss_sum[1] += p_phy_info->rx_mimo_signal_strength[1];
+		p_dm_odm->phy_dbg_info.rssi_3ss_sum[2] += p_phy_info->rx_mimo_signal_strength[2];
+		p_dm_odm->phy_dbg_info.rssi_3ss_cnt++;
+	} else if (rate_ss == 4) {
+		p_dm_odm->phy_dbg_info.rssi_4ss_sum[0] += p_phy_info->rx_mimo_signal_strength[0];
+		p_dm_odm->phy_dbg_info.rssi_4ss_sum[1] += p_phy_info->rx_mimo_signal_strength[1];
+		p_dm_odm->phy_dbg_info.rssi_4ss_sum[2] += p_phy_info->rx_mimo_signal_strength[2];
+		p_dm_odm->phy_dbg_info.rssi_4ss_sum[3] += p_phy_info->rx_mimo_signal_strength[3];
+		p_dm_odm->phy_dbg_info.rssi_4ss_cnt++;
+	}
+}
+
+u8 phydm_get_signal_quality(struct _odm_phy_status_info_ *p_phy_info,struct PHY_DM_STRUCT *p_dm_odm, struct _phy_status_rpt_8192cd *p_phy_sta_rpt)
+{
+	u8 SQ_rpt;
+	if (p_phy_info->rx_pwdb_all > 40 && !p_dm_odm->is_in_hct_test)
+		return 100;
+	else {
+		SQ_rpt = p_phy_sta_rpt->cck_sig_qual_ofdm_pwdb_all;
+
+		if (SQ_rpt > 64)
+			return 0;
+		else if (SQ_rpt < 20)
+			return 100;
+		else
+			return ((64 - SQ_rpt) * 100) / 44;
+
+	}
+}
 
 u8
 odm_query_rx_pwr_percentage(
@@ -334,6 +460,7 @@ static u8 odm_sq_process_patch_rt_cid_819x_lenovo(
 	return SQ;
 }
 
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 static u8 odm_sq_process_patch_rt_cid_819x_acer(
 	struct PHY_DM_STRUCT	*p_dm_odm,
 	u8		is_cck_rate,
@@ -413,6 +540,7 @@ static u8 odm_sq_process_patch_rt_cid_819x_acer(
 #endif
 	return SQ;
 }
+#endif
 
 static u8
 odm_evm_db_to_percentage(
@@ -637,21 +765,21 @@ odm_rx_phy_status92c_series_parsing(
 	struct _odm_per_pkt_info_			*p_pktinfo
 )
 {
-	struct _sw_antenna_switch_				*p_dm_swat_table = &p_dm_odm->dm_swat_table;
 	u8				i, max_spatial_stream;
 	s8				rx_pwr[4], rx_pwr_all = 0;
 	u8				EVM, PWDB_ALL = 0, PWDB_ALL_BT;
 	u8				RSSI, total_rssi = 0;
-	bool				is_cck_rate = false;
+	boolean				is_cck_rate = false;
 	u8				rf_rx_num = 0;
-	u8				cck_highpwr = 0;
 	u8				LNA_idx = 0;
 	u8				VGA_idx = 0;
 	u8				cck_agc_rpt;
 	u8				num_ss;
+	u8				stream_rxevm_tmp = 0;
 	struct _phy_status_rpt_8192cd *p_phy_sta_rpt = (struct _phy_status_rpt_8192cd *)p_phy_status;
 
 	is_cck_rate = (p_pktinfo->data_rate <= ODM_RATE11M) ? true : false;
+	p_dm_odm->rate_ss = phydm_rate_to_num_ss(p_dm_odm, p_pktinfo->data_rate);
 
 	if (p_pktinfo->is_to_self)
 		p_dm_odm->curr_station_id = p_pktinfo->station_id;
@@ -742,30 +870,17 @@ odm_rx_phy_status92c_series_parsing(
 		/*  */
 		/* if(p_pktinfo->is_packet_match_bssid) */
 		{
-			u8	SQ, SQ_rpt;
-
+			u8	SQ;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 			if ((p_dm_odm->support_platform == ODM_WIN) &&
-			    (p_dm_odm->patch_id == RT_CID_819X_LENOVO))
+				(p_dm_odm->patch_id == RT_CID_819X_LENOVO))
 				SQ = odm_sq_process_patch_rt_cid_819x_lenovo(p_dm_odm, is_cck_rate, PWDB_ALL, 0, 0);
 			else if ((p_dm_odm->support_platform == ODM_WIN) &&
 				 (p_dm_odm->patch_id == RT_CID_819X_ACER))
 				SQ = odm_sq_process_patch_rt_cid_819x_acer(p_dm_odm, is_cck_rate, PWDB_ALL, 0, 0);
 			else
 #endif
-				if (p_phy_info->rx_pwdb_all > 40 && !p_dm_odm->is_in_hct_test)
-					SQ = 100;
-				else {
-					SQ_rpt = p_phy_sta_rpt->cck_sig_qual_ofdm_pwdb_all;
-
-					if (SQ_rpt > 64)
-						SQ = 0;
-					else if (SQ_rpt < 20)
-						SQ = 100;
-					else
-						SQ = ((64 - SQ_rpt) * 100) / 44;
-
-				}
+				SQ = phydm_get_signal_quality(p_phy_info, p_dm_odm, p_phy_sta_rpt);
 
 			/* dbg_print("cck SQ = %d\n", SQ); */
 			p_phy_info->signal_quality = SQ;
@@ -869,13 +984,24 @@ odm_rx_phy_status92c_series_parsing(
 				EVM = odm_evm_db_to_percentage((p_phy_sta_rpt->stream_rxevm[i]));	/* dbm */
 
 				/* GET_RX_STATUS_DESC_RX_MCS(p_desc), p_drv_info->rxevm[i], "%", EVM)); */
-
+#if 0
 				/* if(p_pktinfo->is_packet_match_bssid) */
 				{
+#endif
 					if (i == ODM_RF_PATH_A) /* Fill value in RFD, Get the first spatial stream only */
 						p_phy_info->signal_quality = (u8)(EVM & 0xff);
 					p_phy_info->rx_mimo_signal_quality[i] = (u8)(EVM & 0xff);
+
+					if (p_phy_sta_rpt->stream_rxevm[i] < 0)
+						stream_rxevm_tmp = (u8)(0 - (p_phy_sta_rpt->stream_rxevm[i]));
+
+					if (stream_rxevm_tmp == 64)
+						stream_rxevm_tmp = 0;
+
+					p_phy_info->rx_mimo_evm_dbm[i] = stream_rxevm_tmp;
+#if 0
 				}
+#endif
 			}
 		}
 
@@ -889,7 +1015,7 @@ odm_rx_phy_status92c_series_parsing(
 	if (is_cck_rate) {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 		/* 2012/01/12 MH Use customeris signal strength from HalComRxdDesc.c/ */
-		p_phy_info->signal_strength = signal_scale_proc(p_dm_odm->adapter, PWDB_ALL, true, true);
+		p_phy_info->signal_strength = SignalScaleProc(p_dm_odm->adapter, PWDB_ALL, true, true);
 #else
 		p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_dm_odm, PWDB_ALL));/*PWDB_ALL;*/
 #endif /*#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)*/
@@ -897,7 +1023,7 @@ odm_rx_phy_status92c_series_parsing(
 		if (rf_rx_num != 0) {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 			/* 2012/01/12 MH Use customeris signal strength from HalComRxdDesc.c/ */
-			p_phy_info->signal_strength = signal_scale_proc(p_dm_odm->adapter, (total_rssi /= rf_rx_num), true, false);
+			p_phy_info->signal_strength = SignalScaleProc(p_dm_odm->adapter, (total_rssi /= rf_rx_num), true, false);
 #else
 			p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_dm_odm, total_rssi /= rf_rx_num));
 #endif
@@ -915,6 +1041,12 @@ odm_rx_phy_status92c_series_parsing(
 	p_dm_odm->dm_fat_table.antsel_rx_keep_1 = p_phy_sta_rpt->ant_sel_b;
 	p_dm_odm->dm_fat_table.antsel_rx_keep_2 = p_phy_sta_rpt->antsel_rx_keep_2;
 #endif
+
+	if (p_pktinfo->is_packet_match_bssid) {
+		phydm_avg_rssi_for_ss(p_dm_odm, p_phy_info, p_pktinfo);
+		phydm_rx_statistic_cal(p_dm_odm, p_phy_status, p_pktinfo);
+	}
+
 }
 #endif
 
@@ -957,10 +1089,10 @@ odm_rx_phy_bw_jaguar_series_parsing(
 
 void
 odm_rx_phy_status_jaguar_series_parsing(
-	struct PHY_DM_STRUCT					*p_dm_odm,
-	struct _odm_phy_status_info_			*p_phy_info,
-	u8						*p_phy_status,
-	struct _odm_per_pkt_info_			*p_pktinfo
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	struct _odm_phy_status_info_	*p_phy_info,
+	u8							*p_phy_status,
+	struct _odm_per_pkt_info_		*p_pktinfo
 )
 {
 	u8					i, max_spatial_stream;
@@ -977,10 +1109,8 @@ odm_rx_phy_status_jaguar_series_parsing(
 
 	odm_rx_phy_bw_jaguar_series_parsing(p_phy_info, p_pktinfo, p_phy_sta_rpt);
 
-	if (p_pktinfo->data_rate <= ODM_RATE11M)
-		is_cck_rate = true;
-	else
-		is_cck_rate = false;
+	is_cck_rate = (p_pktinfo->data_rate <= ODM_RATE11M) ? true : false;
+	p_dm_odm->rate_ss = phydm_rate_to_num_ss(p_dm_odm, p_pktinfo->data_rate);
 
 	if (p_pktinfo->is_to_self)
 		p_dm_odm->curr_station_id = p_pktinfo->station_id;
@@ -1174,9 +1304,13 @@ odm_rx_phy_status_jaguar_series_parsing(
 			/* continue; */
 			/*2012.05.25 LukeLee: Testchip AGC report is wrong, it should be restored back to old formula in MP chip*/
 			/* if((p_dm_odm->support_ic_type & (ODM_RTL8812|ODM_RTL8821)) && (!p_dm_odm->is_mp_chip)) */
-			if (i < ODM_RF_PATH_C)
+			if (i < ODM_RF_PATH_C) {
 				rx_pwr[i] = (p_phy_sta_rpt->gain_trsw[i] & 0x7F) - 110;
-			else
+
+				if (p_pktinfo->is_to_self) 
+					p_dm_odm->ofdm_agc_idx[i] = p_phy_sta_rpt->gain_trsw[i];
+				
+			} else
 				rx_pwr[i] = (p_phy_sta_rpt->gain_trsw_cd[i - 2] & 0x7F) - 110;
 			/* else */
 			/*rx_pwr[i] = ((p_phy_sta_rpt->gain_trsw[i]& 0x3F)*2) - 110;  OLD FORMULA*/
@@ -1328,7 +1462,7 @@ odm_rx_phy_status_jaguar_series_parsing(
 	if (is_cck_rate) {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 		/*2012/01/12 MH Use customeris signal strength from HalComRxdDesc.c/*/
-		p_phy_info->signal_strength = signal_scale_proc(p_dm_odm->adapter, PWDB_ALL, false, true);
+		p_phy_info->signal_strength = SignalScaleProc(p_dm_odm->adapter, PWDB_ALL, false, true);
 #else
 		p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_dm_odm, PWDB_ALL));/*PWDB_ALL;*/
 #endif
@@ -1341,7 +1475,7 @@ odm_rx_phy_status_jaguar_series_parsing(
 				avg_rssi = (best_rssi + second_rssi) / 2;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 			/* 2012/01/12 MH Use customeris signal strength from HalComRxdDesc.c/*/
-			p_phy_info->signal_strength = signal_scale_proc(p_dm_odm->adapter, avg_rssi, false, false);
+			p_phy_info->signal_strength = SignalScaleProc(p_dm_odm->adapter, avg_rssi, false, false);
 #else
 			p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_dm_odm, avg_rssi));
 #endif
@@ -1354,6 +1488,11 @@ odm_rx_phy_status_jaguar_series_parsing(
 	p_dm_odm->dm_fat_table.antsel_rx_keep_1 = p_phy_sta_rpt->antidx_antb;
 	p_dm_odm->dm_fat_table.antsel_rx_keep_2 = p_phy_sta_rpt->antidx_antc;
 	p_dm_odm->dm_fat_table.antsel_rx_keep_3 = p_phy_sta_rpt->antidx_antd;
+
+	if (p_pktinfo->is_packet_match_bssid) {
+		phydm_avg_rssi_for_ss(p_dm_odm, p_phy_info, p_pktinfo);
+		phydm_rx_statistic_cal(p_dm_odm, p_phy_status, p_pktinfo);
+	}
 	/*ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("StaID[%d]:  antidx_anta = ((%d)), MatchBSSID =  ((%d))\n", p_pktinfo->station_id, p_phy_sta_rpt->antidx_anta, p_pktinfo->is_packet_match_bssid));*/
 
 
@@ -1416,10 +1555,10 @@ phydm_reset_rssi_for_dm(
 
 	/*in WIN Driver: sta_ID==0->p_entry==NULL -> default port HAL_Data*/
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN))
-	p_entry->is_used = 0;
+	p_entry->bUsed = 0;
 	if (station_id == 0) {
 
-		p_hal_data->undecorated_smoothed_pwdb = -1;
+		p_hal_data->UndecoratedSmoothedPWDB = -1;
 		/**/
 	}
 #endif
@@ -1442,7 +1581,7 @@ odm_process_rssi_for_dm(
 )
 {
 
-	s32			undecorated_smoothed_pwdb, undecorated_smoothed_cck, undecorated_smoothed_ofdm, rssi_ave, cck_pkt;
+	s32			undecorated_smoothed_pwdb, undecorated_smoothed_cck, undecorated_smoothed_ofdm, rssi_ave;
 	u8			i, is_cck_rate = 0;
 	u8			RSSI_max, RSSI_min;
 	u32			weighting = 0;
@@ -1712,7 +1851,9 @@ odm_process_rssi_for_dm(
 					undecorated_smoothed_pwdb, p_entry->rssi_stat.ofdm_pkt, p_entry->rssi_stat.cck_pkt));
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+#ifndef DM_ODM_CE_MAC80211
 				phydm_ra_rssi_rpt_wk(p_dm_odm);
+#endif
 #endif
 			}
 
@@ -1722,7 +1863,7 @@ odm_process_rssi_for_dm(
 
 			if (p_pktinfo->station_id == 0) {
 				/**/
-				p_hal_data->undecorated_smoothed_pwdb = undecorated_smoothed_pwdb;
+				p_hal_data->UndecoratedSmoothedPWDB = undecorated_smoothed_pwdb;
 			}
 #endif
 
@@ -1761,13 +1902,13 @@ odm_phy_status_query_92c_series(
 
 void
 odm_phy_status_query_jaguar_series(
-	struct PHY_DM_STRUCT					*p_dm_odm,
-	struct _odm_phy_status_info_			*p_phy_info,
-	u8						*p_phy_status,
-	struct _odm_per_pkt_info_			*p_pktinfo
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	struct _odm_phy_status_info_	*p_phy_info,
+	u8							*p_phy_status,
+	struct _odm_per_pkt_info_		*p_pktinfo
 )
 {
-	odm_rx_phy_status_jaguar_series_parsing(p_dm_odm, p_phy_info,	p_phy_status, p_pktinfo);
+	odm_rx_phy_status_jaguar_series_parsing(p_dm_odm, p_phy_info, p_phy_status, p_pktinfo);
 	odm_process_rssi_for_dm(p_dm_odm, p_phy_info, p_pktinfo);
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
@@ -1897,28 +2038,28 @@ phydm_normal_driver_rx_sniffer(
 
 void
 odm_phy_status_query(
-	struct PHY_DM_STRUCT					*p_dm_odm,
-	struct _odm_phy_status_info_			*p_phy_info,
-	u8						*p_phy_status,
-	struct _odm_per_pkt_info_			*p_pktinfo
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	struct _odm_phy_status_info_	*p_phy_info,
+	u8							*p_phy_status,
+	struct _odm_per_pkt_info_		*p_pktinfo
 )
 {
-#if (ODM_PHY_STATUS_NEW_TYPE_SUPPORT == 1)
+
 	if (p_dm_odm->support_ic_type & ODM_IC_PHY_STATUE_NEW_TYPE) {
+		#if (ODM_PHY_STATUS_NEW_TYPE_SUPPORT == 1)
 		phydm_rx_phy_status_new_type(p_dm_odm, p_phy_status, p_pktinfo, p_phy_info);
-		return;
+		#endif
 	}
-#endif
 
-#if	ODM_IC_11AC_SERIES_SUPPORT
-	if (p_dm_odm->support_ic_type & ODM_IC_11AC_SERIES)
+	#if	ODM_IC_11AC_SERIES_SUPPORT
+	else if (p_dm_odm->support_ic_type & ODM_IC_11AC_SERIES)
 		odm_phy_status_query_jaguar_series(p_dm_odm, p_phy_info, p_phy_status, p_pktinfo);
-#endif
+	#endif
 
-#if	ODM_IC_11N_SERIES_SUPPORT
-	if (p_dm_odm->support_ic_type & ODM_IC_11N_SERIES)
+	#if	ODM_IC_11N_SERIES_SUPPORT
+	else if (p_dm_odm->support_ic_type & ODM_IC_11N_SERIES)
 		odm_phy_status_query_92c_series(p_dm_odm, p_phy_info, p_phy_status, p_pktinfo);
-#endif
+	#endif
 }
 
 /* For future use. */
@@ -1927,9 +2068,9 @@ odm_mac_status_query(
 	struct PHY_DM_STRUCT					*p_dm_odm,
 	u8						*p_mac_status,
 	u8						mac_id,
-	bool						is_packet_match_bssid,
-	bool						is_packet_to_self,
-	bool						is_packet_beacon
+	boolean						is_packet_match_bssid,
+	boolean						is_packet_to_self,
+	boolean						is_packet_beacon
 )
 {
 	/* 2011/10/19 Driver team will handle in the future. */
@@ -1951,13 +2092,14 @@ odm_config_rf_with_header_file(
 {
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
-	PMGNT_INFO		p_mgnt_info = &(adapter->mgnt_info);
+	PMGNT_INFO		p_mgnt_info = &(adapter->MgntInfo);
 #endif
+	enum hal_status	result = HAL_STATUS_SUCCESS;
 
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
 		("===>odm_config_rf_with_header_file (%s)\n", (p_dm_odm->is_mp_chip) ? "MPChip" : "TestChip"));
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
-		("p_dm_odm->support_platform: 0x%X, p_dm_odm->support_interface: 0x%X, p_dm_odm->board_type: 0x%X\n",
+		("support_platform: 0x%X, support_interface: 0x%X, board_type: 0x%X\n",
 		p_dm_odm->support_platform, p_dm_odm->support_interface, p_dm_odm->board_type));
 
 	/* 1 AP doesn't use PHYDM power tracking table in these ICs */
@@ -1995,9 +2137,9 @@ odm_config_rf_with_header_file(
 					READ_AND_CONFIG_MP(8821a, _txpwr_lmt_8811a_u_ipa);
 			} else {
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-				if (p_mgnt_info->customer_id == RT_CID_8821AE_ASUS_MB)
+				if (p_mgnt_info->CustomerID == RT_CID_8821AE_ASUS_MB)
 					READ_AND_CONFIG_MP(8821a, _txpwr_lmt_8821a_sar_8mm);
-				else if (p_mgnt_info->customer_id == RT_CID_ASUS_NB)
+				else if (p_mgnt_info->CustomerID == RT_CID_ASUS_NB)
 					READ_AND_CONFIG_MP(8821a, _txpwr_lmt_8821a_sar_5mm);
 				else
 #endif
@@ -2036,6 +2178,17 @@ odm_config_rf_with_header_file(
 			READ_AND_CONFIG_MP(8723d, _txpwr_lmt);
 	}
 #endif
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+	if (p_dm_odm->support_ic_type == ODM_RTL8710B) {
+		if (config_type == CONFIG_RF_RADIO) {
+			if (e_rf_path == ODM_RF_PATH_A)
+				READ_AND_CONFIG_MP(8710b, _radioa);
+		} else if (config_type == CONFIG_RF_TXPWR_LMT)
+			READ_AND_CONFIG_MP(8710b, _txpwr_lmt);
+	}
+#endif
+
 #endif/* (DM_ODM_SUPPORT_TYPE !=  ODM_AP) */
 
 	/* 1 All platforms support */
@@ -2069,7 +2222,7 @@ odm_config_rf_with_header_file(
 				READ_AND_CONFIG_MP(8814a, _radiod);
 		} else if (config_type == CONFIG_RF_TXPWR_LMT) {
 			if (p_dm_odm->rfe_type == 0) 
-				READ_AND_CONFIG_MP(8814a,_txpwr_lmt);
+				READ_AND_CONFIG_MP(8814a,_txpwr_lmt_type0);
 			else if (p_dm_odm->rfe_type == 1)
 				READ_AND_CONFIG_MP(8814a,_txpwr_lmt_type1);				
 			else if (p_dm_odm->rfe_type == 2)
@@ -2109,6 +2262,11 @@ odm_config_rf_with_header_file(
 				READ_AND_CONFIG_MP(8822b, _radioa);
 			else if (e_rf_path == ODM_RF_PATH_B)
 				READ_AND_CONFIG_MP(8822b, _radiob);
+		} else if (config_type == CONFIG_RF_TXPWR_LMT) {
+			if (p_dm_odm->rfe_type == 5)
+				READ_AND_CONFIG_MP(8822b, _txpwr_lmt_type5);
+			else
+				READ_AND_CONFIG_MP(8822b, _txpwr_lmt);
 		}
 	}
 #endif
@@ -2134,7 +2292,22 @@ odm_config_rf_with_header_file(
 	}
 #endif
 
-	return HAL_STATUS_SUCCESS;
+	if (config_type == CONFIG_RF_RADIO) {
+		if (p_dm_odm->fw_offload_ability & PHYDM_PHY_PARAM_OFFLOAD) {
+
+			result = phydm_set_reg_by_fw(p_dm_odm,
+							PHYDM_HALMAC_CMD_END,
+							0,
+							0,
+							0,
+							0,
+							0);
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
+				("rf param offload end!result = %d", result));
+		}
+	}
+
+	return result;
 }
 
 enum hal_status
@@ -2196,6 +2369,20 @@ odm_config_rf_with_tx_pwr_track_header_file(
 		READ_AND_CONFIG_MP(8723d, _txxtaltrack);
 	}
 #endif
+/* JJ ADD 20161014 */
+#if RTL8710B_SUPPORT
+	if (p_dm_odm->support_ic_type == ODM_RTL8710B) {
+		if (p_dm_odm->support_interface == ODM_ITRF_PCIE)
+			READ_AND_CONFIG_MP(8710b, _txpowertrack_pcie);
+		else if (p_dm_odm->support_interface == ODM_ITRF_USB)
+			READ_AND_CONFIG_MP(8710b, _txpowertrack_usb);
+		else if (p_dm_odm->support_interface == ODM_ITRF_SDIO)
+			READ_AND_CONFIG_MP(8710b, _txpowertrack_sdio);
+
+		READ_AND_CONFIG_MP(8710b, _txxtaltrack);
+	}
+#endif
+
 #if RTL8188E_SUPPORT
 	if (p_dm_odm->support_ic_type == ODM_RTL8188E) {
 		if (odm_get_mac_reg(p_dm_odm, 0xF0, 0xF000) >= 8) {		/*if 0xF0[15:12] >= 8, SMIC*/
@@ -2269,12 +2456,26 @@ odm_config_rf_with_tx_pwr_track_header_file(
 			READ_AND_CONFIG_MP(8822b, _txpowertrack_type0);
 		else if (p_dm_odm->rfe_type == 1)
 			READ_AND_CONFIG_MP(8822b, _txpowertrack_type1);
+		else if (p_dm_odm->rfe_type == 2)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type2);
 		else if ((p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5))
 			READ_AND_CONFIG_MP(8822b, _txpowertrack_type3_type5);
+		else if (p_dm_odm->rfe_type == 4)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type4);
 		else if (p_dm_odm->rfe_type == 6)
 			READ_AND_CONFIG_MP(8822b, _txpowertrack_type6);
 		else if (p_dm_odm->rfe_type == 7)
 			READ_AND_CONFIG_MP(8822b, _txpowertrack_type7);
+		else if (p_dm_odm->rfe_type == 8)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type8);
+		else if (p_dm_odm->rfe_type == 9)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type9);
+		else if (p_dm_odm->rfe_type == 10)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type10);
+		else if (p_dm_odm->rfe_type == 11)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type11);
+		else if (p_dm_odm->rfe_type == 12)
+			READ_AND_CONFIG_MP(8822b, _txpowertrack_type12);
 		else
 			READ_AND_CONFIG_MP(8822b, _txpowertrack);
 	}
@@ -2307,8 +2508,9 @@ odm_config_bb_with_header_file(
 {
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
-	PMGNT_INFO		p_mgnt_info = &(adapter->mgnt_info);
+	PMGNT_INFO		p_mgnt_info = &(adapter->MgntInfo);
 #endif
+	enum hal_status	result = HAL_STATUS_SUCCESS;
 
 	/* 1 AP doesn't use PHYDM initialization in these ICs */
 #if (DM_ODM_SUPPORT_TYPE != ODM_AP)
@@ -2322,14 +2524,14 @@ odm_config_bb_with_header_file(
 			if (p_dm_odm->rfe_type == 3 && p_dm_odm->is_mp_chip)
 				READ_AND_CONFIG_MP(8812a, _phy_reg_pg_asus);
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-			else if (p_mgnt_info->customer_id == RT_CID_WNC_NEC && p_dm_odm->is_mp_chip)
+			else if (p_mgnt_info->CustomerID == RT_CID_WNC_NEC && p_dm_odm->is_mp_chip)
 				READ_AND_CONFIG_MP(8812a, _phy_reg_pg_nec);
 #if RT_PLATFORM == PLATFORM_MACOSX
 			/*{1827}{1024} for BUFFALO power by rate table. Isaiah 2013-11-29*/
-			else if (p_mgnt_info->customer_id == RT_CID_DNI_BUFFALO)
+			else if (p_mgnt_info->CustomerID == RT_CID_DNI_BUFFALO)
 				READ_AND_CONFIG_MP(8812a, _phy_reg_pg_dni);
 			/* TP-Link T4UH, Isaiah 2015-03-16*/
-			else if (p_mgnt_info->customer_id == RT_CID_TPLINK_HPWR) {
+			else if (p_mgnt_info->CustomerID == RT_CID_TPLINK_HPWR) {
 				dbg_print("RT_CID_TPLINK_HPWR:: _PHY_REG_PG_TPLINK\n");
 				READ_AND_CONFIG_MP(8812a, _phy_reg_pg_tplink);
 			}
@@ -2340,13 +2542,13 @@ odm_config_bb_with_header_file(
 		} else if (config_type == CONFIG_BB_PHY_REG_MP)
 			READ_AND_CONFIG_MP(8812a, _phy_reg_mp);
 		else if (config_type == CONFIG_BB_AGC_TAB_DIFF) {
+			p_dm_odm->fw_offload_ability &= ~PHYDM_PHY_PARAM_OFFLOAD;
+			/*AGC_TAB DIFF dont support FW offload*/
 			if ((36 <= *p_dm_odm->p_channel)  && (*p_dm_odm->p_channel  <= 64))
 				AGC_DIFF_CONFIG_MP(8812a, lb);
 			else if (100 <= *p_dm_odm->p_channel)
 				AGC_DIFF_CONFIG_MP(8812a, hb);
 		}
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> phy_ConfigBBWithHeaderFile() phy:Rtl8812AGCTABArray\n"));
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> phy_ConfigBBWithHeaderFile() agc:Rtl8812PHY_REGArray\n"));
 	}
 #endif
 #if (RTL8821A_SUPPORT == 1)
@@ -2366,7 +2568,7 @@ odm_config_bb_with_header_file(
 #endif
 #if (RT_PLATFORM == PLATFORM_MACOSX)
 				/*{1827}{1022} for BUFFALO power by rate table. Isaiah 2013-10-18*/
-				if (p_mgnt_info->customer_id == RT_CID_DNI_BUFFALO) {
+				if (p_mgnt_info->CustomerID == RT_CID_DNI_BUFFALO) {
 					/*{1024} for BUFFALO power by rate table. (JP/US)*/
 					if (p_mgnt_info->channel_plan == RT_CHANNEL_DOMAIN_US_2G_CANADA_5G)
 						READ_AND_CONFIG_MP(8821a, _phy_reg_pg_dni_us);
@@ -2377,8 +2579,6 @@ odm_config_bb_with_header_file(
 #endif
 					READ_AND_CONFIG_MP(8821a, _phy_reg_pg);
 		}
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> phy_ConfigBBWithHeaderFile() phy:Rtl8821AGCTABArray\n"));
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> phy_ConfigBBWithHeaderFile() agc:Rtl8821PHY_REGArray\n"));
 	}
 #endif
 #if (RTL8192E_SUPPORT == 1)
@@ -2401,6 +2601,18 @@ odm_config_bb_with_header_file(
 			READ_AND_CONFIG_MP(8723d, _phy_reg_pg);
 	}
 #endif
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+	if (p_dm_odm->support_ic_type == ODM_RTL8710B) {
+		if (config_type == CONFIG_BB_PHY_REG)
+			READ_AND_CONFIG_MP(8710b, _phy_reg);
+		else if (config_type == CONFIG_BB_AGC_TAB)
+			READ_AND_CONFIG_MP(8710b, _agc_tab);
+		else if (config_type == CONFIG_BB_PHY_REG_PG)
+			READ_AND_CONFIG_MP(8710b, _phy_reg_pg);
+	}
+#endif
+
 #endif/* (DM_ODM_SUPPORT_TYPE !=  ODM_AP) */
 
 
@@ -2433,7 +2645,7 @@ odm_config_bb_with_header_file(
 			READ_AND_CONFIG_MP(8814a, _agc_tab);
 		else if (config_type == CONFIG_BB_PHY_REG_PG) {
 			if (p_dm_odm->rfe_type == 0) 
-				READ_AND_CONFIG_MP(8814a,_phy_reg_pg);
+				READ_AND_CONFIG_MP(8814a,_phy_reg_pg_type0);
 			else if (p_dm_odm->rfe_type == 2)
 				READ_AND_CONFIG_MP(8814a,_phy_reg_pg_type2);				
 			else if (p_dm_odm->rfe_type == 3)
@@ -2479,8 +2691,6 @@ odm_config_bb_with_header_file(
 			READ_AND_CONFIG_MP(8822b, _agc_tab);
 		else if (config_type == CONFIG_BB_PHY_REG_PG)
 			READ_AND_CONFIG_MP(8822b, _phy_reg_pg);
-		/*else if (config_type == CONFIG_BB_PHY_REG_MP)*/
-		/*READ_AND_CONFIG_MP(8822b, _phy_reg_mp);*/
 	}
 #endif
 
@@ -2492,10 +2702,6 @@ odm_config_bb_with_header_file(
 				phydm_phypara_a_cut(p_dm_odm);
 		} else if (config_type == CONFIG_BB_AGC_TAB)
 			READ_AND_CONFIG_MP(8197f, _agc_tab);
-		/*		else if(config_type == CONFIG_BB_PHY_REG_PG)
-					READ_AND_CONFIG_MP(8197f, _phy_reg_pg);
-				else if(config_type == CONFIG_BB_PHY_REG_MP)
-					READ_AND_CONFIG_MP(8197f, _phy_reg_mp); */
 	}
 #endif
 
@@ -2506,10 +2712,18 @@ odm_config_bb_with_header_file(
 		else if (config_type == CONFIG_BB_AGC_TAB) {
 			READ_AND_CONFIG(8821c, _agc_tab);
 			/* According to RFEtype, choosing correct AGC table*/
-			if (p_dm_odm->rfe_type == 2 || p_dm_odm->rfe_type == 4 || p_dm_odm->rfe_type == 7)
+			if (p_dm_odm->default_rf_set_8821c == SWITCH_TO_BTG)
 				AGC_DIFF_CONFIG_MP(8821c, btg);
 		} else if (config_type == CONFIG_BB_PHY_REG_PG)
 			READ_AND_CONFIG(8821c, _phy_reg_pg);
+		else if (config_type == CONFIG_BB_AGC_TAB_DIFF) {
+			p_dm_odm->fw_offload_ability &= ~PHYDM_PHY_PARAM_OFFLOAD;
+			/*AGC_TAB DIFF dont support FW offload*/
+			if (p_dm_odm->current_rf_set_8821c == SWITCH_TO_BTG)
+				AGC_DIFF_CONFIG_MP(8821c, btg);
+			else if (p_dm_odm->current_rf_set_8821c == SWITCH_TO_WLG)
+				AGC_DIFF_CONFIG_MP(8821c, wlg);
+		}
 	}
 #endif
 
@@ -2524,7 +2738,21 @@ odm_config_bb_with_header_file(
 	}
 #endif
 
-	return HAL_STATUS_SUCCESS;
+	if (config_type == CONFIG_BB_PHY_REG || config_type == CONFIG_BB_AGC_TAB)
+		if (p_dm_odm->fw_offload_ability & PHYDM_PHY_PARAM_OFFLOAD) {
+
+			result = phydm_set_reg_by_fw(p_dm_odm,
+								PHYDM_HALMAC_CMD_END,
+								0,
+								0,
+								0,
+								0,
+								0);
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
+				("phy param offload end!result = %d", result));
+		}
+
+	return result;
 }
 
 enum hal_status
@@ -2532,14 +2760,11 @@ odm_config_mac_with_header_file(
 	struct PHY_DM_STRUCT	*p_dm_odm
 )
 {
-#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-	struct _ADAPTER		*adapter = p_dm_odm->adapter;
-#endif
-
+	enum hal_status	result = HAL_STATUS_SUCCESS;
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
 		("===>odm_config_mac_with_header_file (%s)\n", (p_dm_odm->is_mp_chip) ? "MPChip" : "TestChip"));
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
-		("p_dm_odm->support_platform: 0x%X, p_dm_odm->support_interface: 0x%X, p_dm_odm->board_type: 0x%X\n",
+		("support_platform: 0x%X, support_interface: 0x%X, board_type: 0x%X\n",
 		p_dm_odm->support_platform, p_dm_odm->support_interface, p_dm_odm->board_type));
 
 	/* 1 AP doesn't use PHYDM initialization in these ICs */
@@ -2549,11 +2774,8 @@ odm_config_mac_with_header_file(
 		READ_AND_CONFIG_MP(8812a, _mac_reg);
 #endif
 #if (RTL8821A_SUPPORT == 1)
-	if (p_dm_odm->support_ic_type == ODM_RTL8821) {
+	if (p_dm_odm->support_ic_type == ODM_RTL8821)
 		READ_AND_CONFIG_MP(8821a, _mac_reg);
-
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("<===8821_ODM_ConfigMACwithHeaderFile\n"));
-	}
 #endif
 #if (RTL8192E_SUPPORT == 1)
 	if (p_dm_odm->support_ic_type == ODM_RTL8192E)
@@ -2563,6 +2785,12 @@ odm_config_mac_with_header_file(
 	if (p_dm_odm->support_ic_type == ODM_RTL8723D)
 		READ_AND_CONFIG_MP(8723d, _mac_reg);
 #endif
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+	if (p_dm_odm->support_ic_type == ODM_RTL8710B)
+		READ_AND_CONFIG_MP(8710b, _mac_reg);
+#endif
+
 #endif/* (DM_ODM_SUPPORT_TYPE !=  ODM_AP) */
 
 	/* 1 All platforms support */
@@ -2606,7 +2834,20 @@ odm_config_mac_with_header_file(
 		READ_AND_CONFIG_MP(8195a, _mac_reg);
 #endif
 
-	return HAL_STATUS_SUCCESS;
+	if (p_dm_odm->fw_offload_ability & PHYDM_PHY_PARAM_OFFLOAD) {
+
+		result = phydm_set_reg_by_fw(p_dm_odm,
+							PHYDM_HALMAC_CMD_END,
+							0,
+							0,
+							0,
+							0,
+							0);
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD,
+			("mac param offload end!result = %d", result));
+	}
+
+	return result;
 }
 
 enum hal_status
@@ -2714,24 +2955,27 @@ odm_config_fw_with_header_file(
 		}
 	}
 #endif
-	/*#if (RTL8814A_SUPPORT == 1)
-		if (p_dm_odm->support_ic_type == ODM_RTL8814A)
-		{
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+		if (p_dm_odm->support_ic_type == ODM_RTL8710B) {
 			if (config_type == CONFIG_FW_NIC)
-				READ_FIRMWARE_MP(8814a, _fw_nic);
-			else if (config_type == config_fw_wowlan)
-				READ_FIRMWARE_MP(8814a, _fw_wowlan);
-			#ifdef CONFIG_AP_WOWLAN
-			else if (config_type == config_fw_ap_wowlan)
-				READ_FIRMWARE_MP(8814a, _fw_ap);
-			#endif
+				READ_FIRMWARE_MP(8710b, _fw_nic);
+			else if (config_type == CONFIG_FW_WOWLAN) {
+				READ_FIRMWARE_MP(8710b, _fw_wowlan);
+#ifdef CONFIG_AP_WOWLAN
+				else if (config_type == config_fw_ap_wowlan)
+					READ_FIRMWARE_MP(8710b, _fw_ap);
+#endif
+			}
 		}
-	#endif */
+#endif
 
 #if (RTL8814A_SUPPORT == 1)
 	if (p_dm_odm->support_ic_type == ODM_RTL8814A) {
 		if (config_type == CONFIG_FW_NIC)
 			READ_FIRMWARE_MP(8814a, _fw_nic);
+		else if (config_type == CONFIG_FW_WOWLAN)
+			READ_FIRMWARE_MP(8814a, _fw_wowlan);
 #ifdef CONFIG_AP_WOWLAN
 		else if (config_type == config_fw_ap_wowlan)
 			READ_FIRMWARE_MP(8814a, _fw_ap);
@@ -2834,6 +3078,12 @@ odm_get_hw_img_version(
 	if (p_dm_odm->support_ic_type == ODM_RTL8723D)
 		version = GET_VERSION_MP(8723d, _mac_reg);
 #endif
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+	if (p_dm_odm->support_ic_type == ODM_RTL8710B)
+		version = GET_VERSION_MP(8710b, _mac_reg);
+#endif
+
 #endif /* (DM_ODM_SUPPORT_TYPE != ODM_AP) */
 
 	/*1 All platforms support*/
@@ -2879,6 +3129,33 @@ odm_get_hw_img_version(
 /* For 8822B only!! need to move to FW finally */
 /*==============================================*/
 
+boolean
+phydm_query_is_mu_api(
+	struct PHY_DM_STRUCT					*p_phydm,
+	u8							ppdu_idx,
+	u8							*p_data_rate,
+	u8							*p_gid
+)
+{
+	u8	data_rate = 0, gid = 0;
+	boolean is_mu = false;
+
+	data_rate = p_phydm->phy_dbg_info.num_of_ppdu[ppdu_idx];
+	gid = p_phydm->phy_dbg_info.gid_num[ppdu_idx];
+
+	if (data_rate & BIT(7)) {
+		is_mu = true;
+		data_rate = data_rate & ~(BIT(7));
+	} else
+		is_mu = false;
+
+	*p_data_rate = data_rate;
+	*p_gid = gid;
+
+	return is_mu;
+	
+}
+
 void
 phydm_reset_phy_info(
 	struct PHY_DM_STRUCT					*p_phydm,
@@ -2904,10 +3181,11 @@ phydm_reset_phy_info(
 	p_phy_info->is_beamformed = 0;
 	p_phy_info->rxsc = 0;
 	odm_memory_set(p_phydm, p_phy_info->rx_pwr, -110, 4);
-	odm_memory_set(p_phydm, p_phy_info->rx_mimo_evm_dbm, 0, 4);
+	/*odm_memory_set(p_phydm, p_phy_info->rx_mimo_evm_dbm, 0, 4);*/
 	odm_memory_set(p_phydm, p_phy_info->cfo_short, 0, 8);
 	odm_memory_set(p_phydm, p_phy_info->cfo_tail, 0, 8);
 #endif
+	odm_memory_set(p_phydm, p_phy_info->rx_mimo_evm_dbm, 0, 4);
 }
 
 void
@@ -2917,7 +3195,7 @@ phydm_set_per_path_phy_info(
 	s8							rx_evm,
 	s8							cfo_tail,
 	s8							rx_snr,
-	struct _odm_phy_status_info_				*p_phy_info
+	struct _odm_phy_status_info_	*p_phy_info
 )
 {
 	u8			evm_dbm = 0;
@@ -2930,7 +3208,7 @@ phydm_set_per_path_phy_info(
 		evm_dbm = ((u8)(0 - rx_evm) >> 1);
 
 		/* Calculate EVM in percentage */
-		if (evm_dbm >= 33)
+		if (evm_dbm >= 34)
 			evm_percentage = 100;
 		else
 			evm_percentage = (evm_dbm << 1) + (evm_dbm);
@@ -2939,13 +3217,16 @@ phydm_set_per_path_phy_info(
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 	p_phy_info->rx_pwr[rx_path] = rx_pwr;
-	p_phy_info->rx_mimo_evm_dbm[rx_path] = evm_dbm;
 
 	/* CFO = CFO_tail * 312.5 / 2^7 ~= CFO tail * 39/512 (kHz)*/
 	p_phy_info->cfo_tail[rx_path] = cfo_tail;
 	p_phy_info->cfo_tail[rx_path] = ((p_phy_info->cfo_tail[rx_path] << 5) + (p_phy_info->cfo_tail[rx_path] << 2) +
 		(p_phy_info->cfo_tail[rx_path] << 1) + (p_phy_info->cfo_tail[rx_path])) >> 9;
 #endif
+	if (evm_dbm == 64)
+		evm_dbm = 0; /*if 1SS rate, evm_dbm [2nd stream] =64*/
+	
+	p_phy_info->rx_mimo_evm_dbm[rx_path] = evm_dbm;
 
 	p_phy_info->rx_mimo_signal_strength[rx_path] = odm_query_rx_pwr_percentage(rx_pwr);
 	p_phy_info->rx_mimo_signal_quality[rx_path] = evm_percentage;
@@ -2966,8 +3247,8 @@ void
 phydm_set_common_phy_info(
 	s8							rx_power,
 	u8							channel,
-	bool							is_beamformed,
-	bool							is_mu_packet,
+	boolean							is_beamformed,
+	boolean							is_mu_packet,
 	u8							bandwidth,
 	u8							signal_quality,
 	u8							rxsc,
@@ -2999,23 +3280,46 @@ phydm_set_common_phy_info(
 
 void
 phydm_get_rx_phy_status_type0(
-	struct PHY_DM_STRUCT						*p_dm_odm,
+	struct PHY_DM_STRUCT		*p_dm_odm,
 	u8							*p_phy_status,
-	struct _odm_per_pkt_info_				*p_pktinfo,
-	struct _odm_phy_status_info_				*p_phy_info
+	struct _odm_per_pkt_info_		*p_pktinfo,
+	struct _odm_phy_status_info_	*p_phy_info
 )
 {
 	/* type 0 is used for cck packet */
 
 	struct _phy_status_rpt_jaguar2_type0	*p_phy_sta_rpt = (struct _phy_status_rpt_jaguar2_type0 *)p_phy_status;
-	u8							i, SQ = 0;
+	u8							SQ = 0;
 	s8							rx_power = p_phy_sta_rpt->pwdb - 110;
 
 
-#if (RTL8723D_SUPPORT == 1)
-	if (p_dm_odm->support_ic_type & ODM_RTL8723D)
+	
+	if (p_dm_odm->support_ic_type & ODM_RTL8723D) {
+#if (RTL8723D_SUPPORT == 1)	
 		rx_power = p_phy_sta_rpt->pwdb - 97;
 #endif
+	}
+#if (RTL8710B_SUPPORT == 1)
+	else if (p_dm_odm->support_ic_type & ODM_RTL8710B)
+		rx_power = p_phy_sta_rpt->pwdb - 97;
+#endif
+
+#if (RTL8821C_SUPPORT == 1)
+	else if (p_dm_odm->support_ic_type & ODM_RTL8821C) {
+		if (p_phy_sta_rpt->pwdb >= -57)
+			rx_power = p_phy_sta_rpt->pwdb - 100;
+		else
+			rx_power = p_phy_sta_rpt->pwdb - 102;
+	}
+#endif
+
+	if (p_pktinfo->is_to_self) {
+		p_dm_odm->ofdm_agc_idx[0] = p_phy_sta_rpt->pwdb;
+		p_dm_odm->ofdm_agc_idx[1] = 0;
+		p_dm_odm->ofdm_agc_idx[2] = 0;
+		p_dm_odm->ofdm_agc_idx[3] = 0;
+	}
+
 
 	/* Calculate Signal Quality*/
 	if (p_pktinfo->is_packet_match_bssid) {
@@ -3032,20 +3336,26 @@ phydm_get_rx_phy_status_type0(
 
 	/* Modify CCK PWDB if old AGC */
 	if (p_dm_odm->cck_new_agc == false) {
-		u8	LNA_idx, VGA_idx;
+		u8	lna_idx, vga_idx;
 
 #if (RTL8197F_SUPPORT == 1)
 		if (p_dm_odm->support_ic_type & ODM_RTL8197F)
-			LNA_idx = p_phy_sta_rpt->lna_l;
+			lna_idx = p_phy_sta_rpt->lna_l;
 		else
 #endif
-			LNA_idx = ((p_phy_sta_rpt->lna_h << 3) | p_phy_sta_rpt->lna_l);
-		VGA_idx = p_phy_sta_rpt->vga;
+			lna_idx = ((p_phy_sta_rpt->lna_h << 3) | p_phy_sta_rpt->lna_l);
+		vga_idx = p_phy_sta_rpt->vga;
 
 #if (RTL8723D_SUPPORT == 1)
 		if (p_dm_odm->support_ic_type & ODM_RTL8723D)
-			rx_power = odm_CCKRSSI_8723D(LNA_idx, VGA_idx);
+			rx_power = odm_cckrssi_8723d(lna_idx, vga_idx);
 #endif
+/* JJ ADD 20161014 */
+#if (RTL8710B_SUPPORT == 1)
+		if (p_dm_odm->support_ic_type & ODM_RTL8710B)
+			rx_power = odm_cckrssi_8710b(lna_idx, vga_idx);
+#endif
+
 #if (RTL8822B_SUPPORT == 1)
 		/* Need to do !! */
 		/*if (p_dm_odm->support_ic_type & ODM_RTL8822B) */
@@ -3053,7 +3363,7 @@ phydm_get_rx_phy_status_type0(
 #endif
 #if (RTL8197F_SUPPORT == 1)
 		if (p_dm_odm->support_ic_type & ODM_RTL8197F)
-			rx_power = odm_CCKRSSI_8197F(p_dm_odm, LNA_idx, VGA_idx);
+			rx_power = odm_cckrssi_8197f(p_dm_odm, lna_idx, vga_idx);
 #endif
 	}
 
@@ -3092,10 +3402,10 @@ phydm_get_rx_phy_status_type0(
 
 void
 phydm_get_rx_phy_status_type1(
-	struct PHY_DM_STRUCT						*p_dm_odm,
+	struct PHY_DM_STRUCT		*p_dm_odm,
 	u8							*p_phy_status,
-	struct _odm_per_pkt_info_				*p_pktinfo,
-	struct _odm_phy_status_info_				*p_phy_info
+	struct _odm_per_pkt_info_		*p_pktinfo,
+	struct _odm_phy_status_info_	*p_phy_info
 )
 {
 	/* type 1 is used for ofdm packet */
@@ -3103,7 +3413,7 @@ phydm_get_rx_phy_status_type1(
 	struct _phy_status_rpt_jaguar2_type1	*p_phy_sta_rpt = (struct _phy_status_rpt_jaguar2_type1 *)p_phy_status;
 	s8							rx_pwr_db = -120;
 	u8							i, rxsc, bw = ODM_BW20M, rx_count = 0;
-	bool							is_mu;
+	boolean						is_mu;
 	u8							num_ss;
 
 	/* Update OFDM packet counter */
@@ -3120,6 +3430,10 @@ phydm_get_rx_phy_status_type1(
 			/* Update per-path information (RSSI_dB RSSI_percentage EVM SNR CFO SQ) */
 			/* EVM report is reported by stream, not path */
 			rx_path_pwr_db = p_phy_sta_rpt->pwdb[i] - 110;					/* per-path pwdb in dB domain */
+			
+			if (p_pktinfo->is_to_self) 
+				p_dm_odm->ofdm_agc_idx[i] = p_phy_sta_rpt->pwdb[i];
+			
 			phydm_set_per_path_phy_info(i, rx_path_pwr_db, p_phy_sta_rpt->rxevm[rx_count - 1],
 				p_phy_sta_rpt->cfo_tail[i], p_phy_sta_rpt->rxsnr[i], p_phy_info);
 
@@ -3163,7 +3477,7 @@ phydm_get_rx_phy_status_type1(
 			bw = ODM_BW80M;
 		else
 			bw = p_phy_sta_rpt->rf_mode;
-	} else if (p_dm_odm->support_ic_type & (ODM_RTL8197F | ODM_RTL8723D)) {
+	} else if (p_dm_odm->support_ic_type & (ODM_RTL8197F | ODM_RTL8723D | ODM_RTL8710B)) {/* JJ ADD 20161014 */
 		if (p_phy_sta_rpt->rf_mode == 0)
 			bw = ODM_BW20M;
 		else if ((rxsc == 1) || (rxsc == 2))
@@ -3173,7 +3487,7 @@ phydm_get_rx_phy_status_type1(
 	}
 
 	/* Update packet information */
-	phydm_set_common_phy_info(rx_pwr_db, p_phy_sta_rpt->channel, (bool)p_phy_sta_rpt->beamformed,
+	phydm_set_common_phy_info(rx_pwr_db, p_phy_sta_rpt->channel, (boolean)p_phy_sta_rpt->beamformed,
 		is_mu, bw, odm_evm_db_to_percentage(p_phy_sta_rpt->rxevm[0]), rxsc, p_phy_info);
 
 	num_ss = phydm_rate_to_num_ss(p_dm_odm, p_pktinfo->data_rate);
@@ -3183,32 +3497,26 @@ phydm_get_rx_phy_status_type1(
 	p_dm_odm->dm_fat_table.antsel_rx_keep_1 = p_phy_sta_rpt->antidx_b;
 	p_dm_odm->dm_fat_table.antsel_rx_keep_2 = p_phy_sta_rpt->antidx_c;
 	p_dm_odm->dm_fat_table.antsel_rx_keep_3 = p_phy_sta_rpt->antidx_d;
-
+	
+	#if 0
 	if (p_pktinfo->is_packet_match_bssid) {
-		/*
-				dbg_print("channel = %d, band = %d, l_rxsc = %d, ht_rxsc = %d, rf_mode = %d\n", p_phy_sta_rpt->channel, p_phy_sta_rpt->band, p_phy_sta_rpt->l_rxsc, p_phy_sta_rpt->ht_rxsc, p_phy_sta_rpt->rf_mode);
-				dbg_print("Antidx A = %d, B = %d, C = %d, D = %d\n", p_phy_sta_rpt->antidx_a, p_phy_sta_rpt->antidx_b, p_phy_sta_rpt->antidx_c, p_phy_sta_rpt->antidx_d);
-				dbg_print("pwdb A: 0x%x, B: 0x%x, C: 0x%x, D: 0x%x\n", p_phy_sta_rpt->pwdb[0], p_phy_sta_rpt->pwdb[1], p_phy_sta_rpt->pwdb[2], p_phy_sta_rpt->pwdb[3]);
-				dbg_print("EVM  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->rxevm[0], p_phy_sta_rpt->rxevm[1], p_phy_sta_rpt->rxevm[2], p_phy_sta_rpt->rxevm[3]);
-				dbg_print("SNR  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->rxsnr[0], p_phy_sta_rpt->rxsnr[1], p_phy_sta_rpt->rxsnr[2], p_phy_sta_rpt->rxsnr[3]);
-				dbg_print("CFO  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->cfo_tail[0], p_phy_sta_rpt->cfo_tail[1], p_phy_sta_rpt->cfo_tail[2], p_phy_sta_rpt->cfo_tail[3]);
-				dbg_print("paid = %d, gid = %d, length = %d\n", (p_phy_sta_rpt->paid + (p_phy_sta_rpt->paid_msb<<8)), p_phy_sta_rpt->gid, p_phy_sta_rpt->lsig_length);
-				dbg_print("ldpc: %d, stbc: %d, bf: %d, gnt_bt: %d, antsw: %d\n", p_phy_sta_rpt->ldpc, p_phy_sta_rpt->stbc, p_phy_sta_rpt->beamformed, p_phy_sta_rpt->gnt_bt, p_phy_sta_rpt->hw_antsw_occu);
-				dbg_print("NBI: %d, pos: %d\n", p_phy_sta_rpt->nb_intf_flag, (p_phy_sta_rpt->intf_pos + (p_phy_sta_rpt->intf_pos_msb<<8)));
-				dbg_print("rsvd_0 = %d, rsvd_1 = %d, rsvd_2 = %d, rsvd_3 = %d, rsvd_4 = %d, rsvd_5 = %d\n", p_phy_sta_rpt->rsvd_0, p_phy_sta_rpt->rsvd_1, p_phy_sta_rpt->rsvd_2, p_phy_sta_rpt->rsvd_3, p_phy_sta_rpt->rsvd_4, p_phy_sta_rpt->rsvd_5);
-		*/
-		if ((p_phy_sta_rpt->gid != 0) && (p_phy_sta_rpt->gid != 63)) {
-			if (p_pktinfo->data_rate >= ODM_RATEVHTSS1MCS0)
-				p_dm_odm->phy_dbg_info.num_qry_mu_vht_pkt[p_pktinfo->data_rate - 0x2C]++;
-		} else {
-			if (p_pktinfo->data_rate >= ODM_RATEVHTSS1MCS0)
-				p_dm_odm->phy_dbg_info.num_qry_vht_pkt[p_pktinfo->data_rate - 0x2C]++;
-		}
+	
+		dbg_print("channel = %d, band = %d, l_rxsc = %d, ht_rxsc = %d, rf_mode = %d\n", p_phy_sta_rpt->channel, p_phy_sta_rpt->band, p_phy_sta_rpt->l_rxsc, p_phy_sta_rpt->ht_rxsc, p_phy_sta_rpt->rf_mode);
+		dbg_print("Antidx A = %d, B = %d, C = %d, D = %d\n", p_phy_sta_rpt->antidx_a, p_phy_sta_rpt->antidx_b, p_phy_sta_rpt->antidx_c, p_phy_sta_rpt->antidx_d);
+		dbg_print("pwdb A: 0x%x, B: 0x%x, C: 0x%x, D: 0x%x\n", p_phy_sta_rpt->pwdb[0], p_phy_sta_rpt->pwdb[1], p_phy_sta_rpt->pwdb[2], p_phy_sta_rpt->pwdb[3]);
+		dbg_print("EVM  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->rxevm[0], p_phy_sta_rpt->rxevm[1], p_phy_sta_rpt->rxevm[2], p_phy_sta_rpt->rxevm[3]);
+		dbg_print("SNR  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->rxsnr[0], p_phy_sta_rpt->rxsnr[1], p_phy_sta_rpt->rxsnr[2], p_phy_sta_rpt->rxsnr[3]);
+		dbg_print("CFO  A: %d, B: %d, C: %d, D: %d\n", p_phy_sta_rpt->cfo_tail[0], p_phy_sta_rpt->cfo_tail[1], p_phy_sta_rpt->cfo_tail[2], p_phy_sta_rpt->cfo_tail[3]);
+		dbg_print("paid = %d, gid = %d, length = %d\n", (p_phy_sta_rpt->paid + (p_phy_sta_rpt->paid_msb<<8)), p_phy_sta_rpt->gid, p_phy_sta_rpt->lsig_length);
+		dbg_print("ldpc: %d, stbc: %d, bf: %d, gnt_bt: %d, antsw: %d\n", p_phy_sta_rpt->ldpc, p_phy_sta_rpt->stbc, p_phy_sta_rpt->beamformed, p_phy_sta_rpt->gnt_bt, p_phy_sta_rpt->hw_antsw_occu);
+		dbg_print("NBI: %d, pos: %d\n", p_phy_sta_rpt->nb_intf_flag, (p_phy_sta_rpt->intf_pos + (p_phy_sta_rpt->intf_pos_msb<<8)));
+		dbg_print("rsvd_0 = %d, rsvd_1 = %d, rsvd_2 = %d, rsvd_3 = %d, rsvd_4 = %d, rsvd_5 = %d\n", p_phy_sta_rpt->rsvd_0, p_phy_sta_rpt->rsvd_1, p_phy_sta_rpt->rsvd_2, p_phy_sta_rpt->rsvd_3, p_phy_sta_rpt->rsvd_4, p_phy_sta_rpt->rsvd_5);
+
 	}
-	/*
-		dbg_print("phydm_get_rx_phy_status_type1   p_pktinfo->is_packet_match_bssid = %d\n", p_pktinfo->is_packet_match_bssid);
-		dbg_print("p_pktinfo->data_rate = 0x%x\n", p_pktinfo->data_rate);
-	*/
+	
+	dbg_print("phydm_get_rx_phy_status_type1   p_pktinfo->is_packet_match_bssid = %d\n", p_pktinfo->is_packet_match_bssid);
+	dbg_print("p_pktinfo->data_rate = 0x%x\n", p_pktinfo->data_rate);
+	#endif
 }
 
 void
@@ -3284,7 +3592,7 @@ phydm_get_rx_phy_status_type2(
 			bw = ODM_BW80M;
 		else
 			bw = ODM_BW20M;
-	} else if (p_dm_odm->support_ic_type & (ODM_RTL8197F | ODM_RTL8723D)) {
+	} else if (p_dm_odm->support_ic_type & (ODM_RTL8197F | ODM_RTL8723D | ODM_RTL8710B)) {/* JJ ADD 20161014 */
 		if (rxsc == 3)
 			bw = ODM_BW40M;
 		else if ((rxsc == 1) || (rxsc == 2))
@@ -3294,7 +3602,7 @@ phydm_get_rx_phy_status_type2(
 	}
 
 	/* Update packet information */
-	phydm_set_common_phy_info(rx_pwr_db, p_phy_sta_rpt->channel, (bool)p_phy_sta_rpt->beamformed,
+	phydm_set_common_phy_info(rx_pwr_db, p_phy_sta_rpt->channel, (boolean)p_phy_sta_rpt->beamformed,
 				  false, bw, 0, rxsc, p_phy_info);
 
 #if 0
@@ -3335,8 +3643,8 @@ phydm_get_rx_phy_status_type5(
 
 void
 phydm_process_rssi_for_dm_new_type(
-	struct PHY_DM_STRUCT					*p_dm_odm,
-	struct _odm_phy_status_info_			*p_phy_info,
+	struct PHY_DM_STRUCT			*p_dm_odm,
+	struct _odm_phy_status_info_		*p_phy_info,
 	struct _odm_per_pkt_info_			*p_pktinfo
 )
 {
@@ -3364,8 +3672,10 @@ phydm_process_rssi_for_dm_new_type(
 	if (p_dm_odm->support_ability & ODM_BB_ANT_DIV)
 		odm_process_rssi_for_ant_div(p_dm_odm, p_phy_info, p_pktinfo);
 #endif
+
 #if (CONFIG_DYNAMIC_RX_PATH == 1)
 	phydm_process_phy_status_for_dynamic_rx_path(p_dm_odm, p_phy_info, p_pktinfo);
+	dbg_print("====>\n");
 #endif
 
 	if (p_pktinfo->is_packet_to_self || p_pktinfo->is_packet_beacon) {
@@ -3406,8 +3716,10 @@ phydm_process_rssi_for_dm_new_type(
 		}
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+#ifndef DM_ODM_CE_MAC80211
 		if (p_entry->rssi_stat.undecorated_smoothed_pwdb == -1)
 			phydm_ra_rssi_rpt_wk(p_dm_odm);
+#endif
 #endif
 		p_entry->rssi_stat.undecorated_smoothed_pwdb = undecorated_smoothed_pwdb;
 		p_dm_odm->accumulate_pwdb[p_pktinfo->station_id] = accumulate_pwdb;
@@ -3416,7 +3728,7 @@ phydm_process_rssi_for_dm_new_type(
 		if (p_pktinfo->station_id == 0) {
 			HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_dm_odm->adapter);
 
-			p_hal_data->undecorated_smoothed_pwdb = undecorated_smoothed_pwdb;
+			p_hal_data->UndecoratedSmoothedPWDB = undecorated_smoothed_pwdb;
 		}
 #endif
 	}
@@ -3424,10 +3736,10 @@ phydm_process_rssi_for_dm_new_type(
 
 void
 phydm_rx_phy_status_new_type(
-	struct PHY_DM_STRUCT					*p_phydm,
-	u8						*p_phy_status,
-	struct _odm_per_pkt_info_			*p_pktinfo,
-	struct _odm_phy_status_info_			*p_phy_info
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	u8							*p_phy_status,
+	struct _odm_per_pkt_info_		*p_pktinfo,
+	struct _odm_phy_status_info_	*p_phy_info
 )
 {
 	u8		phy_status_type = (*p_phy_status & 0xf);
@@ -3435,23 +3747,24 @@ phydm_rx_phy_status_new_type(
 	/*dbg_print("phydm_rx_phy_status_new_type================> (page: %d)\n", phy_status_type);*/
 
 	/* Memory reset */
-	phydm_reset_phy_info(p_phydm, p_phy_info);
+	phydm_reset_phy_info(p_dm_odm, p_phy_info);
+	p_dm_odm->rate_ss = phydm_rate_to_num_ss(p_dm_odm, p_pktinfo->data_rate);
 
 	/* Phy status parsing */
 	switch (phy_status_type) {
 	case 0:
 	{
-		phydm_get_rx_phy_status_type0(p_phydm, p_phy_status, p_pktinfo, p_phy_info);
+		phydm_get_rx_phy_status_type0(p_dm_odm, p_phy_status, p_pktinfo, p_phy_info);
 		break;
 	}
 	case 1:
 	{
-		phydm_get_rx_phy_status_type1(p_phydm, p_phy_status, p_pktinfo, p_phy_info);
+		phydm_get_rx_phy_status_type1(p_dm_odm, p_phy_status, p_pktinfo, p_phy_info);
 		break;
 	}
 	case 2:
 	{
-		phydm_get_rx_phy_status_type2(p_phydm, p_phy_status, p_pktinfo, p_phy_info);
+		phydm_get_rx_phy_status_type2(p_dm_odm, p_phy_status, p_pktinfo, p_phy_info);
 		break;
 	}
 #if 0
@@ -3464,16 +3777,21 @@ phydm_rx_phy_status_new_type(
 	default:
 		return;
 	}
+	
+	if (p_pktinfo->is_packet_match_bssid) {
+		phydm_avg_rssi_for_ss(p_dm_odm, p_phy_info, p_pktinfo);
+		phydm_rx_statistic_cal(p_dm_odm, p_phy_status, p_pktinfo);
+	}
 
 	/* Update signal strength to UI, and p_phy_info->rx_pwdb_all is the maximum RSSI of all path */
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	p_phy_info->signal_strength = signal_scale_proc(p_phydm->adapter, p_phy_info->rx_pwdb_all, false, false);
+	p_phy_info->signal_strength = SignalScaleProc(p_dm_odm->adapter, p_phy_info->rx_pwdb_all, false, false);
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
-	p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_phydm, p_phy_info->rx_pwdb_all));
+	p_phy_info->signal_strength = (u8)(odm_signal_scale_mapping(p_dm_odm, p_phy_info->rx_pwdb_all));
 #endif
 
 	/* Calculate average RSSI and smoothed RSSI */
-	phydm_process_rssi_for_dm_new_type(p_phydm, p_phy_info, p_pktinfo);
+	phydm_process_rssi_for_dm_new_type(p_dm_odm, p_phy_info, p_pktinfo);
 
 }
 /*==============================================*/

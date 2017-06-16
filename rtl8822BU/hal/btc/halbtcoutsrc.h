@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #ifndef	__HALBTC_OUT_SRC_H__
 #define __HALBTC_OUT_SRC_H__
 
@@ -249,6 +263,7 @@ typedef enum _BTC_GET_TYPE {
 	BTC_GET_BL_EXT_SWITCH,
 	BTC_GET_BL_WIFI_IS_IN_MP_MODE,
 	BTC_GET_BL_IS_ASUS_8723B,
+	BTC_GET_BL_RF4CE_CONNECTED,
 
 	/* type s4Byte */
 	BTC_GET_S4_WIFI_RSSI,
@@ -316,6 +331,8 @@ typedef enum _BTC_SET_TYPE {
 	BTC_SET_ACT_LEAVE_LPS,
 	BTC_SET_ACT_ENTER_LPS,
 	BTC_SET_ACT_NORMAL_LPS,
+	BTC_SET_ACT_PRE_NORMAL_LPS,
+	BTC_SET_ACT_POST_NORMAL_LPS,
 	BTC_SET_ACT_DISABLE_LOW_POWER,
 	BTC_SET_ACT_UPDATE_RAMASK,
 	BTC_SET_ACT_SEND_MIMO_PS,
@@ -685,6 +702,13 @@ typedef u4Byte
 	IN  u1Byte			scanType
 	);
 
+typedef BOOLEAN
+(*BFP_BTC_GET_BT_AFH_MAP_FROM_BT)(
+	IN	PVOID			pBtcContext,
+	IN	u1Byte			mapType,
+	OUT	pu1Byte			afhMap
+	);
+
 struct  btc_bt_info {
 	boolean					bt_disabled;
 	boolean				bt_enable_disable_change;
@@ -747,6 +771,12 @@ struct btc_bt_link_info {
 	boolean					acl_busy;
 };
 
+#ifdef CONFIG_RF4CE_COEXIST
+struct btc_rf4ce_info {
+	u8					link_state;
+};
+#endif
+
 struct btc_statistics {
 	u32					cnt_bind;
 	u32					cnt_power_on;
@@ -774,6 +804,10 @@ struct btc_coexist {
 	struct  btc_bt_info			bt_info;		/*some bt info referenced by non-bt module*/
 	struct  btc_stack_info		stack_info;
 	struct  btc_bt_link_info		bt_link_info;
+
+#ifdef CONFIG_RF4CE_COEXIST
+	struct  btc_rf4ce_info		rf4ce_info;
+#endif
 	BTC_CHIP_INTERFACE		chip_interface;
 	PVOID					odm_priv;
 
@@ -826,6 +860,7 @@ struct btc_coexist {
 	BFP_BTC_GET_ANT_DET_VAL_FROM_BT		btc_get_ant_det_val_from_bt;
 	BFP_BTC_GET_BLE_SCAN_TYPE_FROM_BT	btc_get_ble_scan_type_from_bt;
 	BFP_BTC_GET_BLE_SCAN_PARA_FROM_BT	btc_get_ble_scan_para_from_bt;
+	BFP_BTC_GET_BT_AFH_MAP_FROM_BT		btc_get_bt_afh_map_from_bt;
 };
 typedef struct btc_coexist *PBTC_COEXIST;
 

@@ -24,6 +24,9 @@
 #define AVG_THERMAL_NUM_8822B	4
 #define RF_T_METER_8822B		0x42
 
+#define LCK_VERSION	"0x2" 
+
+
 void configure_txpower_track_8822b(
 	struct _TXPWRTRACK_CFG	*p_config
 );
@@ -66,10 +69,12 @@ phy_lc_calibrate_8822b(
 void phy_set_rf_path_switch_8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	struct PHY_DM_STRUCT		*p_dm_odm,
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	struct PHY_DM_STRUCT		*p_dm_odm,
 #else
 	struct _ADAPTER	*p_adapter,
 #endif
-	bool		is_main
+	boolean		is_main
 );
 
 #endif	/* #ifndef __HAL_PHY_RF_8822B_H__ */

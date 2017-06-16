@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
@@ -19,27 +18,21 @@
  *
  ******************************************************************************/
 
-#ifndef	__PHYDMKFREE_H__
-#define    __PHYDKFREE_H__
+#ifndef	__HALRF_FEATURES_H__
+#define __HALRF_FEATURES
 
-#define KFREE_VERSION	"1.0"
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 
-enum phydm_kfree_channeltosw {
-	PHYDM_2G = 0,
-	PHYDM_5GLB1 = 1,
-	PHYDM_5GLB2 = 2,
-	PHYDM_5GMB1 = 3,
-	PHYDM_5GMB2 = 4,
-	PHYDM_5GHB = 5,
-};
+	#define	CONFIG_HALRF_POWERTRACKING	1
 
+#elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
 
-void
-phydm_config_kfree(
-	void	*p_dm_void,
-	u8	channel_to_sw,
-	u8	*kfree_table
-);
+	#define	CONFIG_HALRF_POWERTRACKING	1
 
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
+
+	#define	CONFIG_HALRF_POWERTRACKING	1
+
+#endif
 
 #endif

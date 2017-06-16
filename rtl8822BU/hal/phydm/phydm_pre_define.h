@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #ifndef	__PHYDMPREDEFINE_H__
@@ -26,8 +21,8 @@
  * 1  Definition
  * 1 ============================================================ */
 
-#define PHYDM_CODE_BASE		"PHYDM_TRUNK"
-#define PHYDM_RELEASE_DATE		"00000000"
+#define PHYDM_CODE_BASE		"PHYDM_v017"
+#define PHYDM_RELEASE_DATE		"20170306"
 
 /* Max path of IC */
 #define MAX_PATH_NUM_8188E		1
@@ -43,6 +38,8 @@
 #define MAX_PATH_NUM_8723D		1
 #define MAX_PATH_NUM_8197F		2
 #define MAX_PATH_NUM_8821C		1
+/* JJ ADD 20161014 */
+#define MAX_PATH_NUM_8710B		1
 
 /* Max RF path */
 #define ODM_RF_PATH_MAX 2
@@ -67,13 +64,21 @@
 
 /* number of entry */
 #if (DM_ODM_SUPPORT_TYPE & (ODM_CE))
-	#define	ASSOCIATE_ENTRY_NUM					MACID_NUM_SW_LIMIT  /* Max size of asoc_entry[].*/
+	#ifdef DM_ODM_CE_MAC80211
+		/* defined in wifi.h (32+1) */
+	#else
+		#define	ASSOCIATE_ENTRY_NUM					MACID_NUM_SW_LIMIT  /* Max size of asoc_entry[].*/
+	#endif
 	#define	ODM_ASSOCIATE_ENTRY_NUM				ASSOCIATE_ENTRY_NUM
-	#elif(DM_ODM_SUPPORT_TYPE & (ODM_AP))
+#elif(DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	#define ASSOCIATE_ENTRY_NUM					NUM_STAT
 	#define	ODM_ASSOCIATE_ENTRY_NUM				(ASSOCIATE_ENTRY_NUM+1)
 #else
 	#define ODM_ASSOCIATE_ENTRY_NUM				((ASSOCIATE_ENTRY_NUM*3)+1)
+#endif
+
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	#define RX_SMOOTH_FACTOR	20
 #endif
 
 /* -----MGN rate--------------------------------- */
@@ -194,16 +199,16 @@ enum ODM_MGN_RATE {
 #define ODM_RATE1M				0x00
 #define ODM_RATE2M				0x01
 #define ODM_RATE5_5M			0x02
-#define ODM_RATE11M				0x03
+#define ODM_RATE11M			0x03
 /* OFDM Rates, TxHT = 0 */
 #define ODM_RATE6M				0x04
 #define ODM_RATE9M				0x05
-#define ODM_RATE12M				0x06
-#define ODM_RATE18M				0x07
-#define ODM_RATE24M				0x08
-#define ODM_RATE36M				0x09
-#define ODM_RATE48M				0x0A
-#define ODM_RATE54M				0x0B
+#define ODM_RATE12M			0x06
+#define ODM_RATE18M			0x07
+#define ODM_RATE24M			0x08
+#define ODM_RATE36M			0x09
+#define ODM_RATE48M			0x0A
+#define ODM_RATE54M			0x0B
 /* MCS Rates, TxHT = 1 */
 #define ODM_RATEMCS0			0x0C
 #define ODM_RATEMCS1			0x0D
@@ -330,73 +335,96 @@ enum odm_ic_type_e {
 	ODM_RTL8197F	=	BIT(12),
 	ODM_RTL8821C	=	BIT(13),
 	ODM_RTL8814B	=	BIT(14),
-	ODM_RTL8198F	=	BIT(15)
+	ODM_RTL8198F	=	BIT(15),
+	ODM_RTL8710B	=	BIT(16),
+	ODM_RTL8192F	=	BIT(17),
+	ODM_RTL8822C	=	BIT(18)
 };
 
+/*========[Run time ic flag] ===============================================================================]*/
 
-#define ODM_IC_1SS	(ODM_RTL8188E | ODM_RTL8188F | ODM_RTL8723B | ODM_RTL8703B | ODM_RTL8723D | ODM_RTL8881A | ODM_RTL8821 | ODM_RTL8821C | ODM_RTL8195A)
-#define ODM_IC_2SS	(ODM_RTL8192E | ODM_RTL8197F | ODM_RTL8812 | ODM_RTL8822B)
+#define ODM_IC_N_2SS	(ODM_RTL8192E | ODM_RTL8197F | ODM_RTL8192F)
+#define ODM_IC_AC_2SS	(ODM_RTL8812 | ODM_RTL8822B | ODM_RTL8822C)
+
+#define ODM_IC_1SS	(ODM_RTL8188E | ODM_RTL8188F | ODM_RTL8723B | ODM_RTL8703B | ODM_RTL8723D | ODM_RTL8881A | ODM_RTL8821 | ODM_RTL8821C | ODM_RTL8195A | ODM_RTL8710B)
+#define ODM_IC_2SS	(ODM_IC_N_2SS | ODM_IC_AC_2SS)
 #define ODM_IC_3SS	(ODM_RTL8814A)
 #define ODM_IC_4SS	(ODM_RTL8814B | ODM_RTL8198F)
 
-
-#define ODM_IC_11N_SERIES		(ODM_RTL8188E | ODM_RTL8192E | ODM_RTL8723B | ODM_RTL8703B | ODM_RTL8188F | ODM_RTL8723D | ODM_RTL8197F)
+#define ODM_IC_11N_SERIES		(ODM_RTL8188E | ODM_RTL8192E | ODM_RTL8723B | ODM_RTL8703B | ODM_RTL8188F | ODM_RTL8723D | ODM_RTL8197F | ODM_RTL8710B)
 #define ODM_IC_11AC_SERIES		(ODM_RTL8812 | ODM_RTL8821 | ODM_RTL8814A | ODM_RTL8881A | ODM_RTL8822B | ODM_RTL8821C)
+
 #define ODM_IC_11AC_1_SERIES		(ODM_RTL8812 | ODM_RTL8821 | ODM_RTL8881A)
 #define ODM_IC_11AC_2_SERIES		(ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C)
+
 #define ODM_IC_TXBF_SUPPORT		(ODM_RTL8192E | ODM_RTL8812 | ODM_RTL8821 | ODM_RTL8814A | ODM_RTL8881A | ODM_RTL8822B | ODM_RTL8197F | ODM_RTL8821C)
-#define ODM_IC_11N_GAIN_IDX_EDCCA		(ODM_RTL8195A | ODM_RTL8703B | ODM_RTL8188F | ODM_RTL8723D | ODM_RTL8197F)
+#define ODM_IC_11N_GAIN_IDX_EDCCA		(ODM_RTL8195A | ODM_RTL8703B | ODM_RTL8188F | ODM_RTL8723D | ODM_RTL8197F | ODM_RTL8710B)
 #define ODM_IC_11AC_GAIN_IDX_EDCCA		(ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C)
-#define ODM_IC_PHY_STATUE_NEW_TYPE		(ODM_RTL8197F | ODM_RTL8822B | ODM_RTL8723D | ODM_RTL8821C)
+#define ODM_IC_PHY_STATUE_NEW_TYPE		(ODM_RTL8197F | ODM_RTL8822B | ODM_RTL8723D | ODM_RTL8821C | ODM_RTL8710B)
 
 #define PHYDM_IC_8051_SERIES		(ODM_RTL8881A | ODM_RTL8812 | ODM_RTL8821 | ODM_RTL8188E | ODM_RTL8192E | ODM_RTL8723B | ODM_RTL8703B | ODM_RTL8188F)
 #define PHYDM_IC_3081_SERIES		(ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8197F | ODM_RTL8821C)
 
 #define PHYDM_IC_SUPPORT_LA_MODE	(ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8197F | ODM_RTL8821C)
+#define PHYDM_IC_SUPPORT_MU_BFEE	(ODM_RTL8822B | ODM_RTL8821C | ODM_RTL8814B)
+#define PHYDM_IC_SUPPORT_MU_BFER	(ODM_RTL8822B | ODM_RTL8814B)
 
+
+/*========[AC/N Support] ===============================================================================]*/
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
 
-#ifdef RTK_AC_SUPPORT
+	#ifdef RTK_AC_SUPPORT
 	#define ODM_IC_11AC_SERIES_SUPPORT		1
-#else
+	#else
 	#define ODM_IC_11AC_SERIES_SUPPORT		0
-#endif
+	#endif
 
-#define ODM_IC_11N_SERIES_SUPPORT			1
-#define ODM_CONFIG_BT_COEXIST				0
+	#define ODM_IC_11N_SERIES_SUPPORT			1
+	#define ODM_CONFIG_BT_COEXIST				0
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 
-#define ODM_IC_11AC_SERIES_SUPPORT		1
-#define ODM_IC_11N_SERIES_SUPPORT			1
-#define ODM_CONFIG_BT_COEXIST				1
-
-#else
-
-#if ((RTL8188E_SUPPORT == 1) || \
-(RTL8723B_SUPPORT == 1) || (RTL8192E_SUPPORT == 1) || (RTL8195A_SUPPORT == 1) || (RTL8703B_SUPPORT == 1) || \
-(RTL8188F_SUPPORT == 1) || (RTL8723D_SUPPORT == 1) || (RTL8197F_SUPPORT == 1))
-#define ODM_IC_11N_SERIES_SUPPORT			1
-#define ODM_IC_11AC_SERIES_SUPPORT		0
-#else
-#define ODM_IC_11N_SERIES_SUPPORT			0
-#define ODM_IC_11AC_SERIES_SUPPORT		1
-#endif
-
-#ifdef CONFIG_BT_COEXIST
+	#define ODM_IC_11AC_SERIES_SUPPORT		1
+	#define ODM_IC_11N_SERIES_SUPPORT			1
 	#define ODM_CONFIG_BT_COEXIST				1
+
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+
+	#define ODM_IC_11AC_SERIES_SUPPORT		1
+	#define ODM_IC_11N_SERIES_SUPPORT			1
+	#define ODM_CONFIG_BT_COEXIST				1
+
 #else
-	#define ODM_CONFIG_BT_COEXIST				0
-#endif
+
+	#if ((RTL8188E_SUPPORT == 1) || \
+	(RTL8723B_SUPPORT == 1) || (RTL8192E_SUPPORT == 1) || (RTL8195A_SUPPORT == 1) || (RTL8703B_SUPPORT == 1) || \
+	(RTL8188F_SUPPORT == 1) || (RTL8723D_SUPPORT == 1) || (RTL8197F_SUPPORT == 1) || (RTL8710B_SUPPORT == 1))
+		#define ODM_IC_11N_SERIES_SUPPORT			1
+		#define ODM_IC_11AC_SERIES_SUPPORT		0
+	#else
+		#define ODM_IC_11N_SERIES_SUPPORT			0
+		#define ODM_IC_11AC_SERIES_SUPPORT		1
+	#endif
+
+	#ifdef CONFIG_BT_COEXIST
+		#define ODM_CONFIG_BT_COEXIST				1
+	#else
+		#define ODM_CONFIG_BT_COEXIST				0
+	#endif
 
 #endif
 
 
-#if ((RTL8197F_SUPPORT == 1) || (RTL8723D_SUPPORT == 1) || (RTL8822B_SUPPORT == 1) || (RTL8821C_SUPPORT == 1))
+/*========[New Phy-Status Support] =========================================================================]*/
+
+#if ((RTL8197F_SUPPORT == 1) || (RTL8723D_SUPPORT == 1) || (RTL8822B_SUPPORT == 1) || (RTL8821C_SUPPORT == 1) || (RTL8710B_SUPPORT == 1) )
 	#define ODM_PHY_STATUS_NEW_TYPE_SUPPORT			1
 #else
 	#define ODM_PHY_STATUS_NEW_TYPE_SUPPORT			0
 #endif
+
+/*==================================================================================================]*/
+
 
 /* ODM_CMNINFO_CUT_VER */
 enum odm_cut_version_e {
@@ -672,6 +700,7 @@ enum odm_rf_radio_path_e {
 enum odm_parameter_init_e {
 	ODM_PRE_SETTING = 0,
 	ODM_POST_SETTING = 1,
+	ODM_INIT_FW_SETTING
 };
 
 #endif

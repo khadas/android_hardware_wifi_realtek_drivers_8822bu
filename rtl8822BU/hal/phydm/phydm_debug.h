@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #ifndef	__ODM_DBG_H__
@@ -135,13 +130,20 @@
 	#define	dcmd_printf				DCMD_Printf
 	#define	dcmd_scanf				DCMD_Scanf
 	#define RT_PRINTK				dbg_print
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	#define dbg_print(args...)
+	#define RT_PRINTK(fmt, args...)	\
+			RT_TRACE(((struct rtl_priv *)p_dm_odm->adapter),	\
+				 COMP_PHYDM, DBG_DMESG, fmt, ## args)
+	#define	RT_DISP(dbgtype, dbgflag, printstr)
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#define dbg_print	printk
-	#define RT_PRINTK(fmt, args...)	dbg_print("%s(): " fmt, __FUNCTION__, ## args);
+	#define RT_PRINTK(fmt, args...)	dbg_print(fmt, ## args)
 	#define	RT_DISP(dbgtype, dbgflag, printstr)
 #else
 	#define dbg_print	panic_printk
-	#define RT_PRINTK(fmt, args...)	dbg_print("%s(): " fmt, __FUNCTION__, ## args);
+	/*#define RT_PRINTK(fmt, args...)	dbg_print("%s(): " fmt, __FUNCTION__, ## args);*/
+	#define RT_PRINTK(args...)	dbg_print(args)
 #endif
 
 #ifndef ASSERT
@@ -218,9 +220,36 @@
 #define ODM_PRINT_ADDR(p_dm_odm, comp, level, title_str, ptr)
 #endif
 
+#define	BB_DBGPORT_PRIORITY_3	3	/*Debug function (the highest priority)*/
+#define	BB_DBGPORT_PRIORITY_2	2	/*Check hang function & Strong function*/
+#define	BB_DBGPORT_PRIORITY_1	1	/*Watch dog function*/
+#define	BB_DBGPORT_RELEASE		0	/*Init value (the lowest priority)*/
 
 void
 phydm_init_debug_setting(struct PHY_DM_STRUCT		*p_dm_odm);
+
+void
+phydm_bb_dbg_port_header_sel(
+	void			*p_dm_void,
+	u32			header_idx
+);
+
+u8
+phydm_set_bb_dbg_port(
+	void			*p_dm_void,
+	u8			curr_dbg_priority,
+	u32			debug_port
+);
+
+void
+phydm_release_bb_dbg_port(
+	void			*p_dm_void
+);
+
+u32
+phydm_get_bb_dbg_port_value(
+	void			*p_dm_void
+);
 
 void phydm_basic_dbg_message(void			*p_dm_void);
 
@@ -304,6 +333,13 @@ phydm_cmd_parser(
 	u32	out_len
 );
 
+boolean
+phydm_api_trx_mode(
+	struct PHY_DM_STRUCT				*p_dm_odm,
+	enum odm_rf_path_e			tx_path,
+	enum odm_rf_path_e			rx_path,
+	boolean					is_tx2_path
+);
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 void phydm_sbd_check(
@@ -322,7 +358,7 @@ void phydm_sbd_workitem_callback(
 void
 phydm_fw_trace_en_h2c(
 	void		*p_dm_void,
-	bool		enable,
+	boolean		enable,
 	u32		fw_debug_component,
 	u32		monitor_mode,
 	u32		macid

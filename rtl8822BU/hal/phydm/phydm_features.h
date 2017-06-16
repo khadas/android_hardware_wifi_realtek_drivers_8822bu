@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,16 +11,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDM_FEATURES_H__
 #define __PHYDM_FEATURES
 
+#define ODM_DC_CANCELLATION_SUPPORT		(ODM_RTL8188F | ODM_RTL8710B)
+#define ODM_RECEIVER_BLOCKING_SUPPORT	(ODM_RTL8188E | ODM_RTL8192E)
 
 #if ((RTL8814A_SUPPORT == 1) || (RTL8821C_SUPPORT == 1) || (RTL8822B_SUPPORT == 1) || (RTL8197F_SUPPORT == 1))
 	#define PHYDM_LA_MODE_SUPPORT			1
@@ -29,6 +26,30 @@
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
+
+	#if (RTL8822B_SUPPORT == 1)
+	#define PHYDM_TXA_CALIBRATION			1
+	#else
+	#define PHYDM_TXA_CALIBRATION			0
+	#endif
+
+	#if (RTL8188E_SUPPORT == 1 || RTL8192E_SUPPORT == 1)
+	#define	PHYDM_PRIMARY_CCA			1
+	#else
+	#define	PHYDM_PRIMARY_CCA			0
+	#endif
+
+
+	#if (RTL8188F_SUPPORT == 1 || RTL8710B_SUPPORT == 1 || RTL8821C_SUPPORT == 1 || RTL8822B_SUPPORT == 1)
+	#define	PHYDM_DC_CANCELLATION			1
+	#else
+	#define	PHYDM_DC_CANCELLATION			0
+	#endif
+	
+	#define	CONFIG_PSD_TOOL					1
+	/*phydm debyg report & tools*/
+	#define CONFIG_PHYDM_DEBUG_FUNCTION		1
+
 	/*Antenna Diversity*/
 	#define CONFIG_PHYDM_ANTENNA_DIVERSITY
 	#ifdef CONFIG_PHYDM_ANTENNA_DIVERSITY
@@ -41,6 +62,11 @@
 			/*#define CONFIG_HL_SMART_ANTENNA_TYPE1*/
 			#define CONFIG_FAT_PATCH
 		#endif
+
+		#if (RTL8822B_SUPPORT == 1)
+			/*#define CONFIG_HL_SMART_ANTENNA_TYPE2*/
+		#endif
+
 	#endif
 
 	#if (RTL8822B_SUPPORT == 1)
@@ -49,7 +75,10 @@
 		#define	CONFIG_DYNAMIC_RX_PATH	0
 	#endif
 
-	#define SUPPORTABLITY_PHYDMLIZE	1
+	#if (RTL8188E_SUPPORT == 1 || RTL8192E_SUPPORT == 1)
+		#define	CONFIG_RECEIVER_BLOCKING
+	#endif
+	#define PHYDM_SUPPORT_CCKPD		1
 	#define RA_MASK_PHYDMLIZE_WIN	1
 	/*#define CONFIG_PATH_DIVERSITY*/
 	/*#define CONFIG_RA_DYNAMIC_RTY_LIMIT*/
@@ -63,12 +92,32 @@
 #elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
 
 	#if (RTL8822B_SUPPORT == 1)
+	#define PHYDM_TXA_CALIBRATION			1
+	#else
+	#define PHYDM_TXA_CALIBRATION			0
+	#endif
+
+	#if (RTL8188E_SUPPORT == 1)
+	#define	PHYDM_PRIMARY_CCA			1
+	#else
+	#define	PHYDM_PRIMARY_CCA			0
+	#endif
+
+	#define	CONFIG_PSD_TOOL						0
+	/*phydm debyg report & tools*/
+	#if defined(CONFIG_DISABLE_PHYDM_DEBUG_FUNCTION)
+		#define CONFIG_PHYDM_DEBUG_FUNCTION		0
+	#else
+		#define CONFIG_PHYDM_DEBUG_FUNCTION		1
+	#endif
+
+	#if (RTL8822B_SUPPORT == 1)
 		#define	CONFIG_DYNAMIC_RX_PATH	0
 	#else
 		#define	CONFIG_DYNAMIC_RX_PATH	0
 	#endif
 
-	#define SUPPORTABLITY_PHYDMLIZE	0
+	#define PHYDM_SUPPORT_CCKPD		1
 	#define RA_MASK_PHYDMLIZE_AP	1
 
 	/* #define CONFIG_RA_DBG_CMD*/
@@ -84,6 +133,7 @@
 	#if defined(CONFIG_RTL_8881A_ANT_SWITCH) || defined(CONFIG_SLOT_0_ANT_SWITCH) || defined(CONFIG_SLOT_1_ANT_SWITCH)
 		#define CONFIG_PHYDM_ANTENNA_DIVERSITY
 		#define ODM_EVM_ENHANCE_ANTDIV
+		#define SKIP_EVM_ANTDIV_TRAINING_PATCH	1
 
 		/*----------*/
 
@@ -119,12 +169,34 @@
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 
 	#if (RTL8822B_SUPPORT == 1)
+	#define PHYDM_TXA_CALIBRATION			1
+	#else
+	#define PHYDM_TXA_CALIBRATION			0
+	#endif
+
+	#if (RTL8192E_SUPPORT == 1)
+	#define	PHYDM_PRIMARY_CCA			1
+	#else
+	#define	PHYDM_PRIMARY_CCA			0
+	#endif
+
+	#if (RTL8188F_SUPPORT == 1 || RTL8710B_SUPPORT == 1 || RTL8821C_SUPPORT == 1)
+	#define	PHYDM_DC_CANCELLATION			1
+	#else
+	#define	PHYDM_DC_CANCELLATION			0
+	#endif
+
+	#define	CONFIG_PSD_TOOL					1
+	/*phydm debyg report & tools*/
+	#define CONFIG_PHYDM_DEBUG_FUNCTION		1
+
+	#if (RTL8822B_SUPPORT == 1)
 		#define	CONFIG_DYNAMIC_RX_PATH	0
 	#else
 		#define	CONFIG_DYNAMIC_RX_PATH	0
 	#endif
 
-	#define SUPPORTABLITY_PHYDMLIZE	1
+	#define PHYDM_SUPPORT_CCKPD		1
 	#define RA_MASK_PHYDMLIZE_CE	1
 
 	/*Antenna Diversity*/
@@ -140,6 +212,10 @@
 			#if (RTL8821A_SUPPORT == 1)
 				/*#define CONFIG_HL_SMART_ANTENNA_TYPE1*/
 			#endif
+
+			#if (RTL8822B_SUPPORT == 1)
+				/*#define CONFIG_HL_SMART_ANTENNA_TYPE2*/
+			#endif
 		#endif
 	#endif
 
@@ -147,6 +223,9 @@
 		#define CONFIG_PHYDM_DFS_MASTER
 	#endif
 
+	#if (RTL8188E_SUPPORT == 1 || RTL8192E_SUPPORT == 1)
+		#define	CONFIG_RECEIVER_BLOCKING
+	#endif
 	/*#define CONFIG_RA_DBG_CMD*/
 	#define	CONFIG_RA_FW_DBG_CODE	0
 	/*#define CONFIG_ANT_DETECTION*/
@@ -162,5 +241,11 @@
 
 #endif
 
+
+	/*20170103 YuChen add for FW API*/
+	#define PHYDM_FW_API_ENABLE_8822B			1
+	#define PHYDM_FW_API_FUNC_ENABLE_8822B		1
+	#define PHYDM_FW_API_ENABLE_8821C			1
+	#define PHYDM_FW_API_FUNC_ENABLE_8821C		1
 
 #endif

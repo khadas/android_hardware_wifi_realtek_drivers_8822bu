@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef __PHYDM_DFS_H__
 #define __PHYDM_DFS_H__
@@ -55,10 +50,10 @@ enum phydm_dfs_region_domain {
 	void phydm_radar_detect_reset(void *p_dm_void);
 	void phydm_radar_detect_disable(void *p_dm_void);
 	void phydm_radar_detect_enable(void *p_dm_void);
-	bool phydm_radar_detect(void *p_dm_void);
+	boolean phydm_radar_detect(void *p_dm_void);
 #endif /* defined(CONFIG_PHYDM_DFS_MASTER) */
 
-bool
+boolean
 phydm_dfs_master_enabled(
 	void		*p_dm_void
 );

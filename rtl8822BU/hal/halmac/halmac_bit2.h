@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef __RTL_WLAN_BITDEF_H__
 #define __RTL_WLAN_BITDEF_H__
 
@@ -18000,7 +18015,7 @@ Example:
 #endif
 
 
-#if (HALMAC_8192E_SUPPORT || HALMAC_8881A_SUPPORT)
+#if (HALMAC_8192E_SUPPORT || HALMAC_8881A_SUPPORT || HALMAC_8814B_SUPPORT || HALMAC_8821C_SUPPORT || HALMAC_8822B_SUPPORT)
 
 
 /* 2 REG_RXDMA_AGG_PG_TH			(Offset 0x0280) */
@@ -18030,7 +18045,7 @@ Example:
 #endif
 
 
-#if (HALMAC_8814A_SUPPORT || HALMAC_8814AMP_SUPPORT || HALMAC_8814B_SUPPORT || HALMAC_8821C_SUPPORT || HALMAC_8822B_SUPPORT)
+#if (HALMAC_8814A_SUPPORT || HALMAC_8814AMP_SUPPORT)
 
 
 /* 2 REG_RXDMA_AGG_PG_TH			(Offset 0x0280) */

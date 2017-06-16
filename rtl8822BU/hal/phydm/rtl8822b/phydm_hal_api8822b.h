@@ -22,10 +22,15 @@
 
 #if (RTL8822B_SUPPORT == 1)
 
-#define	PHY_CONFIG_VERSION_8822B			"27.5.31"	/*2016.08.01     (HW user guide version: R27, SW user guide version: R05, Modification: R31)*/
+#define	PHY_CONFIG_VERSION_8822B			"28.5.34"	/*2017.01.18     (HW user guide version: R28, SW user guide version: R05, Modification: R34), remove A cut setting, refine CCK txfilter and OFDM CCA setting by YuChen*/
 
 #define	INVALID_RF_DATA					0xffffffff
 #define	INVALID_TXAGC_DATA				0xff
+
+#define number_of_psd_value				5
+#define number_of_sample                3
+#define number_of_2g_freq_pt			14
+#define number_of_5g_freq_pt			10
 
 #define	config_phydm_read_rf_check_8822b(data)			(data != INVALID_RF_DATA)
 #define	config_phydm_read_txagc_check_8822b(data)		(data != INVALID_TXAGC_DATA)
@@ -38,7 +43,7 @@ config_phydm_read_rf_reg_8822b(
 	u32					bit_mask
 );
 
-bool
+boolean
 config_phydm_write_rf_reg_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	enum odm_rf_radio_path_e		rf_path,
@@ -47,7 +52,7 @@ config_phydm_write_rf_reg_8822b(
 	u32					data
 );
 
-bool
+boolean
 config_phydm_write_txagc_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u32					power_index,
@@ -62,26 +67,31 @@ config_phydm_read_txagc_8822b(
 	u8					hw_rate
 );
 
-bool
+void
+phydm_dynamic_spur_det_elimitor(
+	struct PHY_DM_STRUCT				*p_dm_odm
+);
+
+boolean
 config_phydm_switch_band_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u8					central_ch
 );
 
-bool
+boolean
 config_phydm_switch_channel_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u8					central_ch
 );
 
-bool
+boolean
 config_phydm_switch_bandwidth_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u8					primary_ch_idx,
 	enum odm_bw_e				bandwidth
 );
 
-bool
+boolean
 config_phydm_switch_channel_bw_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u8					central_ch,
@@ -89,16 +99,16 @@ config_phydm_switch_channel_bw_8822b(
 	enum odm_bw_e				bandwidth
 );
 
-bool
+boolean
 config_phydm_trx_mode_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	enum odm_rf_path_e			tx_path,
 	enum odm_rf_path_e			rx_path,
-	bool					is_tx2_path
+	boolean					is_tx2_path
 );
 
-bool
-config_phydm_parameter_init(
+boolean
+config_phydm_parameter_init_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	enum odm_parameter_init_e	type
 );
@@ -107,7 +117,7 @@ config_phydm_parameter_init(
 /* ======================================================================== */
 /* These following functions can be used for PHY DM only*/
 
-bool
+boolean
 phydm_write_txagc_1byte_8822b(
 	struct PHY_DM_STRUCT				*p_dm_odm,
 	u32					power_index,

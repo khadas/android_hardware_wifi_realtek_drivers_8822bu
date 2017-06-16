@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2013 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __OSDEP_LINUX_SERVICE_H_
 #define __OSDEP_LINUX_SERVICE_H_
 
@@ -33,6 +28,7 @@
 #endif
 /* #include <linux/smp_lock.h> */
 #include <linux/netdevice.h>
+#include <linux/inetdevice.h>
 #include <linux/skbuff.h>
 #include <linux/circ_buf.h>
 #include <asm/uaccess.h>
@@ -49,6 +45,7 @@
 #include <linux/etherdevice.h>
 #include <linux/wireless.h>
 #include <net/iw_handler.h>
+#include <net/addrconf.h>
 #include <linux/if_arp.h>
 #include <linux/rtnetlink.h>
 #include <linux/delay.h>
@@ -149,6 +146,7 @@ typedef	spinlock_t	_lock;
 	typedef struct semaphore	_mutex;
 #endif
 typedef struct timer_list _timer;
+typedef struct completion _completion;
 
 struct	__queue	{
 	struct	list_head	queue;
@@ -168,8 +166,6 @@ typedef	struct	net_device *_nic_hdl;
 typedef void		*_thread_hdl_;
 typedef int		thread_return;
 typedef void	*thread_context;
-
-#define thread_exit() complete_and_exit(NULL, 0)
 
 typedef void timer_hdl_return;
 typedef void *timer_hdl_context;
@@ -279,8 +275,6 @@ __inline static void rtw_list_delete(_list *plist)
 	list_del_init(plist);
 }
 
-#define RTW_TIMER_HDL_ARGS void *FunctionContext
-
 __inline static void _init_timer(_timer *ptimer, _nic_hdl nic_hdl, void *pfunc, void *cntx)
 {
 	/* setup_timer(ptimer, pfunc,(u32)cntx);	 */
@@ -296,10 +290,8 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
-	del_timer_sync(ptimer);
-	*bcancelled = 1;
+	*bcancelled = del_timer_sync(ptimer) == 1 ? 1 : 0;
 }
-
 
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
 {
@@ -425,11 +417,11 @@ static inline int rtw_merge_string(char *dst, int dst_len, const char *src1, con
 #define NDEV_FMT "%s"
 #define NDEV_ARG(ndev) ndev->name
 #define ADPT_FMT "%s"
-#define ADPT_ARG(adapter) adapter->pnetdev->name
+#define ADPT_ARG(adapter) (adapter->pnetdev ? adapter->pnetdev->name : NULL)
 #define FUNC_NDEV_FMT "%s(%s)"
 #define FUNC_NDEV_ARG(ndev) __func__, ndev->name
 #define FUNC_ADPT_FMT "%s(%s)"
-#define FUNC_ADPT_ARG(adapter) __func__, adapter->pnetdev->name
+#define FUNC_ADPT_ARG(adapter) __func__, (adapter->pnetdev ? adapter->pnetdev->name : NULL)
 
 struct rtw_netdev_priv_indicator {
 	void *priv;

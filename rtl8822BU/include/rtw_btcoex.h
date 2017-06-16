@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2013 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2013 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_BTCOEX_H__
 #define __RTW_BTCOEX_H__
 
@@ -369,6 +364,7 @@ struct bt_coex_info {
 
 void rtw_btcoex_Initialize(PADAPTER);
 void rtw_btcoex_PowerOnSetting(PADAPTER padapter);
+void rtw_btcoex_PowerOffSetting(PADAPTER padapter);
 void rtw_btcoex_PreLoadFirmware(PADAPTER padapter);
 void rtw_btcoex_HAL_Initialize(PADAPTER padapter, u8 bWifiOnly);
 void rtw_btcoex_IpsNotify(PADAPTER, u8 type);
@@ -404,6 +400,12 @@ u32 rtw_btcoex_GetDBG(PADAPTER, u8 *pStrBuf, u32 bufSize);
 u8 rtw_btcoex_IncreaseScanDeviceNum(PADAPTER);
 u8 rtw_btcoex_IsBtLinkExist(PADAPTER);
 void rtw_btcoex_pta_off_on_notify(PADAPTER padapter, u8 bBTON);
+
+#ifdef CONFIG_RF4CE_COEXIST
+void rtw_btcoex_SetRf4ceLinkState(PADAPTER padapter, u8 state);
+u8 rtw_btcoex_GetRf4ceLinkState(PADAPTER padapter);
+#endif
+
 #ifdef CONFIG_BT_COEXIST_SOCKET_TRX
 void rtw_btcoex_SetBtPatchVersion(PADAPTER padapter, u16 btHciVer, u16 btPatchVer);
 void rtw_btcoex_SetHciVersion(PADAPTER  padapter, u16 hciVersion);
@@ -437,8 +439,8 @@ u8 rtw_btcoex_get_ant_div_cfg(PADAPTER padapter);
 /* ==================================================
  * Below Functions are called by BT-Coex
  * ================================================== */
-void rtw_btcoex_rx_ampdu_apply(PADAPTER);
-void rtw_btcoex_LPS_Enter(PADAPTER);
-void rtw_btcoex_LPS_Leave(PADAPTER);
+void rtw_btcoex_rx_ampdu_apply(PADAPTER padapter);
+void rtw_btcoex_LPS_Enter(PADAPTER padapter);
+u8 rtw_btcoex_LPS_Leave(PADAPTER padapter);
 
 #endif /* __RTW_BTCOEX_H__ */

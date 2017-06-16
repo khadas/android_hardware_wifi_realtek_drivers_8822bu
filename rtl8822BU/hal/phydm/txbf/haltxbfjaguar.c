@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 /* ************************************************************
  * Description:
  *
@@ -77,7 +91,7 @@ hal_txbf_jaguar_download_ndpa(
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u8			u1b_tmp = 0, tmp_reg422 = 0, head_page;
 	u8			bcn_valid_reg = 0, count = 0, dl_bcn_count = 0;
-	bool			is_send_beacon = false;
+	boolean			is_send_beacon = false;
 	u8			tx_page_bndy = LAST_ENTRY_OF_TX_PKT_BUFFER_8812;	/*default reseved 1 page for the IC type which is undefined.*/
 	struct _RT_BEAMFORMING_INFO	*p_beam_info = &p_dm_odm->beamforming_info;
 	struct _RT_BEAMFORMEE_ENTRY	*p_beam_entry = p_beam_info->beamformee_entry + idx;
@@ -92,7 +106,7 @@ hal_txbf_jaguar_download_ndpa(
 	else
 		head_page = 0xFE;
 
-	adapter->hal_func.get_hal_def_var_handler(adapter, HAL_DEF_TX_PAGE_BOUNDARY, (u8 *)&tx_page_bndy);
+	phydm_get_hal_def_var_handler_interface(p_dm_odm, HAL_DEF_TX_PAGE_BOUNDARY, (u8 *)&tx_page_bndy);
 
 	/*Set REG_CR bit 8. DMA beacon by SW.*/
 	u1b_tmp = odm_read_1byte(p_dm_odm, REG_CR_8812A + 1);
@@ -118,7 +132,7 @@ hal_txbf_jaguar_download_ndpa(
 
 		/*download NDPA rsvd page.*/
 		if (p_beam_entry->beamform_entry_cap & BEAMFORMER_CAP_VHT_SU)
-			beamforming_send_vht_ndpa_packet(p_dm_odm, p_beam_entry->mac_addr, p_beam_entry->AID, p_beam_entry->sound_bw, BEACON_QUEUE);
+			beamforming_send_vht_ndpa_packet(p_dm_odm, p_beam_entry->mac_addr, p_beam_entry->aid, p_beam_entry->sound_bw, BEACON_QUEUE);
 		else
 			beamforming_send_ht_ndpa_packet(p_dm_odm, p_beam_entry->mac_addr, p_beam_entry->sound_bw, BEACON_QUEUE);
 
@@ -271,7 +285,7 @@ hal_txbf_jaguar_enter(
 		if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 			sta_id = beamformee_entry.mac_id;
 		else
-			sta_id = beamformee_entry.P_AID;
+			sta_id = beamformee_entry.p_aid;
 
 		/*P_AID of Beamformee & enable NDPA transmission & enable NDPA interrupt*/
 		if (bfee_idx == 0) {
@@ -365,7 +379,7 @@ hal_txbf_jaguar_status(
 	if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 		beam_ctrl_val = beamform_entry.mac_id;
 	else
-		beam_ctrl_val = beamform_entry.P_AID;
+		beam_ctrl_val = beamform_entry.p_aid;
 
 	if (idx == 0)
 		beam_ctrl_reg = REG_TXBF_CTRL_8812A;
@@ -455,7 +469,7 @@ hal_txbf_jaguar_clk_8812a(
 	/*Stop Usb TxDMA*/
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	RT_DISABLE_FUNC(adapter, DF_TX_BIT);
-	platform_return_all_pending_tx_packets(adapter);
+	PlatformReturnAllPendingTxPackets(adapter);
 #else
 	rtw_write_port_cancel(adapter);
 #endif

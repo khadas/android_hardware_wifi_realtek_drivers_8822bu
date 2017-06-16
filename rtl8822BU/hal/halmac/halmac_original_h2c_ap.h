@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HAL_ORIGINALH2CFORMAT_H2C_C2H_AP_H_
 #define _HAL_ORIGINALH2CFORMAT_H2C_C2H_AP_H_
 #define CMD_ID_ORIGINAL_H2C  0X00
@@ -506,6 +521,9 @@
 #define MACID_CFG_GET_RATE_ID(__pH2C)    GET_H2C_FIELD(__pH2C + 0X00, 16, 5)
 #define MACID_CFG_SET_RATE_ID(__pH2C, __Value)    SET_H2C_FIELD_CLR(__pH2C + 0X00, 16, 5, __Value)
 #define MACID_CFG_SET_RATE_ID_NO_CLR(__pH2C, __Value)    SET_H2C_FIELD_NO_CLR(__pH2C + 0X00, 16, 5, __Value)
+#define MACID_CFG_GET_INIT_RATE_LV(__pH2C)    GET_H2C_FIELD(__pH2C + 0X00, 21, 2)
+#define MACID_CFG_SET_INIT_RATE_LV(__pH2C, __Value)    SET_H2C_FIELD_CLR(__pH2C + 0X00, 21, 2, __Value)
+#define MACID_CFG_SET_INIT_RATE_LV_NO_CLR(__pH2C, __Value)    SET_H2C_FIELD_NO_CLR(__pH2C + 0X00, 21, 2, __Value)
 #define MACID_CFG_GET_SGI(__pH2C)    GET_H2C_FIELD(__pH2C + 0X00, 23, 1)
 #define MACID_CFG_SET_SGI(__pH2C, __Value)    SET_H2C_FIELD_CLR(__pH2C + 0X00, 23, 1, __Value)
 #define MACID_CFG_SET_SGI_NO_CLR(__pH2C, __Value)    SET_H2C_FIELD_NO_CLR(__pH2C + 0X00, 23, 1, __Value)

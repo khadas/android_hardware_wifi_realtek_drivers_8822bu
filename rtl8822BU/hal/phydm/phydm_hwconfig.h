@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #ifndef	__HALHWOUTSRC_H__
@@ -185,9 +180,20 @@ struct _phy_status_rpt_8812 {
 };
 
 void
+phydm_reset_avg_rssi_for_ss(
+	struct PHY_DM_STRUCT	*p_dm_odm
+);
+
+void
 phydm_reset_rssi_for_dm(
 	struct PHY_DM_STRUCT	*p_dm_odm,
 	u8		station_id
+);
+
+u8
+phydm_rate_to_num_ss(
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	u8			data_rate
 );
 
 void
@@ -219,9 +225,9 @@ odm_mac_status_query(
 	struct PHY_DM_STRUCT					*p_dm_odm,
 	u8						*p_mac_status,
 	u8						mac_id,
-	bool						is_packet_match_bssid,
-	bool						is_packet_to_self,
-	bool						is_packet_beacon
+	boolean						is_packet_match_bssid,
+	boolean						is_packet_to_self,
+	boolean						is_packet_beacon
 );
 
 enum hal_status
@@ -275,6 +281,14 @@ phydm_rx_phy_status_new_type(
 	u8						*p_phy_status,
 	struct _odm_per_pkt_info_			*p_pktinfo,
 	struct _odm_phy_status_info_			*p_phy_info
+);
+
+boolean
+phydm_query_is_mu_api(
+	struct PHY_DM_STRUCT			*p_phydm,
+	u8								ppdu_idx,
+	u8								*p_data_rate,
+	u8								*p_gid
 );
 
 struct _phy_status_rpt_jaguar2_type0 {

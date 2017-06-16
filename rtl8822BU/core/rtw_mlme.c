@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_MLME_C_
 
 #include <hal_data.h>
@@ -24,6 +19,27 @@
 extern void indicate_wx_scan_complete_event(_adapter *padapter);
 extern u8 rtw_do_join(_adapter *padapter);
 
+
+void rtw_init_mlme_timer(_adapter *padapter)
+{
+	struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
+
+	rtw_init_timer(&(pmlmepriv->assoc_timer), padapter, rtw_join_timeout_handler, padapter);
+	rtw_init_timer(&(pmlmepriv->scan_to_timer), padapter, rtw_scan_timeout_handler, padapter);
+
+#ifdef CONFIG_DFS_MASTER
+	rtw_init_timer(&(pmlmepriv->dfs_master_timer), padapter, rtw_dfs_master_timer_hdl, padapter);
+#endif
+
+#ifdef CONFIG_SET_SCAN_DENY_TIMER
+	rtw_init_timer(&(pmlmepriv->set_scan_deny_timer), padapter, rtw_set_scan_deny_timer_hdl, padapter);
+#endif
+
+#ifdef RTK_DMP_PLATFORM
+	_init_workitem(&(pmlmepriv->Linkup_workitem), Linkup_workitem_callback, padapter);
+	_init_workitem(&(pmlmepriv->Linkdown_workitem), Linkdown_workitem_callback, padapter);
+#endif
+}
 
 sint	_rtw_init_mlme_priv(_adapter *padapter)
 {
@@ -88,6 +104,7 @@ sint	_rtw_init_mlme_priv(_adapter *padapter)
 	rtw_clear_scan_deny(padapter);
 #ifdef CONFIG_ARP_KEEP_ALIVE
 	pmlmepriv->bGetGateway = 0;
+	pmlmepriv->GetGatewayTryCnt = 0;
 #endif
 
 #ifdef CONFIG_LAYER2_ROAMING
@@ -924,6 +941,11 @@ void rtw_update_scanned_network(_adapter *adapter, WLAN_BSSID_EX *target)
 	phead = get_list_head(queue);
 	plist = get_next(phead);
 
+#if 0
+	RTW_INFO("%s => ssid:%s , rssi:%ld , ss:%d\n",
+		__func__, target->Ssid.Ssid, target->Rssi, target->PhyInfo.SignalStrength);
+#endif
+
 #ifdef CONFIG_P2P
 	if (!rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE))
 		feature = 1; /* p2p enable */
@@ -953,10 +975,13 @@ void rtw_update_scanned_network(_adapter *adapter, WLAN_BSSID_EX *target)
 		if (rtw_roam_flags(adapter)) {
 			/* TODO: don't  select netowrk in the same ess as oldest if it's new enough*/
 		}
-
+#ifdef CONFIG_RSSI_PRIORITY
+		if ((oldest == NULL) || (pnetwork->network.PhyInfo.SignalStrength < oldest->network.PhyInfo.SignalStrength))
+			oldest = pnetwork;
+#else
 		if (oldest == NULL || time_after(oldest->last_scanned, pnetwork->last_scanned))
 			oldest = pnetwork;
-
+#endif
 		plist = get_next(plist);
 
 	}
@@ -973,6 +998,14 @@ void rtw_update_scanned_network(_adapter *adapter, WLAN_BSSID_EX *target)
 			if (pnetwork == NULL) {
 				goto exit;
 			}
+#ifdef CONFIG_RSSI_PRIORITY
+		RTW_DBG("%s => ssid:%s ,bssid:"MAC_FMT"  will be deleted from scanned_queue (rssi:%ld , ss:%d)\n",
+			__func__, pnetwork->network.Ssid.Ssid, MAC_ARG(pnetwork->network.MacAddress), pnetwork->network.Rssi, pnetwork->network.PhyInfo.SignalStrength);
+#else
+		RTW_DBG("%s => ssid:%s ,bssid:"MAC_FMT" will be deleted from scanned_queue\n",
+			__func__, pnetwork->network.Ssid.Ssid, MAC_ARG(pnetwork->network.MacAddress));
+#endif
+
 #ifdef CONFIG_ANTENNA_DIVERSITY
 			rtw_hal_get_odm_var(adapter, HAL_ODM_ANTDIV_SELECT, &(target->PhyInfo.Optimum_antenna), NULL);
 #endif
@@ -1210,7 +1243,6 @@ exit:
 void rtw_surveydone_event_callback(_adapter	*adapter, u8 *pbuf)
 {
 	_irqL  irqL;
-	u8 timer_cancelled;
 	struct	mlme_priv	*pmlmepriv = &(adapter->mlmepriv);
 #ifdef CONFIG_RTW_80211R
 	struct mlme_ext_priv	*pmlmeext = &adapter->mlmeextpriv;
@@ -1238,7 +1270,7 @@ void rtw_surveydone_event_callback(_adapter	*adapter, u8 *pbuf)
 	_clr_fwstate_(pmlmepriv, _FW_UNDER_SURVEY);
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
 
-	_cancel_timer(&pmlmepriv->scan_to_timer, &timer_cancelled);
+	_cancel_timer_ex(&pmlmepriv->scan_to_timer);
 
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
@@ -1360,8 +1392,9 @@ void rtw_surveydone_event_callback(_adapter	*adapter, u8 *pbuf)
 #endif /* CONFIG_IOCTL_CFG80211 */
 
 	rtw_indicate_scan_done(adapter, _FALSE);
-#ifdef CONFIG_CONCURRENT_MODE
-	rtw_mi_buddy_indicate_scan_done(adapter, _FALSE);/*scanning_via_buddy_intf*/
+
+#if defined(CONFIG_CONCURRENT_MODE) && defined(CONFIG_IOCTL_CFG80211)
+	rtw_cfg80211_indicate_scan_done_for_buddy(adapter, _FALSE);
 #endif
 
 }
@@ -1697,7 +1730,13 @@ static u32 _rtw_wait_scan_done(_adapter *adapter, u8 abort, u32 timeout_ms)
 
 void rtw_scan_wait_completed(_adapter *adapter)
 {
-	u32 scan_to = SCANNING_TIMEOUT;
+	u32 scan_to;
+#ifdef	CONFIG_CHNL_LOAD_MAGT
+	if (adapter->clm_flag == TRUE)
+		scan_to = CLM_SCANNING_TIMEOUT;
+	else
+#endif
+		scan_to = SCANNING_TIMEOUT;
 
 #ifdef CONFIG_SCAN_BACKOP
 	if (is_supported_5g(adapter->registrypriv.wireless_mode)
@@ -1929,7 +1968,6 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 {
 	_irqL irqL, irqL2;
 	static u8 retry = 0;
-	u8 timer_cancelled;
 	struct sta_info *ptarget_sta = NULL, *pcur_sta = NULL;
 	struct	sta_priv *pstapriv = &adapter->stapriv;
 	struct	mlme_priv	*pmlmepriv = &(adapter->mlmepriv);
@@ -2040,7 +2078,7 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 			}
 
 			/* s5. Cancle assoc_timer					 */
-			_cancel_timer(&pmlmepriv->assoc_timer, &timer_cancelled);
+			_cancel_timer_ex(&pmlmepriv->assoc_timer);
 
 
 		} else {
@@ -2473,7 +2511,7 @@ void rtw_sta_mstatus_report(_adapter *adapter)
 	struct wlan_network *tgt_network = &pmlmepriv->cur_network;
 	struct sta_info *psta = NULL;
 
-	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
+	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) && check_fwstate(pmlmepriv, WIFI_ASOC_STATE)) {
 		psta = rtw_get_stainfo(&adapter->stapriv, tgt_network->network.MacAddress);
 		if (psta)
 			rtw_sta_mstatus_disc_rpt(adapter, psta->mac_id);
@@ -2662,11 +2700,11 @@ void rtw_wmm_event_callback(PADAPTER padapter, u8 *pbuf)
 }
 
 /*
-* _rtw_join_timeout_handler - Timeout/faliure handler for CMD JoinBss
-* @adapter: pointer to _adapter structure
+* rtw_join_timeout_handler - Timeout/failure handler for CMD JoinBss
 */
-void _rtw_join_timeout_handler(_adapter *adapter)
+void rtw_join_timeout_handler(void *ctx)
 {
+	_adapter *adapter = (_adapter *)ctx;
 	_irqL irqL;
 	struct	mlme_priv *pmlmepriv = &adapter->mlmepriv;
 
@@ -2746,8 +2784,9 @@ void _rtw_join_timeout_handler(_adapter *adapter)
 * rtw_scan_timeout_handler - Timeout/Faliure handler for CMD SiteSurvey
 * @adapter: pointer to _adapter structure
 */
-void rtw_scan_timeout_handler(_adapter *adapter)
+void rtw_scan_timeout_handler(void *ctx)
 {
+	_adapter *adapter = (_adapter *)ctx;
 	_irqL irqL;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 	RTW_INFO(FUNC_ADPT_FMT" fw_state=%x\n", FUNC_ADPT_ARG(adapter), get_fwstate(pmlmepriv));
@@ -2763,8 +2802,9 @@ void rtw_scan_timeout_handler(_adapter *adapter)
 #endif /* CONFIG_IOCTL_CFG80211 */
 
 	rtw_indicate_scan_done(adapter, _TRUE);
-#ifdef CONFIG_CONCURRENT_MODE
-	rtw_mi_buddy_indicate_scan_done(adapter, _TRUE);/*scanning_via_buddy_intf */
+
+#if defined(CONFIG_CONCURRENT_MODE) && defined(CONFIG_IOCTL_CFG80211)
+	rtw_cfg80211_indicate_scan_done_for_buddy(adapter, _TRUE);
 #endif
 }
 
@@ -3011,16 +3051,26 @@ static void collect_traffic_statistics(_adapter *padapter)
 	#endif
 }
 
-void rtw_dynamic_check_timer_handlder(_adapter *adapter)
+void rtw_dynamic_check_timer_handlder(void *ctx)
 {
+	struct dvobj_priv *pdvobj = (struct dvobj_priv *)ctx;
+	_adapter *adapter = dvobj_get_primary_adapter(pdvobj);
+
+#if (MP_DRIVER == 1)
+	if (adapter->registrypriv.mp_mode == 1 && adapter->mppriv.mp_dm == 0) { /* for MP ODM dynamic Tx power tracking */
+		/* RTW_INFO("%s mp_dm =0 return\n", __func__); */
+		goto exit;
+	}
+#endif
+
 	if (!adapter)
-		return;
+		goto exit;
 
 	if (!rtw_is_hw_init_completed(adapter))
-		return;
+		goto exit;
 
 	if (RTW_CANNOT_RUN(adapter))
-		return;
+		goto exit;
 
 	collect_traffic_statistics(adapter);
 
@@ -3028,6 +3078,9 @@ void rtw_dynamic_check_timer_handlder(_adapter *adapter)
 
 	if (!is_drv_in_lps(adapter))
 		rtw_dynamic_chk_wk_cmd(adapter);
+
+exit:
+	_set_timer(&pdvobj->dynamic_chk_timer, 2000);
 }
 
 
@@ -3046,8 +3099,10 @@ inline void rtw_clear_scan_deny(_adapter *adapter)
 		RTW_INFO(FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(adapter));
 }
 
-void rtw_set_scan_deny_timer_hdl(_adapter *adapter)
+void rtw_set_scan_deny_timer_hdl(void *ctx)
 {
+	_adapter *adapter = (_adapter *)ctx;
+
 	rtw_clear_scan_deny(adapter);
 }
 void rtw_set_scan_deny(_adapter *adapter, u32 ms)
@@ -3364,7 +3419,7 @@ candidate_exist:
 		} else
 #endif
 		{
-			rtw_disassoc_cmd(adapter, 0, _TRUE);
+			rtw_disassoc_cmd(adapter, 0, 0);
 			rtw_indicate_disconnect(adapter, 0, _FALSE);
 			rtw_free_assoc_resources(adapter, 0);
 		}
@@ -3962,11 +4017,16 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 	HT_CAP_AMPDU_DENSITY best_ampdu_density;
 	unsigned char *p, *pframe;
 	struct rtw_ieee80211_ht_cap ht_capie;
-	u8	cbw40_enable = 0, rf_type = 0, operation_bw = 0, rf_num = 0, rx_stbc_nss = 0;
+	u8	cbw40_enable = 0, rf_type = 0, operation_bw = 0, rf_num = 0, rx_stbc_nss = 0, rx_nss = 0;
 	struct registry_priv *pregistrypriv = &padapter->registrypriv;
 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
 	struct ht_priv		*phtpriv = &pmlmepriv->htpriv;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(padapter);
+#ifdef CONFIG_80211AC_VHT
+	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct vht_priv	*pvhtpriv = &pmlmepriv->vhtpriv;
+#endif /* CONFIG_80211AC_VHT */
 
 	phtpriv->ht_option = _FALSE;
 
@@ -4058,28 +4118,28 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 
 	/* update default supported_mcs_set */
 	rtw_hal_get_hwreg(padapter, HW_VAR_RF_TYPE, (u8 *)(&rf_type));
+	rx_nss = rtw_min(rf_type_to_rf_rx_cnt(rf_type), hal_spec->rx_nss_num);
 
-	switch (rf_type) {
-	case RF_1T1R:
+	switch (rx_nss) {
+	case 1:
 		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_1R);
 		break;
-
-	case RF_2T2R:
-	case RF_1T2R:
-#ifdef CONFIG_DISABLE_MCS13TO15
+	case 2:
+		#ifdef CONFIG_DISABLE_MCS13TO15
 		if (((cbw40_enable == 1) && (operation_bw == CHANNEL_WIDTH_40)) && (pregistrypriv->wifi_spec != 1))
 			set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_2R_13TO15_OFF);
 		else
+		#endif
 			set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_2R);
-#else /* CONFIG_DISABLE_MCS13TO15 */
-		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_2R);
-#endif /* CONFIG_DISABLE_MCS13TO15 */
 		break;
-	case RF_3T3R:
+	case 3:
 		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_3R);
 		break;
+	case 4:
+		set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_4R);
+		break;
 	default:
-		RTW_INFO("[warning] rf_type %d is not expected\n", rf_type);
+		RTW_WARN("rf_type:%d or rx_nss:%u is not expected\n", rf_type, hal_spec->rx_nss_num);
 	}
 
 	{
@@ -4147,7 +4207,14 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 		SET_HT_CAP_TXBF_RECEIVE_NDP_CAP(&ht_capie, 1);
 		/* Explicit Compressed Beamforming Feedback Capable */
 		SET_HT_CAP_TXBF_EXPLICIT_COMP_FEEDBACK_CAP(&ht_capie, 2);
+
 		rtw_hal_get_def_var(padapter, HAL_DEF_BEAMFORMEE_CAP, (u8 *)&rf_num);
+#ifdef CONFIG_80211AC_VHT
+		/* IOT action suggested by Yu Chen 2017/3/3 */
+		if ((pmlmeinfo->assoc_AP_vendor == HT_IOT_PEER_BROADCOM) &&
+			!GET_VHT_CAPABILITY_ELE_MU_BFER(&pvhtpriv->beamform_cap))
+			rf_num = (rf_num >= 2 ? 2 : rf_num);
+#endif
 		SET_HT_CAP_TXBF_COMP_STEERING_NUM_ANTENNAS(&ht_capie, rf_num);
 	}
 #endif/*CONFIG_BEAMFORMING*/
@@ -4242,36 +4309,39 @@ void rtw_update_ht_cap(_adapter *padapter, u8 *pie, uint ie_len, u8 channel)
 	if ((cbw40_enable) &&
 	    (pmlmeinfo->HT_caps.u.HT_cap_element.HT_caps_info & BIT(1)) &&
 	    (pmlmeinfo->HT_info.infos[0] & BIT(2))) {
+		struct hal_spec_t *hal_spec = GET_HAL_SPEC(padapter);
 		int i;
 		u8	rf_type = RF_1T1R;
+		u8 tx_nss = 0;
 
 		rtw_hal_get_hwreg(padapter, HW_VAR_RF_TYPE, (u8 *)(&rf_type));
+		tx_nss = rtw_min(rf_type_to_rf_tx_cnt(rf_type), hal_spec->tx_nss_num);
 
 		/* update the MCS set */
 		for (i = 0; i < 16; i++)
 			pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate[i] &= pmlmeext->default_supported_mcs_set[i];
 
 		/* update the MCS rates */
-		switch (rf_type) {
-		case RF_1T1R:
-		case RF_1T2R:
+		switch (tx_nss) {
+		case 1:
 			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_1R);
 			break;
-		case RF_2T2R:
-#ifdef CONFIG_DISABLE_MCS13TO15
+		case 2:
+			#ifdef CONFIG_DISABLE_MCS13TO15
 			if (pmlmeext->cur_bwmode == CHANNEL_WIDTH_40 && pregistrypriv->wifi_spec != 1)
 				set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_2R_13TO15_OFF);
 			else
+			#endif
 				set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_2R);
-#else /* CONFIG_DISABLE_MCS13TO15 */
-			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_2R);
-#endif /* CONFIG_DISABLE_MCS13TO15 */
 			break;
-		case RF_3T3R:
+		case 3:
 			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_3R);
 			break;
+		case 4:
+			set_mcs_rate_by_mask(pmlmeinfo->HT_caps.u.HT_cap_element.MCS_rate, MCS_RATE_4R);
+			break;
 		default:
-			RTW_INFO("[warning] rf_type %d is not expected\n", rf_type);
+			RTW_WARN("rf_type:%d or tx_nss_num:%u is not expected\n", rf_type, hal_spec->tx_nss_num);
 		}
 
 		/* switch to the 40M Hz mode accoring to the AP */

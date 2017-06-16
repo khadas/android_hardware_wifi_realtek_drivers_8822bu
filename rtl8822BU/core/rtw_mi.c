@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2015 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_MI_C_
 
 #include <drv_types.h>
@@ -150,6 +145,16 @@ void _rtw_mi_status(_adapter *adapter, struct mi_state *mstate, bool include_sel
 
 		if (check_fwstate(&iface->mlmepriv, WIFI_UNDER_WPS) == _TRUE)
 			MSTATE_WPS_NUM(mstate)++;
+
+#ifdef CONFIG_IOCTL_CFG80211
+		if (rtw_cfg80211_get_is_mgmt_tx(iface))
+			MSTATE_MGMT_TX_NUM(mstate)++;
+		#ifdef CONFIG_P2P
+		if (rtw_cfg80211_get_is_roch(iface) == _TRUE)
+			MSTATE_ROCH_NUM(mstate)++;
+		#endif
+#endif /* CONFIG_IOCTL_CFG80211 */
+
 	}
 }
 
@@ -173,6 +178,12 @@ void dump_mi_status(void *sel, struct dvobj_priv *dvobj)
 	RTW_PRINT_SEL(sel, "linked_adhoc_num:%d\n", DEV_ADHOC_LD_NUM(dvobj));
 #ifdef CONFIG_P2P
 	RTW_PRINT_SEL(sel, "p2p_device_num:%d\n", rtw_mi_stay_in_p2p_mode(dvobj->padapters[IFACE_ID0]));
+#endif
+#if defined(CONFIG_IOCTL_CFG80211)
+	#if defined(CONFIG_P2P)
+	RTW_PRINT_SEL(sel, "roch_num:%d\n", DEV_ROCH_NUM(dvobj));
+	#endif
+	RTW_PRINT_SEL(sel, "mgmt_tx_num:%d\n", DEV_MGMT_TX_NUM(dvobj));
 #endif
 	RTW_PRINT_SEL(sel, "under_wps_num:%d\n", DEV_WPS_NUM(dvobj));
 	RTW_PRINT_SEL(sel, "union_ch:%d\n", DEV_U_CH(dvobj));
@@ -285,121 +296,6 @@ u8 rtw_mi_check_status(_adapter *adapter, u8 type)
 	return ret;
 }
 
-u8 rtw_mi_mp_mode_check(_adapter *padapter)
-{
-#ifdef CONFIG_MP_INCLUDED
-#ifdef CONFIG_CONCURRENT_MODE
-	int i;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	_adapter *iface = NULL;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-
-		if ((iface) && (iface->registrypriv.mp_mode == 1))
-			return _TRUE;
-	}
-#else
-	if (padapter->registrypriv.mp_mode == 1)
-		return _TRUE;
-#endif
-#endif /* CONFIG_MP_INCLUDED */
-	return _FALSE;
-}
-
-#ifdef CONFIG_CONCURRENT_MODE
-u8 rtw_mi_buddy_under_survey(_adapter *padapter)
-{
-	int i;
-	u8 ret = 0;
-	_adapter *iface = NULL;
-	_irqL	irqL;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-
-#ifdef CONFIG_IOCTL_CFG80211
-	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
-#endif
-
-	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
-
-	struct mlme_priv *buddy_mlmepriv;
-	struct rtw_wdev_priv *buddy_wdev_priv;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if ((iface) && rtw_is_adapter_up(iface)) {
-
-			if (iface == padapter)
-				continue;
-
-			buddy_mlmepriv = &iface->mlmepriv;
-			if (check_fwstate(buddy_mlmepriv, _FW_UNDER_SURVEY)) {
-				ret = UNDER_SURVEY_T1;
-
-#ifdef CONFIG_IOCTL_CFG80211
-				buddy_wdev_priv = adapter_wdev_data(iface);
-				_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
-				_enter_critical_bh(&buddy_wdev_priv->scan_req_lock, &irqL);
-				if (buddy_wdev_priv->scan_request) {
-					pmlmepriv->scanning_via_buddy_intf = _TRUE;
-					_enter_critical_bh(&pmlmepriv->lock, &irqL);
-					set_fwstate(pmlmepriv, _FW_UNDER_SURVEY);
-					_exit_critical_bh(&pmlmepriv->lock, &irqL);
-					ret = UNDER_SURVEY_T2;
-				}
-				_exit_critical_bh(&buddy_wdev_priv->scan_req_lock, &irqL);
-				_exit_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
-#endif
-
-				RTW_INFO(ADPT_FMT"_FW_UNDER_SURVEY\n", ADPT_ARG(iface));
-				return ret;
-			}
-		}
-	}
-	return ret;
-}
-void rtw_mi_buddy_indicate_scan_done(_adapter *padapter, bool bscan_aborted)
-{
-#if defined(CONFIG_IOCTL_CFG80211)
-	int i;
-	u8 ret = 0;
-	_adapter *iface = NULL;
-	_irqL	irqL;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	struct mlme_priv *mlmepriv;
-	struct rtw_wdev_priv *wdev_priv;
-	bool indicate_buddy_scan = _FALSE;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if ((iface) && rtw_is_adapter_up(iface)) {
-
-			if (iface == padapter)
-				continue;
-
-			mlmepriv = &(iface->mlmepriv);
-			wdev_priv = adapter_wdev_data(iface);
-
-			_enter_critical_bh(&wdev_priv->scan_req_lock, &irqL);
-			if (wdev_priv->scan_request && mlmepriv->scanning_via_buddy_intf == _TRUE) {
-				mlmepriv->scanning_via_buddy_intf = _FALSE;
-				clr_fwstate(mlmepriv, _FW_UNDER_SURVEY);
-				indicate_buddy_scan = _TRUE;
-			}
-			_exit_critical_bh(&wdev_priv->scan_req_lock, &irqL);
-
-			if (indicate_buddy_scan == _TRUE) {
-				rtw_cfg80211_surveydone_event_callback(iface);
-				rtw_indicate_scan_done(iface, bscan_aborted);
-			}
-
-		}
-	}
-#endif
-
-}
-#endif
-
 /*
 * return value : 0 is failed or have not interface meet condition
 * return value : !0 is success or interface numbers which meet condition
@@ -428,6 +324,29 @@ static u8 _rtw_mi_process(_adapter *padapter, bool exclude_self,
 	}
 	return ret;
 }
+static u8 _rtw_mi_process_without_schk(_adapter *padapter, bool exclude_self,
+		  void *data, u8(*ops_func)(_adapter *padapter, void *data))
+{
+	int i;
+	_adapter *iface;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	u8 ret = 0;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (iface) {
+			if ((exclude_self) && (iface == padapter))
+				continue;
+
+			if (ops_func)
+				if (ops_func(iface, data) == _TRUE)
+					ret++;
+		}
+	}
+	return ret;
+}
+
 static u8 _rtw_mi_netif_stop_queue(_adapter *padapter, void *data)
 {
 	bool carrier_off = *(bool *)data;
@@ -559,11 +478,11 @@ static u8 _rtw_mi_reset_drv_sw(_adapter *adapter, void *data)
 }
 void rtw_mi_reset_drv_sw(_adapter *adapter)
 {
-	_rtw_mi_process(adapter, _FALSE, NULL, _rtw_mi_reset_drv_sw);
+	_rtw_mi_process_without_schk(adapter, _FALSE, NULL, _rtw_mi_reset_drv_sw);
 }
 void rtw_mi_buddy_reset_drv_sw(_adapter *adapter)
 {
-	_rtw_mi_process(adapter, _TRUE, NULL, _rtw_mi_reset_drv_sw);
+	_rtw_mi_process_without_schk(adapter, _TRUE, NULL, _rtw_mi_reset_drv_sw);
 }
 
 static u8 _rtw_mi_intf_start(_adapter *adapter, void *data)
@@ -642,7 +561,7 @@ void rtw_mi_buddy_set_scan_deny(_adapter *adapter, u32 ms)
 
 	_rtw_mi_process(adapter, _TRUE, &in_data, _rtw_mi_set_scan_deny);
 }
-#endif
+#endif /*CONFIG_SET_SCAN_DENY_TIMER*/
 
 struct nulldata_param {
 	unsigned char *da;
@@ -1297,17 +1216,18 @@ void rtw_mi_buddy_clone_bcmc_packet(_adapter *padapter, union recv_frame *precvf
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
-		if ((iface) && rtw_is_adapter_up(iface)) {
-			if (iface == padapter)
-				continue;
-			pcloneframe = rtw_alloc_recvframe(pfree_recv_queue);
-			if (pcloneframe) {
-				ret = _rtw_mi_buddy_clone_bcmc_packet(iface, precvframe, pphy_status, pcloneframe);
-				if (_SUCCESS != ret) {
-					if (ret == -1)
-						rtw_free_recvframe(pcloneframe, pfree_recv_queue);
-					/*RTW_INFO(ADPT_FMT"-clone BC/MC frame failed\n", ADPT_ARG(iface));*/
-				}
+		if (!iface || iface == padapter)
+			continue;
+		if (rtw_is_adapter_up(iface) == _FALSE || iface->registered == 0)
+			continue;
+
+		pcloneframe = rtw_alloc_recvframe(pfree_recv_queue);
+		if (pcloneframe) {
+			ret = _rtw_mi_buddy_clone_bcmc_packet(iface, precvframe, pphy_status, pcloneframe);
+			if (_SUCCESS != ret) {
+				if (ret == -1)
+					rtw_free_recvframe(pcloneframe, pfree_recv_queue);
+				/*RTW_INFO(ADPT_FMT"-clone BC/MC frame failed\n", ADPT_ARG(iface));*/
 			}
 		}
 	}
@@ -1360,3 +1280,28 @@ void rtw_mi_update_ap_bmc_camid(_adapter *padapter, u8 camid_a, u8 camid_b)
 	}
 #endif
 }
+
+#ifdef CONFIG_AP_MODE
+static u8 _rtw_mi_ap_acdata_control(_adapter *padapter, void *data)
+{
+	u8 power_mode = *(u8 *)data;
+	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
+
+	if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
+		rtw_ap_acdata_control(padapter, power_mode);
+	return _TRUE;
+}
+
+void rtw_mi_ap_acdata_control(_adapter *padapter, u8 power_mode)
+{
+	u8 in_data = power_mode;
+
+	_rtw_mi_process(padapter, _FALSE, &in_data, _rtw_mi_ap_acdata_control);
+}
+void rtw_mi_buddy_ap_acdata_control(_adapter *padapter, u8 power_mode)
+{
+	u8 in_data = power_mode;
+
+	_rtw_mi_process(padapter, _TRUE, &in_data, _rtw_mi_ap_acdata_control);
+}
+#endif /*CONFIG_AP_MODE*/

@@ -85,11 +85,7 @@ void configure_txpower_track(
 #if (RTL8192E_SUPPORT == 1)
 void
 odm_txpowertracking_callback_thermal_meter_92e(
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	void		*p_dm_void
-#else
-	struct _ADAPTER	*adapter
-#endif
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -106,7 +102,7 @@ odm_txpowertracking_callback_thermal_meter_92e(
 	/* ODM_RT_TRACE(p_dm_odm,ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,("%s:%d rf_mimo_mode:%d\n", __FUNCTION__, __LINE__, rf_mimo_mode)); */
 
 #ifdef MP_TEST
-	if ((OPMODE & WIFI_MP_STATE) || priv->pshare->rf_ft_var.mp_specific) {
+	if ((OPMODE & WIFI_MP_STATE) || *(p_dm_odm->p_mp_mode)) {
 		channel = priv->pshare->working_channel;
 		if (priv->pshare->mp_txpwr_tracking == false)
 			return;
@@ -289,8 +285,8 @@ odm_txpowertracking_callback_thermal_meter_92e(
 		if (delta_IQK > 3) {
 			priv->pshare->thermal_value_iqk = thermal_value;
 #ifdef MP_TEST
-			if (!(priv->pshare->rf_ft_var.mp_specific && (OPMODE & (WIFI_MP_CTX_BACKGROUND | WIFI_MP_CTX_PACKET))))
-#endif
+#endif			if (!(*(p_dm_odm->p_mp_mode) && (OPMODE & (WIFI_MP_CTX_BACKGROUND | WIFI_MP_CTX_PACKET))))
+
 				phy_iq_calibrate_8192e(p_dm_odm, false);
 		}
 
@@ -322,11 +318,7 @@ odm_txpowertracking_callback_thermal_meter_92e(
 #if (RTL8197F_SUPPORT == 1 || RTL8822B_SUPPORT == 1)
 void
 odm_txpowertracking_callback_thermal_meter_jaguar_series3(
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	void		*p_dm_void
-#else
-	struct _ADAPTER	*adapter
-#endif
 )
 {
 #if 1
@@ -350,7 +342,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series3(
 	u8			*delta_swing_table_idx_tup_cck_d = NULL, *delta_swing_table_idx_tdown_cck_d = NULL;
 
 #ifdef MP_TEST
-	if ((OPMODE & WIFI_MP_STATE) || priv->pshare->rf_ft_var.mp_specific) {
+	if ((OPMODE & WIFI_MP_STATE) || *(p_dm_odm->p_mp_mode)) {
 		channel = priv->pshare->working_channel;
 		if (priv->pshare->mp_txpwr_tracking == false)
 			return;
@@ -368,7 +360,17 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series3(
 		(u8 **)&delta_swing_table_idx_tup_cck_b, (u8 **)&delta_swing_table_idx_tdown_cck_b);
 
 	thermal_value = (u8)odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, c.thermal_reg_addr, 0xfc00); /*0x42: RF Reg[15:10] 88E*/
+#ifdef THER_TRIM
+	if (GET_CHIP_VER(priv) == VERSION_8197F) {
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
+			("orig thermal_value=%d, ther_trim_val=%d\n", thermal_value, priv->pshare->rf_ft_var.ther_trim_val));
 
+		thermal_value += priv->pshare->rf_ft_var.ther_trim_val;
+
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
+			("after thermal trim, thermal_value=%d\n", thermal_value));
+	}
+#endif
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
 		("Readback Thermal Meter = 0x%x(%d) EEPROMthermalmeter 0x%x(%d)\n"
 		, thermal_value, thermal_value, priv->pmib->dot11RFEntry.ther, priv->pmib->dot11RFEntry.ther));
@@ -568,11 +570,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series3(
 
 void
 odm_txpowertracking_callback_thermal_meter_jaguar_series2(
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	void		*p_dm_void
-#else
-	struct _ADAPTER	*adapter
-#endif
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -584,7 +582,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series2(
 	u32			bb_swing_idx;
 	struct rtl8192cd_priv	*priv = p_dm_odm->priv;
 	struct _TXPWRTRACK_CFG	c;
-	bool			is_tssi_enable = false;
+	boolean			is_tssi_enable = false;
 	struct odm_rf_calibration_structure	*p_rf_calibrate_info = &(p_dm_odm->rf_calibrate_info);
 
 	/* 4 1. The following TWO tables decide the final index of OFDM/CCK swing table. */
@@ -595,7 +593,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series2(
 	u8			*delta_swing_table_idx_tup_d = NULL, *delta_swing_table_idx_tdown_d = NULL;
 
 #ifdef MP_TEST
-	if ((OPMODE & WIFI_MP_STATE) || priv->pshare->rf_ft_var.mp_specific) {
+	if ((OPMODE & WIFI_MP_STATE) || *(p_dm_odm->p_mp_mode)) {
 		channel = priv->pshare->working_channel;
 		if (priv->pshare->mp_txpwr_tracking == false)
 			return;
@@ -629,7 +627,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series2(
 	if (!p_dm_odm->rf_calibrate_info.thermal_value_iqk)
 		p_dm_odm->rf_calibrate_info.thermal_value_iqk = priv->pmib->dot11RFEntry.ther;
 
-	is_tssi_enable = (bool)odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, REG_RF_TX_GAIN_OFFSET, BIT(7));	/* check TSSI enable */
+	is_tssi_enable = (boolean)odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, REG_RF_TX_GAIN_OFFSET, BIT(7));	/* check TSSI enable */
 
 	/* 4 Query OFDM BB swing default setting 	Bit[31:21] */
 	for (p = ODM_RF_PATH_A ; p < c.rf_path_count ; p++) {
@@ -812,11 +810,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series2(
 #if (RTL8812A_SUPPORT == 1 || RTL8881A_SUPPORT == 1)
 void
 odm_txpowertracking_callback_thermal_meter_jaguar_series(
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	void		*p_dm_void
-#else
-	struct _ADAPTER	*adapter
-#endif
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -833,7 +827,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series(
 
 
 #ifdef MP_TEST
-	if ((OPMODE & WIFI_MP_STATE) || priv->pshare->rf_ft_var.mp_specific) {
+	if ((OPMODE & WIFI_MP_STATE) || *(p_dm_odm->p_mp_mode)) {
 		channel = priv->pshare->working_channel;
 		if (priv->pshare->mp_txpwr_tracking == false)
 			return;
@@ -1018,11 +1012,7 @@ odm_txpowertracking_callback_thermal_meter_jaguar_series(
 
 void
 odm_txpowertracking_callback_thermal_meter(
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	void		*p_dm_void
-#else
-	struct _ADAPTER	*adapter
-#endif
 )
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
@@ -1069,18 +1059,12 @@ odm_txpowertracking_callback_thermal_meter(
 	 *	s8			OFDM_index[2], CCK_index=0, OFDM_index_old[2]={0,0}, CCK_index_old=0, index;
 	 *	s8			deltaPowerIndex = 0; */
 	u32			i = 0;/* , j = 0; */
-	bool		is2T = false;
+	boolean		is2T = false;
 	/*	bool 		bInteralPA = false; */
 
 	u8			OFDM_max_index = 34, rf = (is2T) ? 2 : 1; /* OFDM BB Swing should be less than +3.0dB, which is required by Arthur */
 	u8			indexforchannel = 0;/*get_right_chnl_place_for_iqk(p_hal_data->current_channel)*/
 	enum            _POWER_DEC_INC { POWER_DEC, POWER_INC };
-#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->odmpriv;
-#endif
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
-#endif
 
 	struct _TXPWRTRACK_CFG	c;
 
@@ -1113,7 +1097,7 @@ odm_txpowertracking_callback_thermal_meter(
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP) && defined(MP_TEST)
-	if ((OPMODE & WIFI_MP_STATE) || p_dm_odm->priv->pshare->rf_ft_var.mp_specific) {
+	if ((OPMODE & WIFI_MP_STATE) || *(p_dm_odm->p_mp_mode)) {
 		if (p_dm_odm->priv->pshare->mp_txpwr_tracking == false)
 			return;
 	}
@@ -1186,20 +1170,12 @@ odm_txpowertracking_callback_thermal_meter(
 	/* 3 7. If necessary, move the index of swing table to adjust Tx power. */
 
 	if (delta > 0 && p_dm_odm->rf_calibrate_info.txpowertrack_control) {
-#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
-		delta = thermal_value > p_hal_data->eeprom_thermal_meter ? (thermal_value - p_hal_data->eeprom_thermal_meter) : (p_hal_data->eeprom_thermal_meter - thermal_value);
-#else
-		delta = (thermal_value > p_dm_odm->priv->pmib->dot11RFEntry.ther) ? (thermal_value - p_dm_odm->priv->pmib->dot11RFEntry.ther) : (p_dm_odm->priv->pmib->dot11RFEntry.ther - thermal_value);
-#endif
 
+		delta = (thermal_value > p_dm_odm->priv->pmib->dot11RFEntry.ther) ? (thermal_value - p_dm_odm->priv->pmib->dot11RFEntry.ther) : (p_dm_odm->priv->pmib->dot11RFEntry.ther - thermal_value);
 
 		/* 4 7.1 The Final Power index = BaseIndex + power_index_offset */
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
-		if (thermal_value > p_hal_data->eeprom_thermal_meter) {
-#else
 		if (thermal_value > p_dm_odm->priv->pmib->dot11RFEntry.ther) {
-#endif
 			CALCULATE_SWINGTALBE_OFFSET(offset, POWER_INC, index_mapping_NUM_88E, delta);
 			p_dm_odm->rf_calibrate_info.delta_power_index_last = p_dm_odm->rf_calibrate_info.delta_power_index;
 			p_dm_odm->rf_calibrate_info.delta_power_index =  delta_swing_table_idx[POWER_INC][offset];
@@ -1269,11 +1245,7 @@ odm_txpowertracking_callback_thermal_meter(
 			/*	("Temperature Decreasing: delta_pi: %d, delta_t: %d, Now_t: %d, EFUSE_t: %d, Last_t: %d\n", */
 			/*		p_dm_odm->rf_calibrate_info.power_index_offset, delta, thermal_value, p_hal_data->eeprom_thermal_meter, p_dm_odm->rf_calibrate_info.thermal_value)); */
 		}
-#if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
-		if (thermal_value > p_hal_data->eeprom_thermal_meter)
-#else
 		if (thermal_value > p_dm_odm->priv->pmib->dot11RFEntry.ther)
-#endif
 		{
 			/*				ODM_RT_TRACE(p_dm_odm,ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,("Temperature(%d) hugher than PG value(%d), increases the power by tx_agc\n", thermal_value, p_hal_data->eeprom_thermal_meter)); */
 			(*c.odm_tx_pwr_track_set_pwr)(p_dm_odm, TXAGC, 0, 0);
@@ -1290,1265 +1262,10 @@ odm_txpowertracking_callback_thermal_meter(
 
 	}
 
-#if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
-	/* if((delta_IQK > p_hal_data->delta_iqk) && (p_hal_data->delta_iqk != 0)) */
-	if ((delta_IQK >= 8)) /* Delta temperature is equal to or larger than 20 centigrade. */
-		(*c.do_iqk)(p_dm_odm, delta_IQK, thermal_value, 8);
-#endif
-
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("<===dm_TXPowerTrackingCallback_ThermalMeter_8188E\n"));
 
 	p_dm_odm->rf_calibrate_info.tx_powercount = 0;
 }
-
-#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-
-
-void
-phy_path_a_stand_by(
-	struct _ADAPTER	*p_adapter
-)
-{
-	RTPRINT(FINIT, INIT_IQK, ("path-A standby mode!\n"));
-
-	phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x0);
-	phy_set_bb_reg(p_adapter, 0x840, MASKDWORD, 0x00010000);
-	phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x808000);
-}
-
-/* 1 7.	IQK
- * #define MAX_TOLERANCE		5
- * #define IQK_DELAY_TIME		1 */		/* ms */
-
-u8			/* bit0 = 1 => Tx OK, bit1 = 1 => Rx OK */
-phy_path_a_iqk_8192c(
-	struct _ADAPTER	*p_adapter,
-	bool		config_path_b
-)
-{
-
-	u32 reg_eac, reg_e94, reg_e9c, reg_ea4;
-	u8 result = 0x00;
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-
-	RTPRINT(FINIT, INIT_IQK, ("path A IQK!\n"));
-
-	/* path-A IQK setting */
-	RTPRINT(FINIT, INIT_IQK, ("path-A IQK setting!\n"));
-	if (p_adapter->interface_index == 0) {
-		phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_A, MASKDWORD, 0x10008c1f);
-		phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_A, MASKDWORD, 0x10008c1f);
-	} else {
-		phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_A, MASKDWORD, 0x10008c22);
-		phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_A, MASKDWORD, 0x10008c22);
-	}
-
-	phy_set_bb_reg(p_adapter, REG_TX_IQK_PI_A, MASKDWORD, 0x82140102);
-
-	phy_set_bb_reg(p_adapter, REG_RX_IQK_PI_A, MASKDWORD, config_path_b ? 0x28160202 :
-		IS_81xxC_VENDOR_UMC_B_CUT(p_hal_data->version_id) ? 0x28160202 : 0x28160502);
-
-	/* path-B IQK setting */
-	if (config_path_b) {
-		phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_B, MASKDWORD, 0x10008c22);
-		phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_B, MASKDWORD, 0x10008c22);
-		phy_set_bb_reg(p_adapter, REG_TX_IQK_PI_B, MASKDWORD, 0x82140102);
-		phy_set_bb_reg(p_adapter, REG_RX_IQK_PI_B, MASKDWORD, 0x28160202);
-	}
-
-	/* LO calibration setting */
-	RTPRINT(FINIT, INIT_IQK, ("LO calibration setting!\n"));
-	phy_set_bb_reg(p_adapter, REG_IQK_AGC_RSP, MASKDWORD, 0x001028d1);
-
-	/* One shot, path A LOK & IQK */
-	RTPRINT(FINIT, INIT_IQK, ("One shot, path A LOK & IQK!\n"));
-	phy_set_bb_reg(p_adapter, REG_IQK_AGC_PTS, MASKDWORD, 0xf9000000);
-	phy_set_bb_reg(p_adapter, REG_IQK_AGC_PTS, MASKDWORD, 0xf8000000);
-
-	/* delay x ms */
-	RTPRINT(FINIT, INIT_IQK, ("delay %d ms for One shot, path A LOK & IQK.\n", IQK_DELAY_TIME));
-	platform_stall_execution(IQK_DELAY_TIME * 1000);
-
-	/* Check failed */
-	reg_eac = phy_query_bb_reg(p_adapter, REG_RX_POWER_AFTER_IQK_A_2, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xeac = 0x%x\n", reg_eac));
-	reg_e94 = phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_A, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xe94 = 0x%x\n", reg_e94));
-	reg_e9c = phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_A, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xe9c = 0x%x\n", reg_e9c));
-	reg_ea4 = phy_query_bb_reg(p_adapter, REG_RX_POWER_BEFORE_IQK_A_2, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xea4 = 0x%x\n", reg_ea4));
-
-	if (!(reg_eac & BIT(28)) &&
-	    (((reg_e94 & 0x03FF0000) >> 16) != 0x142) &&
-	    (((reg_e9c & 0x03FF0000) >> 16) != 0x42))
-		result |= 0x01;
-	else							/* if Tx not OK, ignore Rx */
-		return result;
-
-	if (!(reg_eac & BIT(27)) &&		/* if Tx is OK, check whether Rx is OK */
-	    (((reg_ea4 & 0x03FF0000) >> 16) != 0x132) &&
-	    (((reg_eac & 0x03FF0000) >> 16) != 0x36))
-		result |= 0x02;
-	else
-		RTPRINT(FINIT, INIT_IQK, ("path A Rx IQK fail!!\n"));
-
-	return result;
-
-
-}
-
-u8				/* bit0 = 1 => Tx OK, bit1 = 1 => Rx OK */
-phy_path_b_iqk_8192c(
-	struct _ADAPTER	*p_adapter
-)
-{
-	u32 reg_eac, reg_eb4, reg_ebc, reg_ec4, reg_ecc;
-	u8	result = 0x00;
-	RTPRINT(FINIT, INIT_IQK, ("path B IQK!\n"));
-
-	/* One shot, path B LOK & IQK */
-	RTPRINT(FINIT, INIT_IQK, ("One shot, path A LOK & IQK!\n"));
-	phy_set_bb_reg(p_adapter, REG_IQK_AGC_CONT, MASKDWORD, 0x00000002);
-	phy_set_bb_reg(p_adapter, REG_IQK_AGC_CONT, MASKDWORD, 0x00000000);
-
-	/* delay x ms */
-	RTPRINT(FINIT, INIT_IQK, ("delay %d ms for One shot, path B LOK & IQK.\n", IQK_DELAY_TIME));
-	platform_stall_execution(IQK_DELAY_TIME * 1000);
-
-	/* Check failed */
-	reg_eac = phy_query_bb_reg(p_adapter, REG_RX_POWER_AFTER_IQK_A_2, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xeac = 0x%x\n", reg_eac));
-	reg_eb4 = phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_B, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xeb4 = 0x%x\n", reg_eb4));
-	reg_ebc = phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_B, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xebc = 0x%x\n", reg_ebc));
-	reg_ec4 = phy_query_bb_reg(p_adapter, REG_RX_POWER_BEFORE_IQK_B_2, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xec4 = 0x%x\n", reg_ec4));
-	reg_ecc = phy_query_bb_reg(p_adapter, REG_RX_POWER_AFTER_IQK_B_2, MASKDWORD);
-	RTPRINT(FINIT, INIT_IQK, ("0xecc = 0x%x\n", reg_ecc));
-
-	if (!(reg_eac & BIT(31)) &&
-	    (((reg_eb4 & 0x03FF0000) >> 16) != 0x142) &&
-	    (((reg_ebc & 0x03FF0000) >> 16) != 0x42))
-		result |= 0x01;
-	else
-		return result;
-
-	if (!(reg_eac & BIT(30)) &&
-	    (((reg_ec4 & 0x03FF0000) >> 16) != 0x132) &&
-	    (((reg_ecc & 0x03FF0000) >> 16) != 0x36))
-		result |= 0x02;
-	else
-		RTPRINT(FINIT, INIT_IQK, ("path B Rx IQK fail!!\n"));
-
-
-	return result;
-
-}
-
-void
-phy_path_a_fill_iqk_matrix(
-	struct _ADAPTER	*p_adapter,
-	bool	is_iqk_ok,
-	s32		result[][8],
-	u8		final_candidate,
-	bool		is_tx_only
-)
-{
-	u32	oldval_0, X, TX0_A, reg;
-	s32	Y, TX0_C;
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-
-	RTPRINT(FINIT, INIT_IQK, ("path A IQ Calibration %s !\n", (is_iqk_ok) ? "Success" : "Failed"));
-
-	if (final_candidate == 0xFF)
-		return;
-
-	else if (is_iqk_ok) {
-		oldval_0 = (phy_query_bb_reg(p_adapter, REG_OFDM_0_XA_TX_IQ_IMBALANCE, MASKDWORD) >> 22) & 0x3FF;
-
-		X = result[final_candidate][0];
-		if ((X & 0x00000200) != 0)
-			X = X | 0xFFFFFC00;
-		TX0_A = (X * oldval_0) >> 8;
-		RTPRINT(FINIT, INIT_IQK, ("X = 0x%x, TX0_A = 0x%x, oldval_0 0x%x\n", X, TX0_A, oldval_0));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XA_TX_IQ_IMBALANCE, 0x3FF, TX0_A);
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_ECCA_THRESHOLD, BIT(31), ((X * oldval_0 >> 7) & 0x1));
-
-		Y = result[final_candidate][1];
-		if ((Y & 0x00000200) != 0)
-			Y = Y | 0xFFFFFC00;
-
-		/* path B IQK result + 3 */
-		if (p_adapter->interface_index == 1 && p_hal_data->current_band_type == BAND_ON_5G)
-			Y += 3;
-
-		TX0_C = (Y * oldval_0) >> 8;
-		RTPRINT(FINIT, INIT_IQK, ("Y = 0x%x, TX = 0x%x\n", Y, TX0_C));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XC_TX_AFE, 0xF0000000, ((TX0_C & 0x3C0) >> 6));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XA_TX_IQ_IMBALANCE, 0x003F0000, (TX0_C & 0x3F));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_ECCA_THRESHOLD, BIT(29), ((Y * oldval_0 >> 7) & 0x1));
-
-		if (is_tx_only) {
-			RTPRINT(FINIT, INIT_IQK, ("phy_path_a_fill_iqk_matrix only Tx OK\n"));
-			return;
-		}
-
-		reg = result[final_candidate][2];
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XA_RX_IQ_IMBALANCE, 0x3FF, reg);
-
-		reg = result[final_candidate][3] & 0x3F;
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XA_RX_IQ_IMBALANCE, 0xFC00, reg);
-
-		reg = (result[final_candidate][3] >> 6) & 0xF;
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_RX_IQ_EXT_ANTA, 0xF0000000, reg);
-	}
-}
-
-void
-phy_path_b_fill_iqk_matrix(
-	struct _ADAPTER	*p_adapter,
-	bool	is_iqk_ok,
-	s32		result[][8],
-	u8		final_candidate,
-	bool		is_tx_only			/* do Tx only */
-)
-{
-	u32	oldval_1, X, TX1_A, reg;
-	s32	Y, TX1_C;
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-
-	RTPRINT(FINIT, INIT_IQK, ("path B IQ Calibration %s !\n", (is_iqk_ok) ? "Success" : "Failed"));
-
-	if (final_candidate == 0xFF)
-		return;
-
-	else if (is_iqk_ok) {
-		oldval_1 = (phy_query_bb_reg(p_adapter, REG_OFDM_0_XB_TX_IQ_IMBALANCE, MASKDWORD) >> 22) & 0x3FF;
-
-		X = result[final_candidate][4];
-		if ((X & 0x00000200) != 0)
-			X = X | 0xFFFFFC00;
-		TX1_A = (X * oldval_1) >> 8;
-		RTPRINT(FINIT, INIT_IQK, ("X = 0x%x, TX1_A = 0x%x\n", X, TX1_A));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XB_TX_IQ_IMBALANCE, 0x3FF, TX1_A);
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_ECCA_THRESHOLD, BIT(27), ((X * oldval_1 >> 7) & 0x1));
-
-		Y = result[final_candidate][5];
-		if ((Y & 0x00000200) != 0)
-			Y = Y | 0xFFFFFC00;
-		if (p_hal_data->current_band_type == BAND_ON_5G)
-			Y += 3;		/* temp modify for preformance */
-		TX1_C = (Y * oldval_1) >> 8;
-		RTPRINT(FINIT, INIT_IQK, ("Y = 0x%x, TX1_C = 0x%x\n", Y, TX1_C));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XD_TX_AFE, 0xF0000000, ((TX1_C & 0x3C0) >> 6));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XB_TX_IQ_IMBALANCE, 0x003F0000, (TX1_C & 0x3F));
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_ECCA_THRESHOLD, BIT(25), ((Y * oldval_1 >> 7) & 0x1));
-
-		if (is_tx_only)
-			return;
-
-		reg = result[final_candidate][6];
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XB_RX_IQ_IMBALANCE, 0x3FF, reg);
-
-		reg = result[final_candidate][7] & 0x3F;
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_XB_RX_IQ_IMBALANCE, 0xFC00, reg);
-
-		reg = (result[final_candidate][7] >> 6) & 0xF;
-		phy_set_bb_reg(p_adapter, REG_OFDM_0_AGC_RSSI_TABLE, 0x0000F000, reg);
-	}
-}
-
-
-bool
-phy_simularity_compare_92c(
-	struct _ADAPTER	*p_adapter,
-	s32		result[][8],
-	u8		 c1,
-	u8		 c2
-)
-{
-	u32		i, j, diff, simularity_bit_map, bound = 0;
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-	u8		final_candidate[2] = {0xFF, 0xFF};	/* for path A and path B */
-	bool		is_result = true, is2T = IS_92C_SERIAL(p_hal_data->version_id);
-
-	if (is2T)
-		bound = 8;
-	else
-		bound = 4;
-
-	simularity_bit_map = 0;
-
-	for (i = 0; i < bound; i++) {
-		diff = (result[c1][i] > result[c2][i]) ? (result[c1][i] - result[c2][i]) : (result[c2][i] - result[c1][i]);
-		if (diff > MAX_TOLERANCE) {
-			if ((i == 2 || i == 6) && !simularity_bit_map) {
-				if (result[c1][i] + result[c1][i + 1] == 0)
-					final_candidate[(i / 4)] = c2;
-				else if (result[c2][i] + result[c2][i + 1] == 0)
-					final_candidate[(i / 4)] = c1;
-				else
-					simularity_bit_map = simularity_bit_map | (1 << i);
-			} else
-				simularity_bit_map = simularity_bit_map | (1 << i);
-		}
-	}
-
-	if (simularity_bit_map == 0) {
-		for (i = 0; i < (bound / 4); i++) {
-			if (final_candidate[i] != 0xFF) {
-				for (j = i * 4; j < (i + 1) * 4 - 2; j++)
-					result[3][j] = result[final_candidate[i]][j];
-				is_result = false;
-			}
-		}
-		return is_result;
-	} else if (!(simularity_bit_map & 0x0F)) {		/* path A OK */
-		for (i = 0; i < 4; i++)
-			result[3][i] = result[c1][i];
-		return false;
-	} else if (!(simularity_bit_map & 0xF0) && is2T) {	/* path B OK */
-		for (i = 4; i < 8; i++)
-			result[3][i] = result[c1][i];
-		return false;
-	} else
-		return false;
-
-}
-
-/*
-return false => do IQK again
-*/
-bool
-phy_simularity_compare(
-	struct _ADAPTER	*p_adapter,
-	s32		result[][8],
-	u8		 c1,
-	u8		 c2
-)
-{
-	return phy_simularity_compare_92c(p_adapter, result, c1, c2);
-
-}
-
-void
-_phy_iq_calibrate_8192c(
-	struct _ADAPTER	*p_adapter,
-	s32		result[][8],
-	u8		t,
-	bool		is2T
-)
-{
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-	u32			i;
-	u8			path_aok, path_bok;
-	u32			ADDA_REG[IQK_ADDA_REG_NUM] = {
-		REG_FPGA0_XCD_SWITCH_CONTROL,	REG_BLUE_TOOTH,
-		REG_RX_WAIT_CCA,		REG_TX_CCK_RFON,
-		REG_TX_CCK_BBON,	REG_TX_OFDM_RFON,
-		REG_TX_OFDM_BBON,	REG_TX_TO_RX,
-		REG_TX_TO_TX,		REG_RX_CCK,
-		REG_RX_OFDM,		REG_RX_WAIT_RIFS,
-		REG_RX_TO_RX,		REG_STANDBY,
-		REG_SLEEP,			REG_PMPD_ANAEN
-	};
-	u32			IQK_MAC_REG[IQK_MAC_REG_NUM] = {
-		REG_TXPAUSE,		REG_BCN_CTRL,
-		REG_BCN_CTRL_1,	REG_GPIO_MUXCFG
-	};
-
-	/* since 92C & 92D have the different define in IQK_BB_REG */
-	u32	IQK_BB_REG_92C[IQK_BB_REG_NUM] = {
-		REG_OFDM_0_TRX_PATH_ENABLE,		REG_OFDM_0_TR_MUX_PAR,
-		REG_FPGA0_XCD_RF_INTERFACE_SW,	REG_CONFIG_ANT_A,	REG_CONFIG_ANT_B,
-		REG_FPGA0_XAB_RF_INTERFACE_SW,	REG_FPGA0_XA_RF_INTERFACE_OE,
-		REG_FPGA0_XB_RF_INTERFACE_OE,	/*REG_FPGA0_RFMOD*/ REG_CCK_0_AFE_SETTING
-	};
-
-	u32	IQK_BB_REG_92D[IQK_BB_REG_NUM_92D] = {	/* for normal */
-		REG_FPGA0_XAB_RF_INTERFACE_SW,	REG_FPGA0_XA_RF_INTERFACE_OE,
-		REG_FPGA0_XB_RF_INTERFACE_OE,	REG_OFDM_0_TR_MUX_PAR,
-		REG_FPGA0_XCD_RF_INTERFACE_SW,	REG_OFDM_0_TRX_PATH_ENABLE,
-		/*REG_FPGA0_RFMOD*/ REG_CCK_0_AFE_SETTING,			REG_FPGA0_ANALOG_PARAMETER4,
-		REG_OFDM_0_XA_AGC_CORE1,		REG_OFDM_0_XB_AGC_CORE1
-	};
-#if MP_DRIVER
-	const u32	retry_count = 9;
-#else
-	const u32	retry_count = 2;
-#endif
-	/* Neil Chen--2011--05--19--
-	* 3 path Div */
-	u8                 rf_path_switch = 0x0;
-
-	/* Note: IQ calibration must be performed after loading */
-	/*		PHY_REG.txt , and radio_a, radio_b.txt */
-
-	u32 bbvalue;
-
-	if (t == 0) {
-		/* bbvalue = phy_query_bb_reg(p_adapter, REG_FPGA0_RFMOD, MASKDWORD); */
-		/*	RTPRINT(FINIT, INIT_IQK, ("_phy_iq_calibrate_8192c()==>0x%08x\n",bbvalue)); */
-
-		RTPRINT(FINIT, INIT_IQK, ("IQ Calibration for %s\n", (is2T ? "2T2R" : "1T1R")));
-
-		/* Save ADDA parameters, turn path A ADDA on */
-		phy_save_adda_registers(p_adapter, ADDA_REG, p_hal_data->ADDA_backup, IQK_ADDA_REG_NUM);
-		phy_save_mac_registers(p_adapter, IQK_MAC_REG, p_hal_data->IQK_MAC_backup);
-		phy_save_adda_registers(p_adapter, IQK_BB_REG_92C, p_hal_data->IQK_BB_backup, IQK_BB_REG_NUM);
-	}
-
-	phy_path_adda_on(p_adapter, ADDA_REG, true, is2T);
-
-	if (t == 0)
-		p_hal_data->is_rf_pi_enable = (u8)phy_query_bb_reg(p_adapter, REG_FPGA0_XA_HSSI_PARAMETER1, BIT(8));
-
-	if (!p_hal_data->is_rf_pi_enable) {
-		/* Switch BB to PI mode to do IQ Calibration. */
-		phy_pi_mode_switch(p_adapter, true);
-	}
-
-	/* MAC settings */
-	phy_mac_setting_calibration(p_adapter, IQK_MAC_REG, p_hal_data->IQK_MAC_backup);
-
-	/* phy_set_bb_reg(p_adapter, REG_FPGA0_RFMOD, BIT24, 0x00); */
-	phy_set_bb_reg(p_adapter, REG_CCK_0_AFE_SETTING, MASKDWORD, (0x0f000000 | (phy_query_bb_reg(p_adapter, REG_CCK_0_AFE_SETTING, MASKDWORD))));
-	phy_set_bb_reg(p_adapter, REG_OFDM_0_TRX_PATH_ENABLE, MASKDWORD, 0x03a05600);
-	phy_set_bb_reg(p_adapter, REG_OFDM_0_TR_MUX_PAR, MASKDWORD, 0x000800e4);
-	phy_set_bb_reg(p_adapter, REG_FPGA0_XCD_RF_INTERFACE_SW, MASKDWORD, 0x22204000);
-	{
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XAB_RF_INTERFACE_SW, BIT(10), 0x01);
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XAB_RF_INTERFACE_SW, BIT(26), 0x01);
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XA_RF_INTERFACE_OE, BIT(10), 0x00);
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XB_RF_INTERFACE_OE, BIT(10), 0x00);
-	}
-
-	if (is2T) {
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XA_LSSI_PARAMETER, MASKDWORD, 0x00010000);
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XB_LSSI_PARAMETER, MASKDWORD, 0x00010000);
-	}
-
-	{
-		/* Page B init */
-		phy_set_bb_reg(p_adapter, REG_CONFIG_ANT_A, MASKDWORD, 0x00080000);
-
-		if (is2T)
-			phy_set_bb_reg(p_adapter, REG_CONFIG_ANT_B, MASKDWORD, 0x00080000);
-	}
-	/* IQ calibration setting */
-	RTPRINT(FINIT, INIT_IQK, ("IQK setting!\n"));
-	phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x808000);
-	phy_set_bb_reg(p_adapter, REG_TX_IQK, MASKDWORD, 0x01007c00);
-	phy_set_bb_reg(p_adapter, REG_RX_IQK, MASKDWORD, 0x01004800);
-
-	for (i = 0 ; i < retry_count ; i++) {
-		path_aok = phy_path_a_iqk_8192c(p_adapter, is2T);
-		if (path_aok == 0x03) {
-			RTPRINT(FINIT, INIT_IQK, ("path A IQK Success!!\n"));
-			result[t][0] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_A, MASKDWORD) & 0x3FF0000) >> 16;
-			result[t][1] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_A, MASKDWORD) & 0x3FF0000) >> 16;
-			result[t][2] = (phy_query_bb_reg(p_adapter, REG_RX_POWER_BEFORE_IQK_A_2, MASKDWORD) & 0x3FF0000) >> 16;
-			result[t][3] = (phy_query_bb_reg(p_adapter, REG_RX_POWER_AFTER_IQK_A_2, MASKDWORD) & 0x3FF0000) >> 16;
-			break;
-		} else if (i == (retry_count - 1) && path_aok == 0x01) {	/* Tx IQK OK */
-			RTPRINT(FINIT, INIT_IQK, ("path A IQK Only  Tx Success!!\n"));
-
-			result[t][0] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_A, MASKDWORD) & 0x3FF0000) >> 16;
-			result[t][1] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_A, MASKDWORD) & 0x3FF0000) >> 16;
-		}
-	}
-
-	if (0x00 == path_aok)
-		RTPRINT(FINIT, INIT_IQK, ("path A IQK failed!!\n"));
-
-	if (is2T) {
-		phy_path_a_stand_by(p_adapter);
-
-		/* Turn path B ADDA on */
-		phy_path_adda_on(p_adapter, ADDA_REG, false, is2T);
-
-		for (i = 0 ; i < retry_count ; i++) {
-			path_bok = phy_path_b_iqk_8192c(p_adapter);
-			if (path_bok == 0x03) {
-				RTPRINT(FINIT, INIT_IQK, ("path B IQK Success!!\n"));
-				result[t][4] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_B, MASKDWORD) & 0x3FF0000) >> 16;
-				result[t][5] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_B, MASKDWORD) & 0x3FF0000) >> 16;
-				result[t][6] = (phy_query_bb_reg(p_adapter, REG_RX_POWER_BEFORE_IQK_B_2, MASKDWORD) & 0x3FF0000) >> 16;
-				result[t][7] = (phy_query_bb_reg(p_adapter, REG_RX_POWER_AFTER_IQK_B_2, MASKDWORD) & 0x3FF0000) >> 16;
-				break;
-			} else if (i == (retry_count - 1) && path_bok == 0x01) {	/* Tx IQK OK */
-				RTPRINT(FINIT, INIT_IQK, ("path B Only Tx IQK Success!!\n"));
-				result[t][4] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_BEFORE_IQK_B, MASKDWORD) & 0x3FF0000) >> 16;
-				result[t][5] = (phy_query_bb_reg(p_adapter, REG_TX_POWER_AFTER_IQK_B, MASKDWORD) & 0x3FF0000) >> 16;
-			}
-		}
-
-		if (0x00 == path_bok)
-			RTPRINT(FINIT, INIT_IQK, ("path B IQK failed!!\n"));
-	}
-
-	/* Back to BB mode, load original value */
-	RTPRINT(FINIT, INIT_IQK, ("IQK:Back to BB mode, load original value!\n"));
-	phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0);
-
-	if (t != 0) {
-		if (!p_hal_data->is_rf_pi_enable) {
-			/* Switch back BB to SI mode after finish IQ Calibration. */
-			phy_pi_mode_switch(p_adapter, false);
-		}
-
-		/* Reload ADDA power saving parameters */
-		phy_reload_adda_registers(p_adapter, ADDA_REG, p_hal_data->ADDA_backup, IQK_ADDA_REG_NUM);
-
-		/* Reload MAC parameters */
-		phy_reload_mac_registers(p_adapter, IQK_MAC_REG, p_hal_data->IQK_MAC_backup);
-
-		/* Reload BB parameters */
-		phy_reload_adda_registers(p_adapter, IQK_BB_REG_92C, p_hal_data->IQK_BB_backup, IQK_BB_REG_NUM);
-
-		/*Restore RX initial gain*/
-		phy_set_bb_reg(p_adapter, REG_FPGA0_XA_LSSI_PARAMETER, MASKDWORD, 0x00032ed3);
-		if (is2T)
-			phy_set_bb_reg(p_adapter, REG_FPGA0_XB_LSSI_PARAMETER, MASKDWORD, 0x00032ed3);
-		/* load 0xe30 IQC default value */
-		phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_A, MASKDWORD, 0x01008c00);
-		phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_A, MASKDWORD, 0x01008c00);
-
-	}
-	RTPRINT(FINIT, INIT_IQK, ("_phy_iq_calibrate_8192c() <==\n"));
-
-}
-
-
-void
-_phy_lccalibrate92c(
-	struct _ADAPTER	*p_adapter,
-	bool		is2T
-)
-{
-	u8	tmp_reg;
-	u32	rf_amode = 0, rf_bmode = 0, lc_cal;
-	/*	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter); */
-
-	/* Check continuous TX and Packet TX */
-	tmp_reg = platform_efio_read_1byte(p_adapter, 0xd03);
-
-	if ((tmp_reg & 0x70) != 0)			/* Deal with contisuous TX case */
-		platform_efio_write_1byte(p_adapter, 0xd03, tmp_reg & 0x8F);	/* disable all continuous TX */
-	else							/* Deal with Packet TX case */
-		platform_efio_write_1byte(p_adapter, REG_TXPAUSE, 0xFF);			/* block all queues */
-
-	if ((tmp_reg & 0x70) != 0) {
-		/* 1. Read original RF mode */
-		/* path-A */
-		rf_amode = phy_query_rf_reg(p_adapter, RF_PATH_A, RF_AC, MASK12BITS);
-
-		/* path-B */
-		if (is2T)
-			rf_bmode = phy_query_rf_reg(p_adapter, RF_PATH_B, RF_AC, MASK12BITS);
-
-		/* 2. Set RF mode = standby mode */
-		/* path-A */
-		phy_set_rf_reg(p_adapter, RF_PATH_A, RF_AC, MASK12BITS, (rf_amode & 0x8FFFF) | 0x10000);
-
-		/* path-B */
-		if (is2T)
-			phy_set_rf_reg(p_adapter, RF_PATH_B, RF_AC, MASK12BITS, (rf_bmode & 0x8FFFF) | 0x10000);
-	}
-
-	/* 3. Read RF reg18 */
-	lc_cal = phy_query_rf_reg(p_adapter, RF_PATH_A, RF_CHNLBW, MASK12BITS);
-
-	/* 4. Set LC calibration begin	bit15 */
-	phy_set_rf_reg(p_adapter, RF_PATH_A, RF_CHNLBW, MASK12BITS, lc_cal | 0x08000);
-
-	delay_ms(100);
-
-
-	/* Restore original situation */
-	if ((tmp_reg & 0x70) != 0) {	/* Deal with contisuous TX case */
-		/* path-A */
-		platform_efio_write_1byte(p_adapter, 0xd03, tmp_reg);
-		phy_set_rf_reg(p_adapter, RF_PATH_A, RF_AC, MASK12BITS, rf_amode);
-
-		/* path-B */
-		if (is2T)
-			phy_set_rf_reg(p_adapter, RF_PATH_B, RF_AC, MASK12BITS, rf_bmode);
-	} else /* Deal with Packet TX case */
-		platform_efio_write_1byte(p_adapter, REG_TXPAUSE, 0x00);
-}
-
-
-void
-phy_lc_calibrate(
-	struct _ADAPTER	*p_adapter,
-	bool		is2T
-)
-{
-	_phy_lccalibrate92c(p_adapter, is2T);
-}
-
-
-
-/* Analog Pre-distortion calibration */
-#define		APK_BB_REG_NUM	8
-#define		APK_CURVE_REG_NUM 4
-#define		PATH_NUM		2
-
-void
-_phy_ap_calibrate_8192c(
-	struct _ADAPTER	*p_adapter,
-	s8		delta,
-	bool		is2T
-)
-{
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-
-	u32			reg_d[PATH_NUM];
-	u32			tmp_reg, index, offset, i, apkbound;
-	u8			path, pathbound = PATH_NUM;
-	u32			BB_backup[APK_BB_REG_NUM];
-	u32			BB_REG[APK_BB_REG_NUM] = {
-		REG_FPGA1_TX_BLOCK,	REG_OFDM_0_TRX_PATH_ENABLE,
-		REG_FPGA0_RFMOD,	REG_OFDM_0_TR_MUX_PAR,
-		REG_FPGA0_XCD_RF_INTERFACE_SW,	REG_FPGA0_XAB_RF_INTERFACE_SW,
-		REG_FPGA0_XA_RF_INTERFACE_OE,	REG_FPGA0_XB_RF_INTERFACE_OE
-	};
-	u32			BB_AP_MODE[APK_BB_REG_NUM] = {
-		0x00000020, 0x00a05430, 0x02040000,
-		0x000800e4, 0x00204000
-	};
-	u32			BB_normal_AP_MODE[APK_BB_REG_NUM] = {
-		0x00000020, 0x00a05430, 0x02040000,
-		0x000800e4, 0x22204000
-	};
-
-	u32			AFE_backup[IQK_ADDA_REG_NUM];
-	u32			AFE_REG[IQK_ADDA_REG_NUM] = {
-		REG_FPGA0_XCD_SWITCH_CONTROL,	REG_BLUE_TOOTH,
-		REG_RX_WAIT_CCA,		REG_TX_CCK_RFON,
-		REG_TX_CCK_BBON,	REG_TX_OFDM_RFON,
-		REG_TX_OFDM_BBON,	REG_TX_TO_RX,
-		REG_TX_TO_TX,		REG_RX_CCK,
-		REG_RX_OFDM,		REG_RX_WAIT_RIFS,
-		REG_RX_TO_RX,		REG_STANDBY,
-		REG_SLEEP,			REG_PMPD_ANAEN
-	};
-
-	u32			MAC_backup[IQK_MAC_REG_NUM];
-	u32			MAC_REG[IQK_MAC_REG_NUM] = {
-		REG_TXPAUSE,		REG_BCN_CTRL,
-		REG_BCN_CTRL_1,	REG_GPIO_MUXCFG
-	};
-
-	u32			APK_RF_init_value[PATH_NUM][APK_BB_REG_NUM] = {
-		{0x0852c, 0x1852c, 0x5852c, 0x1852c, 0x5852c},
-		{0x2852e, 0x0852e, 0x3852e, 0x0852e, 0x0852e}
-	};
-
-	u32			APK_normal_RF_init_value[PATH_NUM][APK_BB_REG_NUM] = {
-		{0x0852c, 0x0a52c, 0x3a52c, 0x5a52c, 0x5a52c},	/* path settings equal to path b settings */
-		{0x0852c, 0x0a52c, 0x5a52c, 0x5a52c, 0x5a52c}
-	};
-
-	u32			APK_RF_value_0[PATH_NUM][APK_BB_REG_NUM] = {
-		{0x52019, 0x52014, 0x52013, 0x5200f, 0x5208d},
-		{0x5201a, 0x52019, 0x52016, 0x52033, 0x52050}
-	};
-
-	u32			APK_normal_RF_value_0[PATH_NUM][APK_BB_REG_NUM] = {
-		{0x52019, 0x52017, 0x52010, 0x5200d, 0x5206a},	/* path settings equal to path b settings */
-		{0x52019, 0x52017, 0x52010, 0x5200d, 0x5206a}
-	};
-#if 0
-	u32			APK_RF_value_A[PATH_NUM][APK_BB_REG_NUM] = {
-		{0x1adb0, 0x1adb0, 0x1ada0, 0x1ad90, 0x1ad80},
-		{0x00fb0, 0x00fb0, 0x00fa0, 0x00f90, 0x00f80}
-	};
-#endif
-	u32			AFE_on_off[PATH_NUM] = {
-		0x04db25a4, 0x0b1b25a4
-	};	/* path A on path B off / path A off path B on */
-
-	u32			APK_offset[PATH_NUM] = {
-		REG_CONFIG_ANT_A, REG_CONFIG_ANT_B
-	};
-
-	u32			APK_normal_offset[PATH_NUM] = {
-		REG_CONFIG_PMPD_ANT_A, REG_CONFIG_PMPD_ANT_B
-	};
-
-	u32			APK_value[PATH_NUM] = {
-		0x92fc0000, 0x12fc0000
-	};
-
-	u32			APK_normal_value[PATH_NUM] = {
-		0x92680000, 0x12680000
-	};
-
-	s8			APK_delta_mapping[APK_BB_REG_NUM][13] = {
-		{-4, -3, -2, -2, -1, -1, 0, 1, 2, 3, 4, 5, 6},
-		{-4, -3, -2, -2, -1, -1, 0, 1, 2, 3, 4, 5, 6},
-		{-6, -4, -2, -2, -1, -1, 0, 1, 2, 3, 4, 5, 6},
-		{-1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6},
-		{-11, -9, -7, -5, -3, -1, 0, 0, 0, 0, 0, 0, 0}
-	};
-
-	u32			APK_normal_setting_value_1[13] = {
-		0x01017018, 0xf7ed8f84, 0x1b1a1816, 0x2522201e, 0x322e2b28,
-		0x433f3a36, 0x5b544e49, 0x7b726a62, 0xa69a8f84, 0xdfcfc0b3,
-		0x12680000, 0x00880000, 0x00880000
-	};
-
-	u32			APK_normal_setting_value_2[16] = {
-		0x01c7021d, 0x01670183, 0x01000123, 0x00bf00e2, 0x008d00a3,
-		0x0068007b, 0x004d0059, 0x003a0042, 0x002b0031, 0x001f0025,
-		0x0017001b, 0x00110014, 0x000c000f, 0x0009000b, 0x00070008,
-		0x00050006
-	};
-
-	u32			APK_result[PATH_NUM][APK_BB_REG_NUM];	/* val_1_1a, val_1_2a, val_2a, val_3a, val_4a
- *	u32			AP_curve[PATH_NUM][APK_CURVE_REG_NUM]; */
-
-	s32			BB_offset, delta_V, delta_offset;
-
-#if MP_DRIVER == 1
-	PMPT_CONTEXT	p_mpt_ctx = &(p_adapter->mpt_ctx);
-
-	p_mpt_ctx->APK_bound[0] = 45;
-	p_mpt_ctx->APK_bound[1] = 52;
-#endif
-
-	RTPRINT(FINIT, INIT_IQK, ("==>_phy_ap_calibrate_8192c() delta %d\n", delta));
-	RTPRINT(FINIT, INIT_IQK, ("AP Calibration for %s\n", (is2T ? "2T2R" : "1T1R")));
-	if (!is2T)
-		pathbound = 1;
-
-	/* 2 FOR NORMAL CHIP SETTINGS */
-
-	/* Temporarily do not allow normal driver to do the following settings because these offset
-	 * and value will cause RF internal PA to be unpredictably disabled by HW, such that RF Tx signal
-	 * will disappear after disable/enable card many times on 88CU. RF SD and DD have not find the
-	 * root cause, so we remove these actions temporarily. Added by tynli and SD3 Allen. 2010.05.31. */
-#if MP_DRIVER != 1
-	return;
-#endif
-	/* settings adjust for normal chip */
-	for (index = 0; index < PATH_NUM; index++) {
-		APK_offset[index] = APK_normal_offset[index];
-		APK_value[index] = APK_normal_value[index];
-		AFE_on_off[index] = 0x6fdb25a4;
-	}
-
-	for (index = 0; index < APK_BB_REG_NUM; index++) {
-		for (path = 0; path < pathbound; path++) {
-			APK_RF_init_value[path][index] = APK_normal_RF_init_value[path][index];
-			APK_RF_value_0[path][index] = APK_normal_RF_value_0[path][index];
-		}
-		BB_AP_MODE[index] = BB_normal_AP_MODE[index];
-	}
-
-	apkbound = 6;
-
-	/* save BB default value */
-	for (index = 0; index < APK_BB_REG_NUM ; index++) {
-		if (index == 0)		/* skip */
-			continue;
-		BB_backup[index] = phy_query_bb_reg(p_adapter, BB_REG[index], MASKDWORD);
-	}
-
-	/* save MAC default value */
-	phy_save_mac_registers(p_adapter, MAC_REG, MAC_backup);
-
-	/* save AFE default value */
-	phy_save_adda_registers(p_adapter, AFE_REG, AFE_backup, IQK_ADDA_REG_NUM);
-
-	for (path = 0; path < pathbound; path++) {
-
-
-		if (path == RF_PATH_A) {
-			/* path A APK */
-			/* load APK setting */
-			/* path-A */
-			offset = REG_PDP_ANT_A;
-			for (index = 0; index < 11; index++) {
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_1[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-
-			phy_set_bb_reg(p_adapter, REG_CONFIG_PMPD_ANT_B, MASKDWORD, 0x12680000);
-
-			offset = REG_CONFIG_ANT_A;
-			for (; index < 13; index++) {
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_1[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-
-			/* page-B1 */
-			phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x400000);
-
-			/* path A */
-			offset = REG_PDP_ANT_A;
-			for (index = 0; index < 16; index++) {
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_2[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-			phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0);
-		} else if (path == RF_PATH_B) {
-			/* path B APK */
-			/* load APK setting */
-			/* path-B */
-			offset = REG_PDP_ANT_B;
-			for (index = 0; index < 10; index++) {
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_1[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-			phy_set_bb_reg(p_adapter, REG_CONFIG_PMPD_ANT_A, MASKDWORD, 0x12680000);
-
-			phy_set_bb_reg(p_adapter, REG_CONFIG_PMPD_ANT_B, MASKDWORD, 0x12680000);
-
-			offset = REG_CONFIG_ANT_A;
-			index = 11;
-			for (; index < 13; index++) { /* offset 0xb68, 0xb6c */
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_1[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-
-			/* page-B1 */
-			phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x400000);
-
-			/* path B */
-			offset = 0xb60;
-			for (index = 0; index < 16; index++) {
-				phy_set_bb_reg(p_adapter, offset, MASKDWORD, APK_normal_setting_value_2[index]);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", offset, phy_query_bb_reg(p_adapter, offset, MASKDWORD)));
-
-				offset += 0x04;
-			}
-			phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0);
-		}
-
-		/* save RF default value */
-		reg_d[path] = phy_query_rf_reg(p_adapter, path, RF_TXBIAS_A, RFREGOFFSETMASK);
-
-		/* path A AFE all on, path B AFE All off or vise versa */
-		for (index = 0; index < IQK_ADDA_REG_NUM ; index++)
-			phy_set_bb_reg(p_adapter, AFE_REG[index], MASKDWORD, AFE_on_off[path]);
-		RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0xe70 %x\n", phy_query_bb_reg(p_adapter, REG_RX_WAIT_CCA, MASKDWORD)));
-
-		/* BB to AP mode */
-		if (path == 0) {
-			for (index = 0; index < APK_BB_REG_NUM ; index++) {
-
-				if (index == 0)		/* skip */
-					continue;
-				else if (index < 5)
-					phy_set_bb_reg(p_adapter, BB_REG[index], MASKDWORD, BB_AP_MODE[index]);
-				else if (BB_REG[index] == 0x870)
-					phy_set_bb_reg(p_adapter, BB_REG[index], MASKDWORD, BB_backup[index] | BIT(10) | BIT(26));
-				else
-					phy_set_bb_reg(p_adapter, BB_REG[index], BIT(10), 0x0);
-			}
-
-			phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_A, MASKDWORD, 0x01008c00);
-			phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_A, MASKDWORD, 0x01008c00);
-		} else {	/* path B */
-			phy_set_bb_reg(p_adapter, REG_TX_IQK_TONE_B, MASKDWORD, 0x01008c00);
-			phy_set_bb_reg(p_adapter, REG_RX_IQK_TONE_B, MASKDWORD, 0x01008c00);
-
-		}
-
-		RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x800 %x\n", phy_query_bb_reg(p_adapter, 0x800, MASKDWORD)));
-
-		/* MAC settings */
-		phy_mac_setting_calibration(p_adapter, MAC_REG, MAC_backup);
-
-		if (path == RF_PATH_A)	/* path B to standby mode */
-			phy_set_rf_reg(p_adapter, RF_PATH_B, RF_AC, RFREGOFFSETMASK, 0x10000);
-		else {		/* path A to standby mode */
-			phy_set_rf_reg(p_adapter, RF_PATH_A, RF_AC, RFREGOFFSETMASK, 0x10000);
-			phy_set_rf_reg(p_adapter, RF_PATH_A, RF_MODE1, RFREGOFFSETMASK, 0x1000f);
-			phy_set_rf_reg(p_adapter, RF_PATH_A, RF_MODE2, RFREGOFFSETMASK, 0x20103);
-		}
-
-		delta_offset = ((delta + 14) / 2);
-		if (delta_offset < 0)
-			delta_offset = 0;
-		else if (delta_offset > 12)
-			delta_offset = 12;
-
-		/* AP calibration */
-		for (index = 0; index < APK_BB_REG_NUM; index++) {
-			if (index != 1)	/* only DO PA11+PAD01001, AP RF setting */
-				continue;
-
-			tmp_reg = APK_RF_init_value[path][index];
-#if 1
-			if (!p_hal_data->is_apk_thermal_meter_ignore) {
-				BB_offset = (tmp_reg & 0xF0000) >> 16;
-
-				if (!(tmp_reg & BIT(15))) /* sign bit 0 */
-					BB_offset = -BB_offset;
-
-				delta_V = APK_delta_mapping[index][delta_offset];
-
-				BB_offset += delta_V;
-
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() APK index %d tmp_reg 0x%x delta_V %d delta_offset %d\n", index, tmp_reg, delta_V, delta_offset));
-
-				if (BB_offset < 0) {
-					tmp_reg = tmp_reg & (~BIT(15));
-					BB_offset = -BB_offset;
-				} else
-					tmp_reg = tmp_reg | BIT(15);
-				tmp_reg = (tmp_reg & 0xFFF0FFFF) | (BB_offset << 16);
-			}
-#endif
-
-#if DEV_BUS_TYPE == RT_PCI_INTERFACE
-			if (IS_81xxC_VENDOR_UMC_B_CUT(p_hal_data->version_id))
-				phy_set_rf_reg(p_adapter, path, RF_IPA_A, RFREGOFFSETMASK, 0x894ae);
-			else
-#endif
-				phy_set_rf_reg(p_adapter, path, RF_IPA_A, RFREGOFFSETMASK, 0x8992e);
-			RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0xc %x\n", phy_query_rf_reg(p_adapter, path, RF_IPA_A, RFREGOFFSETMASK)));
-			phy_set_rf_reg(p_adapter, path, RF_AC, RFREGOFFSETMASK, APK_RF_value_0[path][index]);
-			RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x0 %x\n", phy_query_rf_reg(p_adapter, path, RF_AC, RFREGOFFSETMASK)));
-			phy_set_rf_reg(p_adapter, path, RF_TXBIAS_A, RFREGOFFSETMASK, tmp_reg);
-			RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0xd %x\n", phy_query_rf_reg(p_adapter, path, RF_TXBIAS_A, RFREGOFFSETMASK)));
-
-			/* PA11+PAD01111, one shot */
-			i = 0;
-			do {
-				phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0x800000);
-				{
-					phy_set_bb_reg(p_adapter, APK_offset[path], MASKDWORD, APK_value[0]);
-					RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", APK_offset[path], phy_query_bb_reg(p_adapter, APK_offset[path], MASKDWORD)));
-					delay_ms(3);
-					phy_set_bb_reg(p_adapter, APK_offset[path], MASKDWORD, APK_value[1]);
-					RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0x%x value 0x%x\n", APK_offset[path], phy_query_bb_reg(p_adapter, APK_offset[path], MASKDWORD)));
-
-					delay_ms(20);
-				}
-				phy_set_bb_reg(p_adapter, REG_FPGA0_IQK, 0xffffff00, 0);
-
-				if (path == RF_PATH_A)
-					tmp_reg = phy_query_bb_reg(p_adapter, REG_APK, 0x03E00000);
-				else
-					tmp_reg = phy_query_bb_reg(p_adapter, REG_APK, 0xF8000000);
-				RTPRINT(FINIT, INIT_IQK, ("_phy_ap_calibrate_8192c() offset 0xbd8[25:21] %x\n", tmp_reg));
-
-
-				i++;
-			} while (tmp_reg > apkbound && i < 4);
-
-			APK_result[path][index] = tmp_reg;
-		}
-	}
-
-	/* reload MAC default value */
-	phy_reload_mac_registers(p_adapter, MAC_REG, MAC_backup);
-
-	/* reload BB default value */
-	for (index = 0; index < APK_BB_REG_NUM ; index++) {
-
-		if (index == 0)		/* skip */
-			continue;
-		phy_set_bb_reg(p_adapter, BB_REG[index], MASKDWORD, BB_backup[index]);
-	}
-
-	/* reload AFE default value */
-	phy_reload_adda_registers(p_adapter, AFE_REG, AFE_backup, IQK_ADDA_REG_NUM);
-
-	/* reload RF path default value */
-	for (path = 0; path < pathbound; path++) {
-		phy_set_rf_reg(p_adapter, path, RF_TXBIAS_A, RFREGOFFSETMASK, reg_d[path]);
-		if (path == RF_PATH_B) {
-			phy_set_rf_reg(p_adapter, RF_PATH_A, RF_MODE1, RFREGOFFSETMASK, 0x1000f);
-			phy_set_rf_reg(p_adapter, RF_PATH_A, RF_MODE2, RFREGOFFSETMASK, 0x20101);
-		}
-
-		/* note no index == 0 */
-		if (APK_result[path][1] > 6)
-			APK_result[path][1] = 6;
-		RTPRINT(FINIT, INIT_IQK, ("apk path %d result %d 0x%x \t", path, 1, APK_result[path][1]));
-	}
-
-	RTPRINT(FINIT, INIT_IQK, ("\n"));
-
-
-	for (path = 0; path < pathbound; path++) {
-		phy_set_rf_reg(p_adapter, path, RF_BS_PA_APSET_G1_G4, RFREGOFFSETMASK,
-			((APK_result[path][1] << 15) | (APK_result[path][1] << 10) | (APK_result[path][1] << 5) | APK_result[path][1]));
-		if (path == RF_PATH_A)
-			phy_set_rf_reg(p_adapter, path, RF_BS_PA_APSET_G5_G8, RFREGOFFSETMASK,
-				((APK_result[path][1] << 15) | (APK_result[path][1] << 10) | (0x00 << 5) | 0x05));
-		else
-			phy_set_rf_reg(p_adapter, path, RF_BS_PA_APSET_G5_G8, RFREGOFFSETMASK,
-				((APK_result[path][1] << 15) | (APK_result[path][1] << 10) | (0x02 << 5) | 0x05));
-
-		phy_set_rf_reg(p_adapter, path, RF_BS_PA_APSET_G9_G11, RFREGOFFSETMASK, ((0x08 << 15) | (0x08 << 10) | (0x08 << 5) | 0x08));
-	}
-
-	p_hal_data->is_ap_kdone = true;
-
-	RTPRINT(FINIT, INIT_IQK, ("<==_phy_ap_calibrate_8192c()\n"));
-}
-
-
-void
-phy_iq_calibrate_8192c(
-	struct _ADAPTER	*p_adapter,
-	bool	is_recovery
-)
-{
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-	s32			result[4][8];	/* last is final result */
-	u8			i, final_candidate, indexforchannel;
-	bool			is_patha_ok, is_pathb_ok;
-	s32			rege94, rege9c, regea4, regeac, regeb4, regebc, regec4, regecc, reg_tmp = 0;
-	bool			is12simular, is13simular, is23simular;
-	bool		is_start_cont_tx = false, is_single_tone = false, is_carrier_suppression = false;
-	u32			IQK_BB_REG_92C[IQK_BB_REG_NUM] = {
-		REG_OFDM_0_XA_RX_IQ_IMBALANCE,	REG_OFDM_0_XB_RX_IQ_IMBALANCE,
-		REG_OFDM_0_ECCA_THRESHOLD,	REG_OFDM_0_AGC_RSSI_TABLE,
-		REG_OFDM_0_XA_TX_IQ_IMBALANCE,	REG_OFDM_0_XB_TX_IQ_IMBALANCE,
-		REG_OFDM_0_XC_TX_AFE,			REG_OFDM_0_XD_TX_AFE,
-		REG_OFDM_0_RX_IQ_EXT_ANTA
-	};
-
-	if (odm_check_power_status(p_adapter) == false)
-		return;
-
-#if MP_DRIVER == 1
-	is_start_cont_tx = p_adapter->mpt_ctx.is_start_cont_tx;
-	is_single_tone = p_adapter->mpt_ctx.is_single_tone;
-	is_carrier_suppression = p_adapter->mpt_ctx.is_carrier_suppression;
-#endif
-
-	/* ignore IQK when continuous Tx */
-	if (is_start_cont_tx || is_single_tone || is_carrier_suppression)
-		return;
-
-#ifdef DISABLE_BB_RF
-	return;
-#endif
-	if (p_adapter->is_slave_of_dmsp)
-		return;
-
-	if (is_recovery) {
-		phy_reload_adda_registers(p_adapter, IQK_BB_REG_92C, p_hal_data->IQK_BB_backup_recover, 9);
-		return;
-
-	}
-
-	RTPRINT(FINIT, INIT_IQK, ("IQK:Start!!!\n"));
-
-	for (i = 0; i < 8; i++) {
-		result[0][i] = 0;
-		result[1][i] = 0;
-		result[2][i] = 0;
-		result[3][i] = 0;
-	}
-	final_candidate = 0xff;
-	is_patha_ok = false;
-	is_pathb_ok = false;
-	is12simular = false;
-	is23simular = false;
-	is13simular = false;
-
-	acquire_cck_and_rw_page_a_control(p_adapter);
-	/*RT_TRACE(COMP_INIT,DBG_LOUD,("Acquire Mutex in IQCalibrate\n"));*/
-	for (i = 0; i < 3; i++) {
-		/*For 88C 1T1R*/
-		_phy_iq_calibrate_8192c(p_adapter, result, i, false);
-
-		if (i == 1) {
-			is12simular = phy_simularity_compare(p_adapter, result, 0, 1);
-			if (is12simular) {
-				final_candidate = 0;
-				break;
-			}
-		}
-
-		if (i == 2) {
-			is13simular = phy_simularity_compare(p_adapter, result, 0, 2);
-			if (is13simular) {
-				final_candidate = 0;
-				break;
-			}
-
-			is23simular = phy_simularity_compare(p_adapter, result, 1, 2);
-			if (is23simular)
-				final_candidate = 1;
-			else {
-				for (i = 0; i < 8; i++)
-					reg_tmp += result[3][i];
-
-				if (reg_tmp != 0)
-					final_candidate = 3;
-				else
-					final_candidate = 0xFF;
-			}
-		}
-	}
-	/*	RT_TRACE(COMP_INIT,DBG_LOUD,("Release Mutex in IQCalibrate\n")); */
-	release_cck_and_rw_pagea_control(p_adapter);
-
-	for (i = 0; i < 4; i++) {
-		rege94 = result[i][0];
-		rege9c = result[i][1];
-		regea4 = result[i][2];
-		regeac = result[i][3];
-		regeb4 = result[i][4];
-		regebc = result[i][5];
-		regec4 = result[i][6];
-		regecc = result[i][7];
-		RTPRINT(FINIT, INIT_IQK, ("IQK: rege94=%x rege9c=%x regea4=%x regeac=%x regeb4=%x regebc=%x regec4=%x regecc=%x\n ", rege94, rege9c, regea4, regeac, regeb4, regebc, regec4, regecc));
-	}
-
-	if (final_candidate != 0xff) {
-		p_hal_data->rege94 = rege94 = result[final_candidate][0];
-		p_hal_data->rege9c = rege9c = result[final_candidate][1];
-		regea4 = result[final_candidate][2];
-		regeac = result[final_candidate][3];
-		p_hal_data->regeb4 = regeb4 = result[final_candidate][4];
-		p_hal_data->regebc = regebc = result[final_candidate][5];
-		regec4 = result[final_candidate][6];
-		regecc = result[final_candidate][7];
-		RTPRINT(FINIT, INIT_IQK, ("IQK: final_candidate is %x\n", final_candidate));
-		RTPRINT(FINIT, INIT_IQK, ("IQK: rege94=%x rege9c=%x regea4=%x regeac=%x regeb4=%x regebc=%x regec4=%x regecc=%x\n ", rege94, rege9c, regea4, regeac, regeb4, regebc, regec4, regecc));
-		is_patha_ok = is_pathb_ok = true;
-	} else {
-		rege94 = regeb4 = p_hal_data->rege94 = p_hal_data->regeb4 = 0x100;	/* X default value */
-		rege9c = regebc = p_hal_data->rege9c = p_hal_data->regebc = 0x0;		/* Y default value */
-	}
-
-	if ((rege94 != 0)/*&&(regea4 != 0)*/) {
-		if (p_hal_data->current_band_type == BAND_ON_5G)
-			phy_path_a_fill_iqk_matrix_5g_normal(p_adapter, is_patha_ok, result, final_candidate, (regea4 == 0));
-		else
-			phy_path_a_fill_iqk_matrix(p_adapter, is_patha_ok, result, final_candidate, (regea4 == 0));
-
-	}
-
-	if (IS_92C_SERIAL(p_hal_data->version_id) || IS_92D_SINGLEPHY(p_hal_data->version_id)) {
-		if ((regeb4 != 0)/*&&(regec4 != 0)*/) {
-			if (p_hal_data->current_band_type == BAND_ON_5G)
-				phy_path_b_fill_iqk_matrix_5g_normal(p_adapter, is_pathb_ok, result, final_candidate, (regec4 == 0));
-			else
-				phy_path_b_fill_iqk_matrix(p_adapter, is_pathb_ok, result, final_candidate, (regec4 == 0));
-		}
-	}
-
-	phy_save_adda_registers(p_adapter, IQK_BB_REG_92C, p_hal_data->IQK_BB_backup_recover, 9);
-
-}
-
-
-void
-phy_lc_calibrate_8192c(
-	struct _ADAPTER	*p_adapter
-)
-{
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-	bool		is_start_cont_tx = false, is_single_tone = false, is_carrier_suppression = false;
-	PMGNT_INFO		p_mgnt_info = &p_adapter->mgnt_info;
-	PMGNT_INFO		p_mgnt_info_buddy_adapter;
-	u32			timeout = 2000, timecount = 0;
-	struct _ADAPTER	*buddy_adapter = p_adapter->buddy_adapter;
-
-#if MP_DRIVER == 1
-	is_start_cont_tx = p_adapter->mpt_ctx.is_start_cont_tx;
-	is_single_tone = p_adapter->mpt_ctx.is_single_tone;
-	is_carrier_suppression = p_adapter->mpt_ctx.is_carrier_suppression;
-#endif
-
-#ifdef DISABLE_BB_RF
-	return;
-#endif
-
-	/* ignore LCK when continuous Tx */
-	if (is_start_cont_tx || is_single_tone || is_carrier_suppression)
-		return;
-
-	if (buddy_adapter != NULL &&
-	    ((p_adapter->interface_index == 0 && p_hal_data->current_band_type == BAND_ON_2_4G) ||
-	     (p_adapter->interface_index == 1 && p_hal_data->current_band_type == BAND_ON_5G))) {
-		p_mgnt_info_buddy_adapter = &buddy_adapter->mgnt_info;
-		while (p_mgnt_info_buddy_adapter->is_scan_in_progress && timecount < timeout) {
-			delay_ms(50);
-			timecount += 50;
-		}
-	}
-
-	while (p_mgnt_info->is_scan_in_progress && timecount < timeout) {
-		delay_ms(50);
-		timecount += 50;
-	}
-
-	p_hal_data->is_lck_in_progress = true;
-
-	RTPRINT(FINIT, INIT_IQK, ("LCK:Start!!!interface %d currentband %x delay %d ms\n", p_adapter->interface_index, p_hal_data->current_band_type, timecount));
-
-	/* if(IS_92C_SERIAL(p_hal_data->version_id) || IS_92D_SINGLEPHY(p_hal_data->version_id)) */
-	if (IS_2T2R(p_hal_data->version_id))
-		phy_lc_calibrate(p_adapter, true);
-	else {
-		/* For 88C 1T1R */
-		phy_lc_calibrate(p_adapter, false);
-	}
-
-	p_hal_data->is_lck_in_progress = false;
-
-	RTPRINT(FINIT, INIT_IQK, ("LCK:Finish!!!interface %d\n", p_adapter->interface_index));
-
-
-}
-
-void
-phy_ap_calibrate_8192c(
-	struct _ADAPTER	*p_adapter,
-	s8		delta
-)
-{
-	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
-
-	/* default disable APK, because Tx NG issue, suggest by Jenyu, 2011.11.25 */
-	return;
-
-#ifdef DISABLE_BB_RF
-	return;
-#endif
-
-#if FOR_BRAZIL_PRETEST != 1
-	if (p_hal_data->is_ap_kdone)
-#endif
-		return;
-
-	if (IS_92C_SERIAL(p_hal_data->version_id))
-		_phy_ap_calibrate_8192c(p_adapter, delta, true);
-	else {
-		/* For 88C 1T1R */
-		_phy_ap_calibrate_8192c(p_adapter, delta, false);
-	}
-}
-
-
-#endif
-
 
 /* 3============================================================
  * 3 IQ Calibration
@@ -2586,15 +1303,6 @@ odm_iq_calibrate(
 	struct PHY_DM_STRUCT	*p_dm_odm
 )
 {
-	struct _ADAPTER	*adapter = p_dm_odm->adapter;
-
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	if (*p_dm_odm->p_is_fcs_mode_enable)
-		return;
-#endif
-
-
-
 	if (p_dm_odm->is_linked) {
 		if ((*p_dm_odm->p_channel != p_dm_odm->pre_channel) && (!*p_dm_odm->p_is_scan_in_process)) {
 			p_dm_odm->pre_channel = *p_dm_odm->p_channel;
@@ -2640,10 +1348,6 @@ void phydm_rf_init(void		*p_dm_void)
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	odm_txpowertracking_init(p_dm_odm);
-
-#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
-	odm_clear_txpowertracking_state(p_dm_odm);
-#endif
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 #if (RTL8814A_SUPPORT == 1)

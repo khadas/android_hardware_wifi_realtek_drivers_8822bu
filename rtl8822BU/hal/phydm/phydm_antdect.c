@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -49,7 +44,7 @@ odm_single_dual_antenna_default_setting(
 	struct _sw_antenna_switch_		*p_dm_swat_table = &p_dm_odm->dm_swat_table;
 	struct _ADAPTER	*p_adapter	 =  p_dm_odm->adapter;
 
-	u8 bt_ant_num = bt_get_pg_ant_num(p_adapter);
+	u8 bt_ant_num = BT_GetPgAntNum(p_adapter);
 	/* Set default antenna A and B status */
 	if (bt_ant_num == 2) {
 		p_dm_swat_table->ANTA_ON = true;
@@ -73,7 +68,7 @@ odm_single_dual_antenna_default_setting(
  *
  * Added by Roger, 2011.12.15
  *   */
-bool
+boolean
 odm_single_dual_antenna_detection(
 	void		*p_dm_void,
 	u8			mode
@@ -88,7 +83,7 @@ odm_single_dual_antenna_detection(
 	u8		initial_gain = 0x5a;
 	u32		PSD_report_tmp;
 	u32		ant_a_report = 0x0, ant_b_report = 0x0, ant_0_report = 0x0;
-	bool		is_result = true;
+	boolean		is_result = true;
 	u32		afe_backup[16];
 	u32		AFE_REG_8723A[16] = {
 		REG_RX_WAIT_CCA,	REG_TX_CCK_RFON,
@@ -183,7 +178,7 @@ odm_single_dual_antenna_detection(
 	/* PSD report of antenna A */
 	PSD_report_tmp = 0x0;
 	for (n = 0; n < 2; n++) {
-		PSD_report_tmp =  get_psd_data(p_dm_odm, 14, initial_gain);
+		PSD_report_tmp = phydm_get_psd_data(p_dm_odm, 14, initial_gain);
 		if (PSD_report_tmp > ant_a_report)
 			ant_a_report = PSD_report_tmp;
 	}
@@ -200,7 +195,7 @@ odm_single_dual_antenna_detection(
 	/* PSD report of antenna B */
 	PSD_report_tmp = 0x0;
 	for (n = 0; n < 2; n++) {
-		PSD_report_tmp =  get_psd_data(p_dm_odm, 14, initial_gain);
+		PSD_report_tmp = phydm_get_psd_data(p_dm_odm, 14, initial_gain);
 		if (PSD_report_tmp > ant_b_report)
 			ant_b_report = PSD_report_tmp;
 	}
@@ -276,7 +271,7 @@ odm_single_dual_antenna_detection(
 
 
 
-bool
+boolean
 odm_sw_ant_div_check_before_link(
 	void		*p_dm_void
 )
@@ -287,7 +282,7 @@ odm_sw_ant_div_check_before_link(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
-	PMGNT_INFO		p_mgnt_info = &adapter->mgnt_info;
+	PMGNT_INFO		p_mgnt_info = &adapter->MgntInfo;
 	struct _sw_antenna_switch_			*p_dm_swat_table = &p_dm_odm->dm_swat_table;
 	struct _FAST_ANTENNA_TRAINNING_	*p_dm_fat_table = &p_dm_odm->dm_fat_table;
 	s8			score = 0;
@@ -326,12 +321,12 @@ odm_sw_ant_div_check_before_link(
 
 	/* Since driver is going to set BB register, it shall check if there is another thread controlling BB/RF. */
 	odm_acquire_spin_lock(p_dm_odm, RT_RF_STATE_SPINLOCK);
-	if (p_hal_data->e_rf_power_state != e_rf_on || p_mgnt_info->rf_change_in_progress || p_mgnt_info->is_media_connect) {
+	if (p_hal_data->eRFPowerState != eRfOn || p_mgnt_info->RFChangeInProgress || p_mgnt_info->bMediaConnect) {
 		odm_release_spin_lock(p_dm_odm, RT_RF_STATE_SPINLOCK);
 
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD,
 			("odm_sw_ant_div_check_before_link(): rf_change_in_progress(%x), e_rf_power_state(%x)\n",
-			p_mgnt_info->rf_change_in_progress, p_hal_data->e_rf_power_state));
+			p_mgnt_info->RFChangeInProgress, p_hal_data->eRFPowerState));
 
 		p_dm_swat_table->swas_no_link_state = 0;
 
@@ -347,13 +342,13 @@ odm_sw_ant_div_check_before_link(
 		p_dm_swat_table->swas_no_link_state = 1;
 
 		/* Copy Current Scan list. */
-		p_mgnt_info->tmp_num_bss_desc = p_mgnt_info->num_bss_desc;
-		platform_move_memory((void *)adapter->mgnt_info.tmpbss_desc, (void *)p_mgnt_info->bss_desc, sizeof(RT_WLAN_BSS) * MAX_BSS_DESC);
+		p_mgnt_info->tmpNumBssDesc = p_mgnt_info->NumBssDesc;
+		PlatformMoveMemory((void *)adapter->MgntInfo.tmpbssDesc, (void *)p_mgnt_info->bssDesc, sizeof(RT_WLAN_BSS) * MAX_BSS_DESC);
 
 		/* Go back to scan function again. */
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("odm_sw_ant_div_check_before_link: Scan one more time\n"));
-		p_mgnt_info->scan_step = 0;
-		p_mgnt_info->is_scan_ant_detect = true;
+		p_mgnt_info->ScanStep = 0;
+		p_mgnt_info->bScanAntDetect = true;
 		scan_channel = odm_sw_ant_div_select_scan_chnl(adapter);
 
 
@@ -366,7 +361,7 @@ odm_sw_ant_div_check_before_link(
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD,
 					("odm_sw_ant_div_check_before_link(): No AP List Avaiable, Using ant(%s)\n", (p_dm_fat_table->rx_idle_ant == MAIN_ANT) ? "AUX_ANT" : "MAIN_ANT"));
 
-				if (IS_5G_WIRELESS_MODE(p_mgnt_info->dot11_current_wireless_mode)) {
+				if (IS_5G_WIRELESS_MODE(p_mgnt_info->dot11CurrentWirelessMode)) {
 					p_dm_swat_table->ant_5g = p_dm_fat_table->rx_idle_ant;
 					ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("p_dm_swat_table->ant_5g=%s\n", (p_dm_fat_table->rx_idle_ant == MAIN_ANT) ? "MAIN_ANT" : "AUX_ANT"));
 				} else {
@@ -397,7 +392,7 @@ odm_sw_ant_div_check_before_link(
 		}
 
 		odm_sw_ant_div_construct_scan_chnl(adapter, scan_channel);
-		platform_set_timer(adapter, &p_mgnt_info->scan_timer, 5);
+		PlatformSetTimer(adapter, &p_mgnt_info->ScanTimer, 5);
 
 		return true;
 	} else { /* p_dm_swat_table->swas_no_link_state == 1 */
@@ -405,51 +400,51 @@ odm_sw_ant_div_check_before_link(
 		/* 1 Check scan result and determine which antenna is going */
 		/* 1 to be used. */
 
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, (" tmp_num_bss_desc= (( %d ))\n", p_mgnt_info->tmp_num_bss_desc)); /* debug for Dino */
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, (" tmp_num_bss_desc= (( %d ))\n", p_mgnt_info->tmpNumBssDesc)); /* debug for Dino */
 
-		for (index = 0; index < p_mgnt_info->tmp_num_bss_desc; index++) {
-			p_tmp_bss_desc = &(p_mgnt_info->tmpbss_desc[index]); /* Antenna 1 */
-			p_test_bss_desc = &(p_mgnt_info->bss_desc[index]); /* Antenna 2 */
+		for (index = 0; index < p_mgnt_info->tmpNumBssDesc; index++) {
+			p_tmp_bss_desc = &(p_mgnt_info->tmpbssDesc[index]); /* Antenna 1 */
+			p_test_bss_desc = &(p_mgnt_info->bssDesc[index]); /* Antenna 2 */
 
-			if (platform_compare_memory(p_test_bss_desc->b_d_bssid_buf, p_tmp_bss_desc->b_d_bssid_buf, 6) != 0) {
+			if (PlatformCompareMemory(p_test_bss_desc->bdBssIdBuf, p_tmp_bss_desc->bdBssIdBuf, 6) != 0) {
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("odm_sw_ant_div_check_before_link(): ERROR!! This shall not happen.\n"));
 				continue;
 			}
 
 			if (p_dm_odm->support_ic_type != ODM_RTL8723B) {
-				if (p_tmp_bss_desc->channel_number == scan_channel) {
-					if (p_tmp_bss_desc->recv_signal_power > p_test_bss_desc->recv_signal_power) {
+				if (p_tmp_bss_desc->ChannelNumber == scan_channel) {
+					if (p_tmp_bss_desc->RecvSignalPower > p_test_bss_desc->RecvSignalPower) {
 						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("odm_sw_ant_div_check_before_link: Compare scan entry: score++\n"));
-						RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->b_d_ssid_buf, p_tmp_bss_desc->b_d_ssid_len);
-						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n\n", p_tmp_bss_desc->channel_number, p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
+						RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->bdSsIdBuf, p_tmp_bss_desc->bdSsIdLen);
+						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n\n", p_tmp_bss_desc->ChannelNumber, p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
 
 						score++;
-						platform_move_memory(p_test_bss_desc, p_tmp_bss_desc, sizeof(RT_WLAN_BSS));
-					} else if (p_tmp_bss_desc->recv_signal_power < p_test_bss_desc->recv_signal_power) {
+						PlatformMoveMemory(p_test_bss_desc, p_tmp_bss_desc, sizeof(RT_WLAN_BSS));
+					} else if (p_tmp_bss_desc->RecvSignalPower < p_test_bss_desc->RecvSignalPower) {
 						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("odm_sw_ant_div_check_before_link: Compare scan entry: score--\n"));
-						RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->b_d_ssid_buf, p_tmp_bss_desc->b_d_ssid_len);
-						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n\n", p_tmp_bss_desc->channel_number, p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
+						RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->bdSsIdBuf, p_tmp_bss_desc->bdSsIdLen);
+						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n\n", p_tmp_bss_desc->ChannelNumber, p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
 						score--;
 					} else {
-						if (p_test_bss_desc->b_d_tstamp - p_tmp_bss_desc->b_d_tstamp < 5000) {
-							RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->b_d_ssid_buf, p_tmp_bss_desc->b_d_ssid_len);
-							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n", p_tmp_bss_desc->channel_number, p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
+						if (p_test_bss_desc->bdTstamp - p_tmp_bss_desc->bdTstamp < 5000) {
+							RT_PRINT_STR(COMP_SCAN, DBG_WARNING, "GetScanInfo(): new Bss SSID:", p_tmp_bss_desc->bdSsIdBuf, p_tmp_bss_desc->bdSsIdLen);
+							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("at ch %d, Original: %d, Test: %d\n", p_tmp_bss_desc->ChannelNumber, p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
 							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("The 2nd Antenna didn't get this AP\n\n"));
 						}
 					}
 				}
 			} else { /* 8723B */
-				if (p_tmp_bss_desc->channel_number == scan_channel) {
-					ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("channel_number == scan_channel->(( %d ))\n", p_tmp_bss_desc->channel_number));
+				if (p_tmp_bss_desc->ChannelNumber == scan_channel) {
+					ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("channel_number == scan_channel->(( %d ))\n", p_tmp_bss_desc->ChannelNumber));
 
-					if (p_tmp_bss_desc->recv_signal_power > p_test_bss_desc->recv_signal_power) { /* Pow(Ant1) > Pow(Ant2) */
+					if (p_tmp_bss_desc->RecvSignalPower > p_test_bss_desc->RecvSignalPower) { /* Pow(Ant1) > Pow(Ant2) */
 						counter++;
-						tmp_power_diff = (u8)(p_tmp_bss_desc->recv_signal_power - p_test_bss_desc->recv_signal_power);
+						tmp_power_diff = (u8)(p_tmp_bss_desc->RecvSignalPower - p_test_bss_desc->RecvSignalPower);
 						power_diff = power_diff + tmp_power_diff;
 
-						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
-						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->b_d_ssid_buf);
-						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->b_d_bssid_buf);
+						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
+						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->bdSsIdBuf);
+						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->bdSsIdBuf);
 
 						/* ODM_RT_TRACE(p_dm_odm,ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("tmp_power_diff: (( %d)),max_power_diff: (( %d)),min_power_diff: (( %d))\n", tmp_power_diff,max_power_diff,min_power_diff)); */
 						if (tmp_power_diff > max_power_diff)
@@ -458,37 +453,37 @@ odm_sw_ant_div_check_before_link(
 							min_power_diff = tmp_power_diff;
 						/* ODM_RT_TRACE(p_dm_odm,ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("max_power_diff: (( %d)),min_power_diff: (( %d))\n",max_power_diff,min_power_diff)); */
 
-						platform_move_memory(p_test_bss_desc, p_tmp_bss_desc, sizeof(RT_WLAN_BSS));
-					} else if (p_test_bss_desc->recv_signal_power > p_tmp_bss_desc->recv_signal_power) { /* Pow(Ant1) < Pow(Ant2) */
+						PlatformMoveMemory(p_test_bss_desc, p_tmp_bss_desc, sizeof(RT_WLAN_BSS));
+					} else if (p_test_bss_desc->RecvSignalPower > p_tmp_bss_desc->RecvSignalPower) { /* Pow(Ant1) < Pow(Ant2) */
 						counter++;
-						tmp_power_diff = (u8)(p_test_bss_desc->recv_signal_power - p_tmp_bss_desc->recv_signal_power);
+						tmp_power_diff = (u8)(p_test_bss_desc->RecvSignalPower - p_tmp_bss_desc->RecvSignalPower);
 						power_diff = power_diff + tmp_power_diff;
-						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
-						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->b_d_ssid_buf);
-						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->b_d_bssid_buf);
+						ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
+						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->bdSsIdBuf);
+						ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->bdSsIdBuf);
 						if (tmp_power_diff > max_power_diff)
 							max_power_diff = tmp_power_diff;
 						if (tmp_power_diff < min_power_diff)
 							min_power_diff = tmp_power_diff;
 					} else { /* Pow(Ant1) = Pow(Ant2) */
-						if (p_test_bss_desc->b_d_tstamp > p_tmp_bss_desc->b_d_tstamp) { /* Stamp(Ant1) < Stamp(Ant2) */
-							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("time_diff: %lld\n", (p_test_bss_desc->b_d_tstamp - p_tmp_bss_desc->b_d_tstamp) / 1000));
-							if (p_test_bss_desc->b_d_tstamp - p_tmp_bss_desc->b_d_tstamp > 5000) {
+						if (p_test_bss_desc->bdTstamp > p_tmp_bss_desc->bdTstamp) { /* Stamp(Ant1) < Stamp(Ant2) */
+							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("time_diff: %lld\n", (p_test_bss_desc->bdTstamp - p_tmp_bss_desc->bdTstamp) / 1000));
+							if (p_test_bss_desc->bdTstamp - p_tmp_bss_desc->bdTstamp > 5000) {
 								counter++;
-								ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->recv_signal_power, p_test_bss_desc->recv_signal_power));
-								ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->b_d_ssid_buf);
-								ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->b_d_bssid_buf);
+								ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("Original: %d, Test: %d\n", p_tmp_bss_desc->RecvSignalPower, p_test_bss_desc->RecvSignalPower));
+								ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("SSID:"), p_tmp_bss_desc->bdSsIdBuf);
+								ODM_PRINT_ADDR(p_dm_odm, ODM_COMP_ANT_DIV, DBG_LOUD, ("BSSID:"), p_tmp_bss_desc->bdSsIdBuf);
 								min_power_diff = 0;
 							}
 						} else
-							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("[Error !!!]: Time_diff: %lld\n", (p_test_bss_desc->b_d_tstamp - p_tmp_bss_desc->b_d_tstamp) / 1000));
+							ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("[Error !!!]: Time_diff: %lld\n", (p_test_bss_desc->bdTstamp - p_tmp_bss_desc->bdTstamp) / 1000));
 					}
 				}
 			}
 		}
 
 		if (p_dm_odm->support_ic_type & (ODM_RTL8188E | ODM_RTL8821)) {
-			if (p_mgnt_info->num_bss_desc != 0 && score < 0) {
+			if (p_mgnt_info->NumBssDesc != 0 && score < 0) {
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD,
 					("odm_sw_ant_div_check_before_link(): Using ant(%s)\n", (p_dm_fat_table->rx_idle_ant == MAIN_ANT) ? "MAIN_ANT" : "AUX_ANT"));
 			} else {
@@ -501,7 +496,7 @@ odm_sw_ant_div_check_before_link(
 					odm_update_rx_idle_ant(p_dm_odm, MAIN_ANT);
 			}
 
-			if (IS_5G_WIRELESS_MODE(p_mgnt_info->dot11_current_wireless_mode)) {
+			if (IS_5G_WIRELESS_MODE(p_mgnt_info->dot11CurrentWirelessMode)) {
 				p_dm_swat_table->ant_5g = p_dm_fat_table->rx_idle_ant;
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("p_dm_swat_table->ant_5g=%s\n", (p_dm_fat_table->rx_idle_ant == MAIN_ANT) ? "MAIN_ANT" : "AUX_ANT"));
 			} else {
@@ -517,7 +512,7 @@ odm_sw_ant_div_check_before_link(
 
 					/* 3 [ Scan again ] */
 					odm_sw_ant_div_construct_scan_chnl(adapter, scan_channel);
-					platform_set_timer(adapter, &p_mgnt_info->scan_timer, 5);
+					PlatformSetTimer(adapter, &p_mgnt_info->ScanTimer, 5);
 					return true;
 				} else { /* pre_aux_fail_detec == true */
 					/* 2 [ Single Antenna ] */
@@ -554,7 +549,7 @@ odm_sw_ant_div_check_before_link(
 
 						/* 3 [ Scan again ] */
 						odm_sw_ant_div_construct_scan_chnl(adapter, scan_channel);
-						platform_set_timer(adapter, &p_mgnt_info->scan_timer, 5);
+						PlatformSetTimer(adapter, &p_mgnt_info->ScanTimer, 5);
 						return true;
 					} else {
 						p_dm_odm->dm_swat_table.rssi_ant_dect_result = true;
@@ -564,7 +559,7 @@ odm_sw_ant_div_check_before_link(
 
 				}
 				/* 2 [ Dual Antenna ] */
-				else if ((p_mgnt_info->num_bss_desc != 0) && (avg_power_diff < power_target_L)) {
+				else if ((p_mgnt_info->NumBssDesc != 0) && (avg_power_diff < power_target_L)) {
 					p_dm_odm->dm_swat_table.rssi_ant_dect_result = true;
 					if (p_dm_odm->dm_swat_table.ANTB_ON == false) {
 						p_dm_odm->dm_swat_table.ANTA_ON = true;
@@ -574,7 +569,7 @@ odm_sw_ant_div_check_before_link(
 					p_dm_odm->dm_swat_table.dual_ant_counter++;
 
 					/* set bt coexDM from 1ant coexDM to 2ant coexDM */
-					bt_set_bt_coex_ant_num(adapter, BT_COEX_ANT_TYPE_DETECTED, 2);
+					BT_SetBtCoexAntNum(adapter, BT_COEX_ANT_TYPE_DETECTED, 2);
 
 					/* 3 [ Init antenna diversity ] */
 					p_dm_odm->support_ability |= ODM_BB_ANT_DIV;
@@ -608,7 +603,7 @@ odm_sw_ant_div_check_before_link(
 
 		/* Check state reset to default and wait for next time. */
 		p_dm_swat_table->swas_no_link_state = 0;
-		p_mgnt_info->is_scan_ant_detect = false;
+		p_mgnt_info->bScanAntDetect = false;
 
 		return false;
 	}
@@ -626,31 +621,6 @@ odm_sw_ant_div_check_before_link(
 
 
 /* 1 [3. PSD method] ========================================================== */
-
-
-
-
-u32
-odm_get_psd_data(
-	void			*p_dm_void,
-	u16			point,
-	u8		initial_gain)
-{
-	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	u32			psd_report;
-
-	odm_set_bb_reg(p_dm_odm, 0x808, 0x3FF, point);
-	odm_set_bb_reg(p_dm_odm, 0x808, BIT(22), 1);  /* Start PSD calculation, Reg808[22]=0->1 */
-	odm_stall_execution(150);/* Wait for HW PSD report */
-	odm_set_bb_reg(p_dm_odm, 0x808, BIT(22), 0);/* Stop PSD calculation,  Reg808[22]=1->0 */
-	psd_report = odm_get_bb_reg(p_dm_odm, 0x8B4, MASKDWORD) & 0x0000FFFF; /* Read PSD report, Reg8B4[15:0] */
-
-	psd_report = (u32)(odm_convert_to_db(psd_report)); /* +(u32)(initial_gain); */
-	return psd_report;
-}
-
-
-
 void
 odm_single_dual_antenna_detection_psd(
 	void	*p_dm_void
@@ -721,7 +691,7 @@ odm_single_dual_antenna_detection_psd(
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("dbg\n"));
 	for (i = 0; i < test_num; i++) {
 		for (tone_idx = 0; tone_idx < tone_lenth_1; tone_idx++) {
-			PSD_report_temp = odm_get_psd_data(p_dm_odm, tone_idx_1[tone_idx], initial_gain);
+			PSD_report_temp = phydm_get_psd_data(p_dm_odm, tone_idx_1[tone_idx], initial_gain);
 			/* if(  PSD_report_temp>psd_report_main[tone_idx]  ) */
 			psd_report_main[tone_idx] += PSD_report_temp;
 		}
@@ -732,7 +702,7 @@ odm_single_dual_antenna_detection_psd(
 	odm_stall_execution(10);
 	for (i = 0; i < test_num; i++) {
 		for (tone_idx = 0; tone_idx < tone_lenth_1; tone_idx++) {
-			PSD_report_temp = odm_get_psd_data(p_dm_odm, tone_idx_1[tone_idx], initial_gain);
+			PSD_report_temp = phydm_get_psd_data(p_dm_odm, tone_idx_1[tone_idx], initial_gain);
 			/* if(  PSD_report_temp>psd_report_aux[tone_idx]  ) */
 			psd_report_aux[tone_idx] += PSD_report_temp;
 		}
@@ -755,7 +725,7 @@ odm_single_dual_antenna_detection_psd(
 
 	for (i = 0; i < test_num; i++) {
 		for (tone_idx = 0; tone_idx < tone_lenth_2; tone_idx++) {
-			PSD_report_temp = odm_get_psd_data(p_dm_odm, tone_idx_2[tone_idx], initial_gain);
+			PSD_report_temp = phydm_get_psd_data(p_dm_odm, tone_idx_2[tone_idx], initial_gain);
 			/* if(  PSD_report_temp>psd_report_main[tone_idx]  ) */
 			psd_report_main[tone_lenth_1 + tone_idx] += PSD_report_temp;
 		}
@@ -768,7 +738,7 @@ odm_single_dual_antenna_detection_psd(
 
 	for (i = 0; i < test_num; i++) {
 		for (tone_idx = 0; tone_idx < tone_lenth_2; tone_idx++) {
-			PSD_report_temp = odm_get_psd_data(p_dm_odm, tone_idx_2[tone_idx], initial_gain);
+			PSD_report_temp = phydm_get_psd_data(p_dm_odm, tone_idx_2[tone_idx], initial_gain);
 			/* if(  PSD_report_temp>psd_report_aux[tone_idx]  ) */
 			psd_report_aux[tone_lenth_1 + tone_idx] += PSD_report_temp;
 		}
@@ -860,5 +830,9 @@ odm_sw_ant_detect_init(
 	p_dm_swat_table->swas_no_link_state = 0;
 	p_dm_swat_table->pre_aux_fail_detec = false;
 	p_dm_swat_table->swas_no_link_bk_reg948 = 0xff;
+
+	#if (CONFIG_PSD_TOOL == 1)
+	phydm_psd_init(p_dm_odm);
+	#endif
 #endif
 }

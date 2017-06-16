@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_DEBUG_C_
 
 #include <drv_types.h>
@@ -65,6 +60,9 @@ void dump_drv_cfg(void *sel)
 #ifdef RTW_USE_CFG80211_STA_EVENT
 	RTW_PRINT_SEL(sel, "RTW_USE_CFG80211_STA_EVENT\n");
 #endif
+	#ifdef CONFIG_RADIO_WORK
+	RTW_PRINT_SEL(sel, "CONFIG_RADIO_WORK\n");
+	#endif
 #else
 	RTW_PRINT_SEL(sel, "WEXT\n");
 #endif
@@ -333,48 +331,6 @@ void rf_reg_dump(void *sel, _adapter *adapter)
 	}
 }
 
-static u8 fwdl_test_chksum_fail = 0;
-static u8 fwdl_test_wintint_rdy_fail = 0;
-
-bool rtw_fwdl_test_trigger_chksum_fail(void)
-{
-	if (fwdl_test_chksum_fail) {
-		RTW_PRINT("fwdl test case: trigger chksum_fail\n");
-		fwdl_test_chksum_fail--;
-		return _TRUE;
-	}
-	return _FALSE;
-}
-
-bool rtw_fwdl_test_trigger_wintint_rdy_fail(void)
-{
-	if (fwdl_test_wintint_rdy_fail) {
-		RTW_PRINT("fwdl test case: trigger wintint_rdy_fail\n");
-		fwdl_test_wintint_rdy_fail--;
-		return _TRUE;
-	}
-	return _FALSE;
-}
-
-static u32 g_wait_hiq_empty_ms = 0;
-
-u32 rtw_get_wait_hiq_empty_ms(void)
-{
-	return g_wait_hiq_empty_ms;
-}
-
-static u8 del_rx_ampdu_test_no_tx_fail = 0;
-
-bool rtw_del_rx_ampdu_test_trigger_no_tx_fail(void)
-{
-	if (del_rx_ampdu_test_no_tx_fail) {
-		RTW_PRINT("del_rx_ampdu test case: trigger no_tx_fail\n");
-		del_rx_ampdu_test_no_tx_fail--;
-		return _TRUE;
-	}
-	return _FALSE;
-}
-
 void rtw_sink_rtp_seq_dbg(_adapter *adapter, _pkt *pkt)
 {
 	struct recv_priv *precvpriv = &(adapter->recvpriv);
@@ -451,37 +407,78 @@ void dump_adapters_status(void *sel, struct dvobj_priv *dvobj)
 
 	dump_mi_status(sel, dvobj);
 
-	RTW_PRINT_SEL(sel, "%-2s %-8s %-17s %-4s %-7s %s\n"
-		, "id", "ifname", "macaddr", "port", "ch", "status");
+#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+	RTW_PRINT_SEL(sel, "default port id:%d\n\n", dvobj->default_port_id);
+#endif /* CONFIG_FW_MULTI_PORT_SUPPORT */
 
-	RTW_PRINT_SEL(sel, "------------------------------------------\n");
+	RTW_PRINT_SEL(sel, "dev status:%s%s\n\n"
+		, dev_is_surprise_removed(dvobj) ? " SR" : ""
+		, dev_is_drv_stopped(dvobj) ? " DS" : ""
+	);
+
+#ifdef CONFIG_P2P
+#define P2P_INFO_TITLE_FMT	" %-3s %-4s"
+#define P2P_INFO_TITLE_ARG	, "lch", "p2ps"
+#ifdef CONFIG_IOCTL_CFG80211
+#define P2P_INFO_VALUE_FMT	" %3u %c%3u"
+#define P2P_INFO_VALUE_ARG	, iface->wdinfo.listen_channel, iface->wdev_data.p2p_enabled ? 'e' : ' ', rtw_p2p_state(&iface->wdinfo)
+#else
+#define P2P_INFO_VALUE_FMT	" %3u %4u"
+#define P2P_INFO_VALUE_ARG	, iface->wdinfo.listen_channel, rtw_p2p_state(&iface->wdinfo)
+#endif
+#define P2P_INFO_DASH		"---------"
+#else
+#define P2P_INFO_TITLE_FMT	""
+#define P2P_INFO_TITLE_ARG
+#define P2P_INFO_VALUE_FMT	""
+#define P2P_INFO_VALUE_ARG
+#define P2P_INFO_DASH
+#endif
+
+	RTW_PRINT_SEL(sel, "%-2s %-15s %c %-3s %-3s %-3s %-17s %-4s %-7s"
+		P2P_INFO_TITLE_FMT
+		" %s\n"
+		, "id", "ifname", ' ', "bup", "nup", "ncd", "macaddr", "port", "ch"
+		P2P_INFO_TITLE_ARG
+		, "status");
+
+	RTW_PRINT_SEL(sel, "---------------------------------------------------------------"
+		P2P_INFO_DASH
+		"-------\n");
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
 		if (iface) {
-			RTW_PRINT_SEL(sel, "%2d %-8s "MAC_FMT" %4hhu %3u,%u,%u "MLME_STATE_FMT" %s%s\n"
-				, i, ADPT_ARG(iface)
+			RTW_PRINT_SEL(sel, "%2d %-15s %c %3u %3u %3u "MAC_FMT" %4hhu %3u,%u,%u"
+				P2P_INFO_VALUE_FMT
+				" "MLME_STATE_FMT"\n"
+				, i, iface->registered ? ADPT_ARG(iface) : NULL
+				, iface->registered ? 'R' : ' '
+				, iface->bup
+				, iface->netif_up
+				, iface->net_closed
 				, MAC_ARG(adapter_mac_addr(iface))
 				, get_hw_port(iface)
 				, iface->mlmeextpriv.cur_channel
 				, iface->mlmeextpriv.cur_bwmode
 				, iface->mlmeextpriv.cur_ch_offset
+				P2P_INFO_VALUE_ARG
 				, MLME_STATE_ARG(iface)
-				, rtw_is_surprise_removed(iface) ? " SR" : ""
-				, rtw_is_drv_stopped(iface) ? " DS" : ""
 			);
 		}
 	}
 
-	RTW_PRINT_SEL(sel, "------------------------------------------\n");
+	RTW_PRINT_SEL(sel, "---------------------------------------------------------------"
+		P2P_INFO_DASH
+		"-------\n");
 
 	rtw_mi_get_ch_setting_union(dvobj_get_primary_adapter(dvobj), &u_ch, &u_bw, &u_offset);
-	RTW_PRINT_SEL(sel, "%34s %3u,%u,%u\n"
+	RTW_PRINT_SEL(sel, "%55s %3u,%u,%u\n"
 		, "union:"
 		, u_ch, u_bw, u_offset
 	);
 
-	RTW_PRINT_SEL(sel, "%34s %3u,%u,%u\n"
+	RTW_PRINT_SEL(sel, "%55s %3u,%u,%u\n"
 		, "oper:"
 		, dvobj->oper_channel
 		, dvobj->oper_bwmode
@@ -490,77 +487,53 @@ void dump_adapters_status(void *sel, struct dvobj_priv *dvobj)
 
 #ifdef CONFIG_DFS_MASTER
 	if (rfctl->radar_detect_ch != 0) {
-		u32 non_ocp_ms;
-		u32 cac_ms;
-
-		for (i = 0; i < dvobj->iface_nums; i++) {
-			if (!dvobj->padapters[i])
-				continue;
-			if (check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_AP_STATE)
-				&& check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_ASOC_STATE))
-				break;
-		}
-
-		if (i >= dvobj->iface_nums) {
-			RTW_PRINT_SEL(sel, "DFS master enable without AP mode???");
-			goto end_dfs_master;
-		}
-
-		RTW_PRINT_SEL(sel, "%34s %3u,%u,%u"
+		RTW_PRINT_SEL(sel, "%55s %3u,%u,%u"
 			, "radar_detect:"
 			, rfctl->radar_detect_ch
 			, rfctl->radar_detect_bw
 			, rfctl->radar_detect_offset
 		);
 
-		_RTW_PRINT_SEL(sel, ", domain:%u", rtw_odm_get_dfs_domain(dvobj->padapters[IFACE_ID0]));
+		if (rfctl->radar_detect_by_others)
+			_RTW_PRINT_SEL(sel, ", by AP of STA link");
+		else {
+			u32 non_ocp_ms;
+			u32 cac_ms;
+			u8 dfs_domain = rtw_odm_get_dfs_domain(dvobj_get_primary_adapter(dvobj));
 
-		rtw_get_ch_waiting_ms(dvobj->padapters[i]
-			, rfctl->radar_detect_ch
-			, rfctl->radar_detect_bw
-			, rfctl->radar_detect_offset
-			, &non_ocp_ms
-			, &cac_ms
-		);
+			_RTW_PRINT_SEL(sel, ", domain:%u", dfs_domain);
 
-		if (non_ocp_ms)
-			_RTW_PRINT_SEL(sel, ", non_ocp:%d", non_ocp_ms);
-		if (cac_ms)
-			_RTW_PRINT_SEL(sel, ", cac:%d", cac_ms);
+			for (i = 0; i < dvobj->iface_nums; i++) {
+				if (!dvobj->padapters[i])
+					continue;
+				if (check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_AP_STATE)
+					&& check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_ASOC_STATE))
+					break;
+			}
+
+			if (i >= dvobj->iface_nums) {
+				RTW_PRINT_SEL(sel, "DFS master enable without AP mode???");
+				goto end_dfs_master;
+			}
+
+			rtw_get_ch_waiting_ms(dvobj->padapters[i]
+				, rfctl->radar_detect_ch
+				, rfctl->radar_detect_bw
+				, rfctl->radar_detect_offset
+				, &non_ocp_ms
+				, &cac_ms
+			);
+
+			if (non_ocp_ms)
+				_RTW_PRINT_SEL(sel, ", non_ocp:%d", non_ocp_ms);
+			if (cac_ms)
+				_RTW_PRINT_SEL(sel, ", cac:%d", cac_ms);
+		}
+
 end_dfs_master:
 		_RTW_PRINT_SEL(sel, "\n");
 	}
 #endif /* CONFIG_DFS_MASTER */
-}
-
-void dump_adapters_info(void *sel, struct dvobj_priv *dvobj)
-{
-	int i;
-	_adapter *iface;
-	u8 u_ch, u_bw, u_offset;
-
-	RTW_PRINT_SEL(sel, "%-8s %-8s %-4s %-4s %-8s %-8s\n"
-		, "iface_id", "ifname", "port", "bup ", "netif_up", "net_closed");
-
-	RTW_PRINT_SEL(sel, "------------------------\n");
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if (iface) {
-			RTW_PRINT_SEL(sel, "%2d %-8s %u %s,%s,%s %s%s\n"
-				      , iface->iface_id
-				      , ADPT_ARG(iface)
-				      , get_hw_port(iface)
-				      , (iface->bup) ? " TRUE" : " FALSE"
-				      , (iface->netif_up) ? " TRUE" : " FALSE"
-				      , (iface->net_closed) ? " TRUE" : " FALSE"
-				, rtw_is_surprise_removed(iface) ? " SR" : ""
-				      , rtw_is_drv_stopped(iface) ? " DS" : ""
-				     );
-		}
-	}
-
-	RTW_PRINT_SEL(sel, "------------------------\n");
 }
 
 #define SEC_CAM_ENT_ID_TITLE_FMT "%-2s"
@@ -740,6 +713,108 @@ ssize_t proc_set_read_reg(struct file *file, const char __user *buffer, size_t c
 
 	return count;
 
+}
+
+int proc_get_rx_stat(struct seq_file *m, void *v)
+{
+	_irqL	 irqL;
+	_list	*plist, *phead;
+	struct net_device *dev = m->private;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	struct sta_info *psta = NULL;
+	struct stainfo_stats	*pstats = NULL;
+	struct sta_priv		*pstapriv = &(adapter->stapriv);
+	u32 i, j;
+	u8 bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	u8 null_addr[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	_enter_critical_bh(&pstapriv->sta_hash_lock, &irqL);
+	for (i = 0; i < NUM_STA; i++) {
+		phead = &(pstapriv->sta_hash[i]);
+		plist = get_next(phead);
+		while ((rtw_end_of_queue_search(phead, plist)) == _FALSE) {
+			psta = LIST_CONTAINOR(plist, struct sta_info, hash_list);
+			plist = get_next(plist);
+			pstats = &psta->sta_stats;
+
+			if (pstats == NULL)
+				continue;
+			if ((_rtw_memcmp(psta->hwaddr, bc_addr, 6) !=  _TRUE)
+				&& (_rtw_memcmp(psta->hwaddr, null_addr, 6) != _TRUE)
+				&& (_rtw_memcmp(psta->hwaddr, adapter_mac_addr(adapter), 6) != _TRUE)) {
+				RTW_PRINT_SEL(m, "MAC :\t\t"MAC_FMT "\n", MAC_ARG(psta->hwaddr));
+				RTW_PRINT_SEL(m, "data_rx_cnt :\t%llu\n", pstats->rx_data_pkts - pstats->rx_data_last_pkts);
+				pstats->rx_data_last_pkts = pstats->rx_data_pkts;
+				RTW_PRINT_SEL(m, "duplicate_cnt :\t%u\n", pstats->duplicate_cnt);
+				pstats->duplicate_cnt = 0;
+				RTW_PRINT_SEL(m, "rx_per_rate_cnt :\n");
+
+				for (j = 0; j < 0x60; j++) {
+					RTW_PRINT_SEL(m, "%08u  ", pstats->rxratecnt[j]);
+					pstats->rxratecnt[j] = 0;
+					if ((j%8) == 7)
+						RTW_PRINT_SEL(m, "\n");
+				}
+				RTW_PRINT_SEL(m, "\n");
+			}
+		}
+	}
+	_exit_critical_bh(&pstapriv->sta_hash_lock, &irqL);
+	return 0;
+}
+
+int proc_get_tx_stat(struct seq_file *m, void *v)
+{
+	_irqL	irqL;
+	_list	*plist, *phead;
+	struct net_device *dev = m->private;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	struct sta_info *psta = NULL, *sta_rec[NUM_STA];
+	struct stainfo_stats	*pstats = NULL;
+	struct sta_priv	*pstapriv = &(adapter->stapriv);
+	u32 i, macid_rec_idx = 0;
+	u8 bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	u8 null_addr[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	struct submit_ctx gotc2h;
+
+	_enter_critical_bh(&pstapriv->sta_hash_lock, &irqL);
+	for (i = 0; i < NUM_STA; i++) {
+		sta_rec[i] = NULL;
+		phead = &(pstapriv->sta_hash[i]);
+		plist = get_next(phead);
+		while ((rtw_end_of_queue_search(phead, plist)) == _FALSE) {
+			psta = LIST_CONTAINOR(plist, struct sta_info, hash_list);
+			plist = get_next(plist);
+			if ((_rtw_memcmp(psta->hwaddr, bc_addr, 6) !=  _TRUE)
+				&& (_rtw_memcmp(psta->hwaddr, null_addr, 6) != _TRUE)
+				&& (_rtw_memcmp(psta->hwaddr, adapter_mac_addr(adapter), 6) != _TRUE)) {
+				sta_rec[macid_rec_idx++] = psta;
+			}
+		}
+	}
+	_exit_critical_bh(&pstapriv->sta_hash_lock, &irqL);
+	for (i = 0; i < macid_rec_idx; i++) {
+		pstats = &(sta_rec[i]->sta_stats);
+		if (pstats == NULL)
+			continue;
+		pstapriv->c2h_sta = sta_rec[i];
+		rtw_hal_reqtxrpt(adapter, sta_rec[i]->mac_id);
+		rtw_sctx_init(&gotc2h, 60);
+		pstapriv->gotc2h = &gotc2h;
+		if (rtw_sctx_wait(&gotc2h, __func__)) {
+			RTW_PRINT_SEL(m, "MAC :\t\t"MAC_FMT "\n", MAC_ARG(sta_rec[i]->hwaddr));
+			RTW_PRINT_SEL(m, "data_sent_cnt :\t%u\n", pstats->tx_ok_cnt + pstats->tx_fail_cnt);
+			RTW_PRINT_SEL(m, "success_cnt :\t%u\n", pstats->tx_ok_cnt);
+			RTW_PRINT_SEL(m, "failure_cnt :\t%u\n", pstats->tx_fail_cnt);
+			RTW_PRINT_SEL(m, "retry_cnt :\t%u\n\n", pstats->tx_retry_cnt);
+		} else {
+			RTW_PRINT_SEL(m, "Warming : Query timeout, operation abort!!\n");
+			RTW_PRINT_SEL(m, "\n");
+			pstapriv->c2h_sta = NULL;
+			break;
+		}
+	}
+	return 0;
 }
 
 int proc_get_fwstate(struct seq_file *m, void *v)
@@ -1309,7 +1384,7 @@ ssize_t proc_set_survey_info(struct file *file, const char __user *buffer, size_
 		return -EFAULT;
 
 #ifdef CONFIG_MP_INCLUDED
-	if (rtw_mi_mp_mode_check(padapter)) {
+	if (rtw_mp_mode_check(padapter)) {
 		RTW_INFO("MP mode block Scan request\n");
 		goto exit;
 	}
@@ -1692,6 +1767,30 @@ ssize_t proc_set_rx_cnt_dump(struct file *file, const char __user *buffer, size_
 	return count;
 }
 #endif
+
+static u8 fwdl_test_chksum_fail = 0;
+static u8 fwdl_test_wintint_rdy_fail = 0;
+
+bool rtw_fwdl_test_trigger_chksum_fail(void)
+{
+	if (fwdl_test_chksum_fail) {
+		RTW_PRINT("fwdl test case: trigger chksum_fail\n");
+		fwdl_test_chksum_fail--;
+		return _TRUE;
+	}
+	return _FALSE;
+}
+
+bool rtw_fwdl_test_trigger_wintint_rdy_fail(void)
+{
+	if (fwdl_test_wintint_rdy_fail) {
+		RTW_PRINT("fwdl test case: trigger wintint_rdy_fail\n");
+		fwdl_test_wintint_rdy_fail--;
+		return _TRUE;
+	}
+	return _FALSE;
+}
+
 ssize_t proc_set_fwdl_test_case(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
 {
 	struct net_device *dev = data;
@@ -1711,6 +1810,18 @@ ssize_t proc_set_fwdl_test_case(struct file *file, const char __user *buffer, si
 		num = sscanf(tmp, "%hhu %hhu", &fwdl_test_chksum_fail, &fwdl_test_wintint_rdy_fail);
 
 	return count;
+}
+
+static u8 del_rx_ampdu_test_no_tx_fail = 0;
+
+bool rtw_del_rx_ampdu_test_trigger_no_tx_fail(void)
+{
+	if (del_rx_ampdu_test_no_tx_fail) {
+		RTW_PRINT("del_rx_ampdu test case: trigger no_tx_fail\n");
+		del_rx_ampdu_test_no_tx_fail--;
+		return _TRUE;
+	}
+	return _FALSE;
 }
 
 ssize_t proc_set_del_rx_ampdu_test_case(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
@@ -1780,6 +1891,13 @@ ssize_t proc_set_dfs_master_test_case(struct file *file, const char __user *buff
 }
 #endif /* CONFIG_DFS_MASTER */
 
+static u32 g_wait_hiq_empty_ms = 0;
+
+u32 rtw_get_wait_hiq_empty_ms(void)
+{
+	return g_wait_hiq_empty_ms;
+}
+
 ssize_t proc_set_wait_hiq_empty(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
 {
 	struct net_device *dev = data;
@@ -1797,6 +1915,53 @@ ssize_t proc_set_wait_hiq_empty(struct file *file, const char __user *buffer, si
 
 	if (buffer && !copy_from_user(tmp, buffer, count))
 		num = sscanf(tmp, "%u", &g_wait_hiq_empty_ms);
+
+	return count;
+}
+
+static u32 sta_linking_test_start_time = 0;
+static u32 sta_linking_test_wait_ms = 0;
+static u8 sta_linking_test_force_fail = 0;
+
+void rtw_sta_linking_test_set_start(void)
+{
+	sta_linking_test_start_time = rtw_get_current_time();
+}
+
+bool rtw_sta_linking_test_wait_done(void)
+{
+	return rtw_get_passing_time_ms(sta_linking_test_start_time) >= sta_linking_test_wait_ms;
+}
+
+bool rtw_sta_linking_test_force_fail(void)
+{
+	return sta_linking_test_force_fail;
+}
+
+ssize_t proc_set_sta_linking_test(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+		u32 wait_ms = 0;
+		u8 force_fail = 0;
+		int num = sscanf(tmp, "%u %hhu", &wait_ms, &force_fail);
+
+		if (num >= 1)
+			sta_linking_test_wait_ms = wait_ms;
+		if (num >= 2)
+			sta_linking_test_force_fail = force_fail;
+	}
 
 	return count;
 }
@@ -2417,6 +2582,20 @@ int proc_get_mac_rptbuf(struct seq_file *m, void *v)
 	return 0;
 }
 
+void dump_regsty_rx_ampdu_size_limit(void *sel, _adapter *adapter)
+{
+	struct registry_priv *regsty = adapter_to_regsty(adapter);
+	int i;
+
+	RTW_PRINT_SEL(sel, "%-3s %-3s %-3s %-3s %-4s\n"
+		, "", "20M", "40M", "80M", "160M");
+	for (i = 0; i < 4; i++)
+		RTW_PRINT_SEL(sel, "%dSS %3u %3u %3u %4u\n", i + 1
+			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][0]
+			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][1]
+			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][2]
+			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][3]);
+}
 
 int proc_get_rx_ampdu(struct seq_file *m, void *v)
 {
@@ -2430,10 +2609,12 @@ int proc_get_rx_ampdu(struct seq_file *m, void *v)
 		RTW_PRINT_SEL(m, "%u%s\n", padapter->fix_rx_ampdu_accept, "(fixed)");
 
 	_RTW_PRINT_SEL(m, "size: ");
-	if (padapter->fix_rx_ampdu_size == RX_AMPDU_SIZE_INVALID)
-		RTW_PRINT_SEL(m, "%u%s\n", rtw_rx_ampdu_size(padapter), "(auto)");
-	else
+	if (padapter->fix_rx_ampdu_size == RX_AMPDU_SIZE_INVALID) {
+		RTW_PRINT_SEL(m, "%u%s\n", rtw_rx_ampdu_size(padapter), "(auto) with conditional limit:");
+		dump_regsty_rx_ampdu_size_limit(m, padapter);
+	} else
 		RTW_PRINT_SEL(m, "%u%s\n", padapter->fix_rx_ampdu_size, "(fixed)");
+	RTW_PRINT_SEL(m, "\n");
 
 	RTW_PRINT_SEL(m, "%19s %17s\n", "fix_rx_ampdu_accept", "fix_rx_ampdu_size");
 
@@ -2517,6 +2698,48 @@ ssize_t proc_set_rx_ampdu_factor(struct file *file, const char __user *buffer
 				padapter->driver_rx_ampdu_factor = 0xFF;
 			else
 				padapter->driver_rx_ampdu_factor = factor;
+		}
+	}
+
+	return count;
+}
+
+int proc_get_tx_max_agg_num(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+
+
+	if (padapter)
+		RTW_PRINT_SEL(m, "tx max AMPDU num = 0x%02x\n", padapter->driver_tx_max_agg_num);
+
+	return 0;
+}
+
+ssize_t proc_set_tx_max_agg_num(struct file *file, const char __user *buffer
+				 , size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+	u8 agg_num;
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+
+		int num = sscanf(tmp, "%hhx ", &agg_num);
+
+		if (padapter && (num == 1)) {
+			RTW_INFO("padapter->driver_tx_max_agg_num = 0x%02x\n", agg_num);
+
+			padapter->driver_tx_max_agg_num = agg_num;
 		}
 	}
 
@@ -3210,48 +3433,49 @@ int proc_get_best_channel(struct seq_file *m, void *v)
 {
 	struct net_device *dev = m->private;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct rf_ctl_t *rfctl = adapter_to_rfctl(padapter);
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	u32 i, best_channel_24G = 1, best_channel_5G = 36, index_24G = 0, index_5G = 0;
 
-	for (i = 0; pmlmeext->channel_set[i].ChannelNum != 0; i++) {
-		if (pmlmeext->channel_set[i].ChannelNum == 1)
+	for (i = 0; i < rfctl->max_chan_nums && rfctl->channel_set[i].ChannelNum != 0; i++) {
+		if (rfctl->channel_set[i].ChannelNum == 1)
 			index_24G = i;
-		if (pmlmeext->channel_set[i].ChannelNum == 36)
+		if (rfctl->channel_set[i].ChannelNum == 36)
 			index_5G = i;
 	}
 
-	for (i = 0; (i < MAX_CHANNEL_NUM) && (pmlmeext->channel_set[i].ChannelNum != 0) ; i++) {
+	for (i = 0; i < rfctl->max_chan_nums && rfctl->channel_set[i].ChannelNum != 0; i++) {
 		/* 2.4G */
-		if (pmlmeext->channel_set[i].ChannelNum == 6) {
-			if (pmlmeext->channel_set[i].rx_count < pmlmeext->channel_set[index_24G].rx_count) {
+		if (rfctl->channel_set[i].ChannelNum == 6) {
+			if (rfctl->channel_set[i].rx_count < rfctl->channel_set[index_24G].rx_count) {
 				index_24G = i;
-				best_channel_24G = pmlmeext->channel_set[i].ChannelNum;
+				best_channel_24G = rfctl->channel_set[i].ChannelNum;
 			}
 		}
 
 		/* 5G */
-		if (pmlmeext->channel_set[i].ChannelNum >= 36
-		    && pmlmeext->channel_set[i].ChannelNum < 140) {
+		if (rfctl->channel_set[i].ChannelNum >= 36
+		    && rfctl->channel_set[i].ChannelNum < 140) {
 			/* Find primary channel */
-			if (((pmlmeext->channel_set[i].ChannelNum - 36) % 8 == 0)
-			    && (pmlmeext->channel_set[i].rx_count < pmlmeext->channel_set[index_5G].rx_count)) {
+			if (((rfctl->channel_set[i].ChannelNum - 36) % 8 == 0)
+			    && (rfctl->channel_set[i].rx_count < rfctl->channel_set[index_5G].rx_count)) {
 				index_5G = i;
-				best_channel_5G = pmlmeext->channel_set[i].ChannelNum;
+				best_channel_5G = rfctl->channel_set[i].ChannelNum;
 			}
 		}
 
-		if (pmlmeext->channel_set[i].ChannelNum >= 149
-		    && pmlmeext->channel_set[i].ChannelNum < 165) {
+		if (rfctl->channel_set[i].ChannelNum >= 149
+		    && rfctl->channel_set[i].ChannelNum < 165) {
 			/* find primary channel */
-			if (((pmlmeext->channel_set[i].ChannelNum - 149) % 8 == 0)
-			    && (pmlmeext->channel_set[i].rx_count < pmlmeext->channel_set[index_5G].rx_count)) {
+			if (((rfctl->channel_set[i].ChannelNum - 149) % 8 == 0)
+			    && (rfctl->channel_set[i].rx_count < rfctl->channel_set[index_5G].rx_count)) {
 				index_5G = i;
-				best_channel_5G = pmlmeext->channel_set[i].ChannelNum;
+				best_channel_5G = rfctl->channel_set[i].ChannelNum;
 			}
 		}
 #if 1 /* debug */
 		RTW_PRINT_SEL(m, "The rx cnt of channel %3d = %d\n",
-			pmlmeext->channel_set[i].ChannelNum, pmlmeext->channel_set[i].rx_count);
+			rfctl->channel_set[i].ChannelNum, rfctl->channel_set[i].rx_count);
 #endif
 	}
 
@@ -3265,6 +3489,7 @@ ssize_t proc_set_best_channel(struct file *file, const char __user *buffer, size
 {
 	struct net_device *dev = data;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct rf_ctl_t *rfctl = adapter_to_rfctl(padapter);
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	char tmp[32];
 
@@ -3278,8 +3503,8 @@ ssize_t proc_set_best_channel(struct file *file, const char __user *buffer, size
 
 	if (buffer && !copy_from_user(tmp, buffer, count)) {
 		int i;
-		for (i = 0; pmlmeext->channel_set[i].ChannelNum != 0; i++)
-			pmlmeext->channel_set[i].rx_count = 0;
+		for (i = 0; i < rfctl->max_chan_nums && rfctl->channel_set[i].ChannelNum != 0; i++)
+			rfctl->channel_set[i].rx_count = 0;
 
 		RTW_INFO("set %s\n", "Clean Best Channel Count");
 	}
@@ -3382,6 +3607,55 @@ int proc_get_btcoex_info(struct seq_file *m, void *v)
 
 	return 0;
 }
+
+#ifdef CONFIG_RF4CE_COEXIST
+int proc_get_rf4ce_state(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	u8 state = 0, voice = 0;
+
+	state = rtw_btcoex_GetRf4ceLinkState(adapter);
+
+	RTW_PRINT_SEL(m, "RF4CE %s\n", state?"Connected":"Disconnect");
+
+	return 0;
+}
+
+/* This interface is designed for user space application to inform RF4CE state
+ * Initial define for DHC 1295 E387 project
+ *
+ * echo state voice > rf4ce_state
+ * state
+ *	0: RF4CE disconnected
+ *	1: RF4CE connected
+ */
+ssize_t proc_set_rf4ce_state(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+	u8 state;
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+
+		int num = sscanf(tmp, "%hhx", &state);
+
+		if (num >= 1)
+			rtw_btcoex_SetRf4ceLinkState(adapter, state);
+	}
+
+	return count;
+}
+#endif /* CONFIG_RF4CE_COEXIST */
 #endif /* CONFIG_BT_COEXIST */
 
 #if defined(DBG_CONFIG_ERROR_DETECT)
@@ -3425,6 +3699,57 @@ ssize_t proc_set_sreset(struct file *file, const char __user *buffer, size_t cou
 #endif /* DBG_CONFIG_ERROR_DETECT */
 
 #ifdef CONFIG_PCI_HCI
+
+int proc_get_pci_aspm(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *) rtw_netdev_priv(dev);
+	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
+	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
+	u8 tmp8 = 0;
+	u16 tmp16 = 0;
+	u32 tmp32 = 0;
+
+
+	RTW_PRINT_SEL(m, "***** ASPM Capability *****\n");
+
+	pci_read_config_dword(pdvobjpriv->ppcidev, pcipriv->pciehdr_offset + PCI_EXP_LNKCAP, &tmp32);
+
+	RTW_PRINT_SEL(m, "CLK REQ:	%s\n", (tmp32&PCI_EXP_LNKCAP_CLKPM) ? "Enable" : "Disable");
+	RTW_PRINT_SEL(m, "ASPM L0s:	%s\n", (tmp32&BIT10) ? "Enable" : "Disable");
+	RTW_PRINT_SEL(m, "ASPM L1:	%s\n", (tmp32&BIT11) ? "Enable" : "Disable");
+
+	tmp8 = rtw_hal_pci_l1off_capability(padapter);
+	RTW_PRINT_SEL(m, "ASPM L1OFF:	%s\n", tmp8 ? "Enable" : "Disable");
+
+	RTW_PRINT_SEL(m, "***** ASPM CTRL Reg *****\n");
+
+	pci_read_config_word(pdvobjpriv->ppcidev, pcipriv->pciehdr_offset + PCI_EXP_LNKCTL, &tmp16);
+
+	RTW_PRINT_SEL(m, "CLK REQ:	%s\n", (tmp16&PCI_EXP_LNKCTL_CLKREQ_EN) ? "Enable" : "Disable");
+	RTW_PRINT_SEL(m, "ASPM L0s:	%s\n", (tmp16&BIT0) ? "Enable" : "Disable");
+	RTW_PRINT_SEL(m, "ASPM L1:	%s\n", (tmp16&BIT1) ? "Enable" : "Disable");
+
+	tmp8 = rtw_hal_pci_l1off_nic_support(padapter);
+	RTW_PRINT_SEL(m, "ASPM L1OFF:	%s\n", tmp8 ? "Enable" : "Disable");
+
+	RTW_PRINT_SEL(m, "***** ASPM Backdoor *****\n");
+
+	tmp8 = rtw_hal_pci_dbi_read(padapter, 0x719);
+	RTW_PRINT_SEL(m, "CLK REQ:	%s\n", (tmp8 & BIT4) ? "Enable" : "Disable");
+
+	tmp8 = rtw_hal_pci_dbi_read(padapter, 0x70f);
+	RTW_PRINT_SEL(m, "ASPM L0s:	%s\n", (tmp8&BIT7) ? "Enable" : "Disable");
+
+	tmp8 = rtw_hal_pci_dbi_read(padapter, 0x719);
+	RTW_PRINT_SEL(m, "ASPM L1:	%s\n", (tmp8 & BIT3) ? "Enable" : "Disable");
+
+	tmp8 = rtw_hal_pci_dbi_read(padapter, 0x718);
+	RTW_PRINT_SEL(m, "ASPM L1OFF:	%s\n", (tmp8 & BIT5) ? "Enable" : "Disable");
+
+	return 0;
+}
 
 int proc_get_rx_ring(struct seq_file *m, void *v)
 {
@@ -3756,6 +4081,7 @@ int proc_get_ps_info(struct seq_file *m, void *v)
 	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
 	u8 ips_mode = pwrpriv->ips_mode;
 	u8 lps_mode = pwrpriv->power_mgnt;
+	u8 lps_level = pwrpriv->lps_level;
 	char *str = "";
 
 	RTW_PRINT_SEL(m, "======Power Saving Info:======\n");
@@ -3797,6 +4123,15 @@ int proc_get_ps_info(struct seq_file *m, void *v)
 		RTW_PRINT_SEL(m, " DTIM: %d\n", pwrpriv->dtim);
 	RTW_PRINT_SEL(m, " LPS enter count:%d, LPS leave count:%d\n",
 		      pwrpriv->lps_enter_cnts, pwrpriv->lps_leave_cnts);
+
+	if (lps_level == LPS_LCLK)
+		str = "LPS_LCLK";
+	else if  (lps_level == LPS_PG)
+		str = "LPS_PG";
+	else
+		str = "LPS_NORMAL";
+	RTW_PRINT_SEL(m, " LPS level: %s\n", str);
+
 	RTW_PRINT_SEL(m, "=============================\n");
 	return 0;
 }
@@ -4250,6 +4585,52 @@ ssize_t proc_set_monitor(struct file *file, const char __user *buffer, size_t co
 
 	return count;
 }
+#ifdef DBG_XMIT_BLOCK
+int proc_get_xmit_block(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+
+	dump_xmit_block(m, padapter);
+
+	return 0;
+}
+
+ssize_t proc_set_xmit_block(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+	u8 xb_mode, xb_reason;
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+
+		int num = sscanf(tmp, "%hhx %hhx", &xb_mode, &xb_reason);
+
+		if (num != 2) {
+			RTW_INFO("invalid parameter!\n");
+			return count;
+		}
+
+		if (xb_mode == 0)/*set*/
+			rtw_set_xmit_block(padapter, xb_reason);
+		else if (xb_mode == 1)/*clear*/
+			rtw_clr_xmit_block(padapter, xb_reason);
+		else
+			RTW_INFO("invalid parameter!\n");
+	}
+
+	return count;
+}
+#endif
 
 #include <hal_data.h>
 int proc_get_efuse_map(struct seq_file *m, void *v)
@@ -5036,5 +5417,119 @@ ssize_t proc_set_mcc_sta_bw80_target_tp(struct file *file, const char __user *bu
 	return count;
 }
 #endif /* CONFIG_MCC_MODE */
+
+int proc_get_ack_timeout(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	u8 ack_timeout_val, ack_timeout_val_cck;
+
+	ack_timeout_val = rtw_read8(padapter, REG_ACKTO);
+
+#ifdef CONFIG_RTL8821C
+	ack_timeout_val_cck = rtw_read8(padapter, REG_ACKTO_CCK_8821C);
+	RTW_PRINT_SEL(m, "Current CCK packet ACK Timeout = %d us (0x%x).\n", ack_timeout_val_cck, ack_timeout_val_cck);
+	RTW_PRINT_SEL(m, "Current non-CCK packet ACK Timeout = %d us (0x%x).\n", ack_timeout_val, ack_timeout_val);
+#else
+	RTW_PRINT_SEL(m, "Current ACK Timeout = %d us (0x%x).\n", ack_timeout_val, ack_timeout_val);
+#endif
+
+	return 0;
+}
+
+ssize_t proc_set_ack_timeout(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+	u32 ack_timeout_ms, ack_timeout_ms_cck;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+		int num = sscanf(tmp, "%u %u", &ack_timeout_ms, &ack_timeout_ms_cck);
+
+#ifdef CONFIG_RTL8821C
+		if (num < 2) {
+			RTW_INFO(FUNC_ADPT_FMT ": input parameters < 2\n", FUNC_ADPT_ARG(padapter));
+			return -EINVAL;
+		}
+#else
+		if (num < 1) {
+			RTW_INFO(FUNC_ADPT_FMT ": input parameters < 1\n", FUNC_ADPT_ARG(padapter));
+			return -EINVAL;
+		}
+#endif
+		/* This register sets the Ack time out value after Tx unicast packet. It is in units of us. */
+		rtw_write8(padapter, REG_ACKTO, (u8)ack_timeout_ms);
+
+#ifdef CONFIG_RTL8821C
+		/* This register sets the Ack time out value after Tx unicast CCK packet. It is in units of us. */
+		rtw_write8(padapter, REG_ACKTO_CCK_8821C, (u8)ack_timeout_ms_cck);
+		RTW_INFO("Set CCK packet ACK Timeout to %d us.\n", ack_timeout_ms_cck);
+		RTW_INFO("Set non-CCK packet ACK Timeout to %d us.\n", ack_timeout_ms);
+#else
+		RTW_INFO("Set ACK Timeout to %d us.\n", ack_timeout_ms);
+#endif
+	}
+
+	return count;
+}
+
+ssize_t proc_set_iqk_fw_offload(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	_adapter *pri_adapter = GET_PRIMARY_ADAPTER(adapter);
+	HAL_DATA_TYPE *hal = GET_HAL_DATA(adapter);
+	char tmp[32];
+	u32 enable = 0;
+
+	if (buffer == NULL) {
+		RTW_INFO("input buffer is NULL!\n");
+		return -EFAULT;
+	}
+
+	if (count < 1) {
+		RTW_INFO("input length is 0!\n");
+		return -EFAULT;
+	}
+
+	if (count > sizeof(tmp)) {
+		RTW_INFO("input length is too large\n");
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+		int num = sscanf(tmp, "%d", &enable);
+
+		if (num < 1) {
+			RTW_INFO("input parameters < 1\n");
+			return -EINVAL;
+		}
+
+		if (hal->RegIQKFWOffload != enable) {
+			hal->RegIQKFWOffload = enable;
+			rtw_hal_update_iqk_fw_offload_cap(pri_adapter);
+		}
+	}
+
+	return count;
+}
+
+int proc_get_iqk_fw_offload(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	HAL_DATA_TYPE *hal = GET_HAL_DATA(adapter);
+
+
+	RTW_PRINT_SEL(m, "IQK FW offload:%s\n", hal->RegIQKFWOffload?"enable":"disable");
+	return 0;
+}
 
 #endif /* CONFIG_PROC_DEBUG */

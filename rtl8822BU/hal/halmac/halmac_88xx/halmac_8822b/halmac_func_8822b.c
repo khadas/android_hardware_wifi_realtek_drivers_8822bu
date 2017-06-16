@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #include "halmac_8822b_cfg.h"
 #if HALMAC_PLATFORM_WINDOWS
 /*SDIO RQPN Mapping for Windows, extra queue is not implemented in Driver code*/
@@ -5,11 +20,10 @@ HALMAC_RQPN HALMAC_RQPN_SDIO_8822B[] = {
 	/* { mode, vo_map, vi_map, be_map, bk_map, mg_map, hi_map } */
 	{HALMAC_TRX_MODE_NORMAL, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_TRXSHARE, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
+	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 };
 #else
 /*SDIO RQPN Mapping*/
@@ -17,11 +31,10 @@ HALMAC_RQPN HALMAC_RQPN_SDIO_8822B[] = {
 	/* { mode, vo_map, vi_map, be_map, bk_map, mg_map, hi_map } */
 	{HALMAC_TRX_MODE_NORMAL, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_TRXSHARE, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
+	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 };
 #endif
 
@@ -30,11 +43,10 @@ HALMAC_RQPN HALMAC_RQPN_PCIE_8822B[] = {
 	/* { mode, vo_map, vi_map, be_map, bk_map, mg_map, hi_map } */
 	{HALMAC_TRX_MODE_NORMAL, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_TRXSHARE, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
+	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 };
 
 /*USB 2 Bulkout RQPN Mapping*/
@@ -46,7 +58,6 @@ HALMAC_RQPN HALMAC_RQPN_2BULKOUT_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ,	HALMAC_MAP2_HQ},
 };
 
 /*USB 3 Bulkout RQPN Mapping*/
@@ -58,7 +69,6 @@ HALMAC_RQPN HALMAC_RQPN_3BULKOUT_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_HQ, HALMAC_MAP2_HQ},
 };
 
 /*USB 4 Bulkout RQPN Mapping*/
@@ -66,35 +76,33 @@ HALMAC_RQPN HALMAC_RQPN_4BULKOUT_8822B[] = {
 	/* { mode, vo_map, vi_map, be_map, bk_map, mg_map, hi_map } */
 	{HALMAC_TRX_MODE_NORMAL, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_TRXSHARE, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
+	{HALMAC_TRX_MODE_WMM, HALMAC_MAP2_HQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_NQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_P2P, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
-	{HALMAC_TRX_MODE_WMM_LINUX, HALMAC_MAP2_NQ, HALMAC_MAP2_NQ, HALMAC_MAP2_LQ, HALMAC_MAP2_LQ, HALMAC_MAP2_EXQ, HALMAC_MAP2_HQ},
 };
+
 #if HALMAC_PLATFORM_WINDOWS
 /*SDIO Page Number*/
 HALMAC_PG_NUM HALMAC_PG_NUM_SDIO_8822B[] = {
 	/* { mode, hq_num, nq_num, lq_num, exq_num, gap_num} */
 	{HALMAC_TRX_MODE_NORMAL, 64, 64, 64, 0, 1},
-	{HALMAC_TRX_MODE_TRXSHARE, 64, 64, 64, 0, 1},
+	{HALMAC_TRX_MODE_TRXSHARE, 32, 32, 32, 0, 1},
 	{HALMAC_TRX_MODE_WMM, 64, 64, 64, 0, 1},
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 0, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 0, 640},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 64, 0, 640},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 64, 0, 1},
 };
 #else
 /*SDIO Page Number*/
 HALMAC_PG_NUM HALMAC_PG_NUM_SDIO_8822B[] = {
 	/* { mode, hq_num, nq_num, lq_num, exq_num, gap_num} */
 	{HALMAC_TRX_MODE_NORMAL, 64, 64, 64, 64, 1},
-	{HALMAC_TRX_MODE_TRXSHARE, 64, 64, 64, 64, 1},
+	{HALMAC_TRX_MODE_TRXSHARE, 32, 32, 32, 32, 1},
 	{HALMAC_TRX_MODE_WMM, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 64, 640},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 64, 64, 640},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 64, 64, 1},
 };
 #endif
 
@@ -107,7 +115,6 @@ HALMAC_PG_NUM HALMAC_PG_NUM_PCIE_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 64, 640},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 64, 64, 640},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 64, 64, 1},
 };
 
 /*USB 2 Bulkout Page Number*/
@@ -119,7 +126,6 @@ HALMAC_PG_NUM HALMAC_PG_NUM_2BULKOUT_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, 64, 64, 0, 0, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 0, 0, 1024},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 0, 0, 1024},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 0, 0, 1},
 };
 
 /*USB 3 Bulkout Page Number*/
@@ -131,7 +137,6 @@ HALMAC_PG_NUM HALMAC_PG_NUM_3BULKOUT_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 0, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 0, 1024},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 64, 0, 1024},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 64, 0, 1},
 };
 
 /*USB 4 Bulkout Page Number*/
@@ -143,7 +148,6 @@ HALMAC_PG_NUM HALMAC_PG_NUM_4BULKOUT_8822B[] = {
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 64, 640},
 	{HALMAC_TRX_MODE_DELAY_LOOPBACK, 64, 64, 64, 64, 640},
-	{HALMAC_TRX_MODE_WMM_LINUX, 64, 64, 64, 64, 1},
 };
 
 HALMAC_RET_STATUS
@@ -161,11 +165,11 @@ halmac_txdma_queue_mapping_8822b(
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface) {
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_SDIO) {
 		pCurr_rqpn_Sel = HALMAC_RQPN_SDIO_8822B;
-	} else if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface) {
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_PCIE) {
 		pCurr_rqpn_Sel = HALMAC_RQPN_PCIE_8822B;
-	} else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface) {
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_USB) {
 		if (pHalmac_adapter->halmac_bulkout_num == 2) {
 			pCurr_rqpn_Sel = HALMAC_RQPN_2BULKOUT_8822B;
 		} else if (pHalmac_adapter->halmac_bulkout_num == 3) {
@@ -173,13 +177,15 @@ halmac_txdma_queue_mapping_8822b(
 		} else if (pHalmac_adapter->halmac_bulkout_num == 4) {
 			pCurr_rqpn_Sel = HALMAC_RQPN_4BULKOUT_8822B;
 		} else {
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "interface not support\n");
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "[ERR]interface not support\n");
 			return HALMAC_RET_NOT_SUPPORT;
 		}
+	} else {
+		return HALMAC_RET_NOT_SUPPORT;
 	}
 
 	status = halmac_rqpn_parser_88xx(pHalmac_adapter, halmac_trx_mode, pCurr_rqpn_Sel);
-	if (HALMAC_RET_SUCCESS != status)
+	if (status != HALMAC_RET_SUCCESS)
 		return status;
 
 	value16 = 0;
@@ -211,21 +217,19 @@ halmac_priority_queue_config_8822b(
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
-	if (HALMAC_LA_MODE_DISABLE == pHalmac_adapter->txff_allocation.la_mode) {
-		if (HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE == pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode) {
+	if (pHalmac_adapter->txff_allocation.la_mode == HALMAC_LA_MODE_DISABLE) {
+		if (pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode == HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE) {
 			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-		} else if (HALMAC_RX_FIFO_EXPANDING_MODE_1_BLOCK == pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode) {
+		} else if (pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode == HALMAC_RX_FIFO_EXPANDING_MODE_1_BLOCK) {
 			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-			pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B;
-		} else if (HALMAC_RX_FIFO_EXPANDING_MODE_2_BLOCK == pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode) {
-			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_2_BLOCK_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-			pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_2_BLOCK_8822B;
-		} else if (HALMAC_RX_FIFO_EXPANDING_MODE_3_BLOCK == pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode) {
-			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_3_BLOCK_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-			pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_3_BLOCK_8822B;
+			pHalmac_adapter->hw_config_info.tx_fifo_size = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B;
+			if (HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B <= HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_MAX_8822B)
+				pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B;
+			else
+				pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_MAX_8822B;
 		} else {
 			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "rx_fifo_expanding_mode = %d not support\n", pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode);
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "[ERR]rx_fifo_expanding_mode = %d not support\n", pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode);
 		}
 	} else {
 		pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_LA_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
@@ -246,11 +250,11 @@ halmac_priority_queue_config_8822b(
 	pHalmac_adapter->txff_allocation.rsvd_h2c_extra_info_pg_bndy = pHalmac_adapter->txff_allocation.rsvd_h2c_queue_pg_bndy - HALMAC_RSVD_H2C_EXTRAINFO_PGNUM_8822B;
 	pHalmac_adapter->txff_allocation.rsvd_drv_pg_bndy = pHalmac_adapter->txff_allocation.rsvd_h2c_extra_info_pg_bndy - pHalmac_adapter->txff_allocation.rsvd_drv_pg_num;
 
-	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface) {
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_SDIO) {
 		pCurr_pg_num = HALMAC_PG_NUM_SDIO_8822B;
-	} else if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface) {
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_PCIE) {
 		pCurr_pg_num = HALMAC_PG_NUM_PCIE_8822B;
-	} else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface) {
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_USB) {
 		if (pHalmac_adapter->halmac_bulkout_num == 2) {
 			pCurr_pg_num = HALMAC_PG_NUM_2BULKOUT_8822B;
 		} else if (pHalmac_adapter->halmac_bulkout_num == 3) {
@@ -258,16 +262,16 @@ halmac_priority_queue_config_8822b(
 		} else if (pHalmac_adapter->halmac_bulkout_num == 4) {
 			pCurr_pg_num = HALMAC_PG_NUM_4BULKOUT_8822B;
 		} else {
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "interface not support\n");
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "[ERR]interface not support\n");
 			return HALMAC_RET_NOT_SUPPORT;
 		}
+	} else {
+		return HALMAC_RET_NOT_SUPPORT;
 	}
 
 	status = halmac_pg_num_parser_88xx(pHalmac_adapter, halmac_trx_mode, pCurr_pg_num);
-	if (HALMAC_RET_SUCCESS != status)
+	if (status != HALMAC_RET_SUCCESS)
 		return status;
-
-	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "Set FIFO page\n");
 
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_INFO_1, pHalmac_adapter->txff_allocation.high_queue_pg_num);
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_INFO_2, pHalmac_adapter->txff_allocation.low_queue_pg_num);
@@ -285,14 +289,19 @@ halmac_priority_queue_config_8822b(
 
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_CTRL_2, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCN_HEAD_1_V1));
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
+
+	/*20170223 Soar*/
+	/*SDIO sometimes use two CMD52 to do HALMAC_REG_WRITE_16 and may cause a mismatch between HW status and Reg value.*/
+	/*A patch is to write it again*/
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_SDIO)
+		HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
+
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_CTRL_2 + 2, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCN_HEAD_1_V1));
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ1_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
 
-	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_RXFF_BNDY, pHalmac_adapter->hw_config_info.rx_fifo_size - HALMAC_WOWLAN_PATTERN_SIZE_8822B - 1);
+	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_RXFF_BNDY, pHalmac_adapter->hw_config_info.rx_fifo_size - HALMAC_C2H_PKT_BUF_8822B - 1);
 
-	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "Init LLT table\n");
-
-	if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface) {
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_USB) {
 		value8 = (u8)(HALMAC_REG_READ_8(pHalmac_adapter, REG_AUTO_LLT_V1) & ~(BIT_MASK_BLK_DESC_NUM << BIT_SHIFT_BLK_DESC_NUM));
 		value8 = (u8)(value8 | (HALMAC_BLK_DESC_NUM_8822B << BIT_SHIFT_BLK_DESC_NUM));
 		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_AUTO_LLT_V1, value8);
@@ -309,13 +318,14 @@ halmac_priority_queue_config_8822b(
 			return HALMAC_RET_INIT_LLT_FAIL;
 	}
 
-	if (HALMAC_TRX_MODE_DELAY_LOOPBACK == halmac_trx_mode) {
+	if (halmac_trx_mode == HALMAC_TRX_MODE_DELAY_LOOPBACK) {
 		transfer_mode = HALMAC_TRNSFER_LOOPBACK_DELAY;
 		HALMAC_REG_WRITE_16(pHalmac_adapter, REG_WMAC_LBK_BUF_HD_V1, (u16)pHalmac_adapter->txff_allocation.rsvd_pg_bndy);
-	} else if (HALMAC_TRX_MODE_LOOPBACK == halmac_trx_mode)
+	} else if (halmac_trx_mode == HALMAC_TRX_MODE_LOOPBACK) {
 		transfer_mode = HALMAC_TRNSFER_LOOPBACK_DIRECT;
-	else
+	} else {
 		transfer_mode = HALMAC_TRNSFER_NORMAL;
+	}
 
 	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_CR + 3, (u8)transfer_mode);
 

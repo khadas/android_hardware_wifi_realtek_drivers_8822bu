@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #define _HAL_INTF_C_
 
@@ -44,8 +39,17 @@ void rtw_hal_chip_configure(_adapter *padapter)
 	padapter->hal_func.intf_chip_configure(padapter);
 }
 
-void rtw_hal_read_chip_info(_adapter *padapter)
+/*
+ * Description:
+ *	Read chip internal ROM data
+ *
+ * Return:
+ *	_SUCCESS success
+ *	_FAIL	 fail
+ */
+u8 rtw_hal_read_chip_info(_adapter *padapter)
 {
+	u8 rtn = _SUCCESS;
 	u8 hci_type = rtw_get_intf_type(padapter);
 	u32 start = rtw_get_current_time();
 
@@ -54,13 +58,15 @@ void rtw_hal_read_chip_info(_adapter *padapter)
 	    && !rtw_is_hw_init_completed(padapter))
 		rtw_hal_power_on(padapter);
 
-	padapter->hal_func.read_adapter_info(padapter);
+	rtn = padapter->hal_func.read_adapter_info(padapter);
 
 	if ((hci_type == RTW_SDIO || hci_type == RTW_GSPI)
 	    && !rtw_is_hw_init_completed(padapter))
 		rtw_hal_power_off(padapter);
 
 	RTW_INFO("%s in %d ms\n", __func__, rtw_get_passing_time_ms(start));
+
+	return rtn;
 }
 
 void rtw_hal_read_chip_version(_adapter *padapter)
@@ -157,13 +163,26 @@ void rtw_hal_sw_led_deinit(_adapter *padapter)
 
 u32 rtw_hal_power_on(_adapter *padapter)
 {
-	return padapter->hal_func.hal_power_on(padapter);
+	u32 ret = 0;
+
+	ret = padapter->hal_func.hal_power_on(padapter);
+
+#ifdef CONFIG_BT_COEXIST
+	if (ret == _SUCCESS)
+		rtw_btcoex_PowerOnSetting(padapter);
+#endif
+
+	return ret;
 }
 void rtw_hal_power_off(_adapter *padapter)
 {
 	struct macid_ctl_t *macid_ctl = &padapter->dvobj->macid_ctl;
 
 	_rtw_memset(macid_ctl->h2c_msr, 0, MACID_NUM_SW_LIMIT);
+
+#ifdef CONFIG_BT_COEXIST
+	rtw_btcoex_PowerOffSetting(padapter);
+#endif
 
 	padapter->hal_func.hal_power_off(padapter);
 }
@@ -308,6 +327,19 @@ s32 rtw_hal_fw_dl(_adapter *padapter, u8 wowlan)
 	return padapter->hal_func.fw_dl(padapter, wowlan);
 }
 
+#ifdef RTW_HALMAC
+s32 rtw_hal_fw_mem_dl(_adapter *padapter, enum fw_mem mem)
+{
+	u32 dlfw_start_time = rtw_get_current_time();
+	s32 rst = _FALSE;
+
+	rst = padapter->hal_func.fw_mem_dl(padapter, mem);
+	RTW_INFO("%s in %dms\n", __func__, rtw_get_passing_time_ms(dlfw_start_time));
+
+	return rst;
+}
+#endif
+
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)
 void rtw_hal_clear_interrupt(_adapter *padapter)
 {
@@ -339,6 +371,58 @@ void	rtw_hal_irp_reset(_adapter *padapter)
 {
 	padapter->hal_func.irp_reset(GET_PRIMARY_ADAPTER(padapter));
 }
+
+void rtw_hal_pci_dbi_write(_adapter *padapter, u16 addr, u8 data)
+{
+	u16 cmd[2];
+
+	cmd[0] = addr;
+	cmd[1] = data;
+
+	padapter->hal_func.set_hw_reg_handler(padapter, HW_VAR_DBI, (u8 *) cmd);
+}
+
+u8 rtw_hal_pci_dbi_read(_adapter *padapter, u16 addr)
+{
+	padapter->hal_func.GetHwRegHandler(padapter, HW_VAR_DBI, (u8 *)(&addr));
+
+	return (u8)addr;
+}
+
+void rtw_hal_pci_mdio_write(_adapter *padapter, u8 addr, u16 data)
+{
+	u16 cmd[2];
+
+	cmd[0] = (u16)addr;
+	cmd[1] = data;
+
+	padapter->hal_func.set_hw_reg_handler(padapter, HW_VAR_MDIO, (u8 *) cmd);
+}
+
+u16 rtw_hal_pci_mdio_read(_adapter *padapter, u8 addr)
+{
+	padapter->hal_func.GetHwRegHandler(padapter, HW_VAR_MDIO, &addr);
+
+	return (u8)addr;
+}
+
+u8 rtw_hal_pci_l1off_nic_support(_adapter *padapter)
+{
+	u8 l1off;
+
+	padapter->hal_func.GetHwRegHandler(padapter, HW_VAR_L1OFF_NIC_SUPPORT, &l1off);
+	return l1off;
+}
+
+u8 rtw_hal_pci_l1off_capability(_adapter *padapter)
+{
+	u8 l1off;
+
+	padapter->hal_func.GetHwRegHandler(padapter, HW_VAR_L1OFF_CAPABILITY, &l1off);
+	return l1off;
+}
+
+
 #endif /* #if defined(CONFIG_PCI_HCI) */
 
 /* for USB Auto-suspend */
@@ -419,11 +503,81 @@ void	rtw_hal_free_recv_priv(_adapter *padapter)
 {
 	padapter->hal_func.free_recv_priv(padapter);
 }
-void rtw_update_ramask(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level)
+
+void rtw_update_ramask(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level, u8 is_update_bw)
 {
-	padapter->hal_func.UpdateRAMaskHandler(padapter, psta, psta->mac_id, rssi_level);
+	struct macid_cfg h2c_macid_cfg;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+	struct macid_ctl_t *macid_ctl = dvobj_to_macidctl(dvobj);
+	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	HAL_DATA_TYPE	*hal_data = GET_HAL_DATA(padapter);
+	u8 disable_cck_rate = FALSE, MimoPs_enable = FALSE;
+	u32 ratr_bitmap_msb = 0, ratr_bitmap_lsb = 0;
+	u64	mask = 0, rate_bitmap = 0;
+	u8 bw, short_gi;
+
+	if (psta == NULL) {
+		RTW_ERR(FUNC_ADPT_FMT" macid:%u, sta is NULL\n", FUNC_ADPT_ARG(padapter), mac_id);
+		rtw_warn_on(1);
+		return;
+	}
+	_rtw_memset(&h2c_macid_cfg, 0, sizeof(struct macid_cfg));
+
+	bw =  rtw_get_tx_bw_mode(padapter, psta);
+	short_gi = query_ra_short_GI(psta, bw);
+
+	ratr_bitmap_msb = (u32)(psta->ra_mask >> 32);
+	ratr_bitmap_lsb = (u32)(psta->ra_mask);
+
+	phydm_update_hal_ra_mask(&hal_data->odmpriv, psta->wireless_mode, hal_data->rf_type, bw, MimoPs_enable, disable_cck_rate, &ratr_bitmap_msb, &ratr_bitmap_lsb, rssi_level);
+	mask = (((u64)ratr_bitmap_msb) << 32) | ((u64)ratr_bitmap_lsb);
+
+
+#ifdef CONFIG_BT_COEXIST
+	if (hal_data->EEPROMBluetoothCoexist == 1) {
+		rate_bitmap = rtw_btcoex_GetRaMask(padapter);
+		mask &= ~rate_bitmap;
+	}
+#endif /* CONFIG_BT_COEXIST */
+
+#ifdef CONFIG_CMCC_TEST
+#ifdef CONFIG_BT_COEXIST
+	if (pmlmeext->cur_wireless_mode & WIRELESS_11G) {
+		if (mac_id == 0) {
+			RTW_INFO("CMCC_BT update raid entry, mask=0x%x\n", mask);
+			/*mask &=0xffffffc0; //disable CCK & <12M OFDM rate for 11G mode for CMCC */
+			mask &= 0xffffff00; /*disable CCK & <24M OFDM rate for 11G mode for CMCC */
+			RTW_INFO("CMCC_BT update raid entry, mask=0x%x\n", mask);
+		}
+	}
+#endif
+#endif
+
+	/*set correct initial date rate for each mac_id */
+	hal_data->INIDATA_RATE[mac_id] = psta->init_rate;
+
+
+	RTW_INFO("%s => mac_id:%d, networkType:0x%02x, mask:0x%016llx\n\t ==> rssi_level:%d, rate_bitmap:0x%016llx, shortGIrate=%d\n\t ==> bw:%d, ignore_bw:0x%d\n",
+			__func__, mac_id, psta->wireless_mode, mask, rssi_level, rate_bitmap, short_gi, bw, (!is_update_bw));
+
+	rtw_macid_ctl_set_bw(macid_ctl, mac_id, bw);
+	rtw_macid_ctl_set_vht_en(macid_ctl, mac_id, is_supported_vht(psta->wireless_mode));
+	rtw_macid_ctl_set_rate_bmp0(macid_ctl, mac_id, mask);
+	rtw_macid_ctl_set_rate_bmp1(macid_ctl, mac_id, mask >> 32);
+	rtw_update_tx_rate_bmp(adapter_to_dvobj(padapter));
+
+	h2c_macid_cfg.mac_id = mac_id;
+	h2c_macid_cfg.rate_id = psta->raid;
+	h2c_macid_cfg.bandwidth = bw;
+	h2c_macid_cfg.ignore_bw = (!is_update_bw);
+	h2c_macid_cfg.short_gi = short_gi;
+	h2c_macid_cfg.ra_mask = mask;
+
+	padapter->hal_func.update_ra_mask_handler(padapter, psta, &h2c_macid_cfg);
 }
-void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level)
+
+void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level, u8 is_update_bw)
 {
 	_adapter *padapter;
 	struct mlme_priv *pmlmepriv;
@@ -436,10 +590,10 @@ void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level)
 	pmlmepriv = &(padapter->mlmepriv);
 
 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
-		add_RATid(padapter, psta, rssi_level);
+		add_RATid(padapter, psta, rssi_level, is_update_bw);
 	else {
 		psta->raid = rtw_hal_networktype_to_raid(padapter, psta);
-		rtw_update_ramask(padapter, psta, psta->mac_id, rssi_level);
+		rtw_update_ramask(padapter, psta, psta->mac_id, rssi_level, is_update_bw);
 	}
 }
 
@@ -541,7 +695,7 @@ void	rtw_hal_set_chnl_bw(_adapter *padapter, u8 channel, CHANNEL_WIDTH Bandwidth
 	odm_release_spin_lock(pDM_Odm, RT_IQK_SPINLOCK);
 
 	/* MP mode channel don't use secondary channel */
-	if (rtw_mi_mp_mode_check(padapter) == _FALSE) {
+	if (rtw_mp_mode_check(padapter) == _FALSE) {
 		#if 0
 		if (cch_160 != 0)
 			cch_80 = rtw_get_scch_by_cch_offset(cch_160, CHANNEL_WIDTH_160, Offset80);
@@ -584,7 +738,7 @@ void	rtw_hal_dm_watchdog(_adapter *padapter)
 			return;
 	}
 #endif /* CONFIG_MCC_MODE */
-
+	rtw_hal_turbo_edca(padapter);
 	padapter->hal_func.hal_dm_watchdog(padapter);
 
 }
@@ -593,7 +747,7 @@ void	rtw_hal_dm_watchdog(_adapter *padapter)
 void	rtw_hal_dm_watchdog_in_lps(_adapter *padapter)
 {
 #if defined(CONFIG_CONCURRENT_MODE)
-#ifndef CONFIG_SUPPORT_FW_MULTI_PORT
+#ifndef CONFIG_FW_MULTI_PORT_SUPPORT
 	if (padapter->hw_port != HW_PORT0)
 		return;
 #endif
@@ -755,9 +909,6 @@ s32 c2h_handler(_adapter *adapter, u8 id, u8 seq, u8 plen, u8 *payload)
 	s32 ret = _SUCCESS;
 
 	switch (id) {
-	case C2H_DBG:
-		RTW_INFO_DUMP("C2H_DBG: ", payload, plen);
-		break;
 	case C2H_FW_SCAN_COMPLETE:
 		RTW_INFO("[C2H], FW Scan Complete\n");
 		break;
@@ -860,6 +1011,8 @@ s32 rtw_hal_c2h_id_handle_directly(_adapter *adapter, u8 id, u8 seq, u8 plen, u8
 	case C2H_IQK_FINISH:
 	case C2H_MCC:
 	case C2H_BCN_EARLY_RPT:
+	case C2H_AP_REQ_TXRPT:
+	case C2H_SPC_STAT:
 		return _TRUE;
 	default:
 		return _FALSE;
@@ -920,7 +1073,7 @@ s32 rtw_hal_fill_h2c_cmd(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBu
 {
 	_adapter *pri_adapter = GET_PRIMARY_ADAPTER(padapter);
 
-	if (pri_adapter->bFWReady == _TRUE)
+	if (GET_HAL_DATA(pri_adapter)->bFWReady == _TRUE)
 		return padapter->hal_func.fill_h2c_cmd(padapter, ElementID, CmdLen, pCmdBuffer);
 	else if (padapter->registrypriv.mp_mode == 0)
 		RTW_PRINT(FUNC_ADPT_FMT" FW doesn't exit when no MP mode, by pass H2C id:0x%02x\n"
@@ -1193,8 +1346,8 @@ u8 rtw_hal_ops_check(_adapter *padapter)
 		rtw_hal_error_msg("SetHalODMVarHandler");
 		ret = _FAIL;
 	}
-	if (NULL == padapter->hal_func.UpdateRAMaskHandler) {
-		rtw_hal_error_msg("UpdateRAMaskHandler");
+	if (NULL == padapter->hal_func.update_ra_mask_handler) {
+		rtw_hal_error_msg("update_ra_mask_handler");
 		ret = _FAIL;
 	}
 
@@ -1244,6 +1397,13 @@ u8 rtw_hal_ops_check(_adapter *padapter)
 		rtw_hal_error_msg("fw_dl");
 		ret = _FAIL;
 	}
+
+#if defined(RTW_HALMAC) && defined(CONFIG_LPS_PG)
+	if (NULL == padapter->hal_func.fw_mem_dl) {
+		rtw_hal_error_msg("fw_mem_dl");
+		ret = _FAIL;
+	}
+#endif
 
 	if ((IS_HARDWARE_TYPE_8814A(padapter)
 	     || IS_HARDWARE_TYPE_8822BU(padapter) || IS_HARDWARE_TYPE_8822BS(padapter))

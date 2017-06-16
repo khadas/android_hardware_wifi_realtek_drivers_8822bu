@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /*
 ============================================================
@@ -41,6 +36,7 @@ void phydm_radar_detect_disable(void *p_dm_void)
 	struct PHY_DM_STRUCT *p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 
 	odm_set_bb_reg(p_dm_odm, 0x924, BIT(15), 0);
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("\n"));
 }
 
 static void phydm_radar_detect_with_dbg_parm(void *p_dm_void)
@@ -59,10 +55,12 @@ void phydm_radar_detect_enable(void *p_dm_void)
 	struct PHY_DM_STRUCT *p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u8 region_domain = p_dm_odm->dfs_region_domain;
 	u8 c_channel = *(p_dm_odm->p_channel);
+	u8 band_width = *(p_dm_odm->p_band_width);
+	u8 enable = 0;
 
 	if (region_domain == PHYDM_DFS_DOMAIN_UNKNOWN) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("PHYDM_DFS_DOMAIN_UNKNOWN\n"));
-		return;
+		goto exit;
 	}
 
 	if (p_dm_odm->support_ic_type & (ODM_RTL8821 | ODM_RTL8812 | ODM_RTL8881A)) {
@@ -72,6 +70,7 @@ void phydm_radar_detect_enable(void *p_dm_void)
 
 		if (p_dm_odm->radar_detect_dbg_parm_en) {
 			phydm_radar_detect_with_dbg_parm(p_dm_odm);
+			enable = 1;
 			goto exit;
 		}
 
@@ -90,7 +89,7 @@ void phydm_radar_detect_enable(void *p_dm_void)
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x0f141a20);
 			} else {
 				odm_set_bb_reg(p_dm_odm, 0x918, MASKDWORD, 0x1c16acdf);
-				if (p_dm_odm->p_band_width == ODM_BW20M)
+				if (band_width == ODM_BW20M)
 					odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x64721a20);
 				else
 					odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x68721a20);
@@ -100,23 +99,25 @@ void phydm_radar_detect_enable(void *p_dm_void)
 			odm_set_bb_reg(p_dm_odm, 0x918, MASKDWORD, 0x1c16acdf);
 			odm_set_bb_reg(p_dm_odm, 0x924, MASKDWORD, 0x01528500);
 			odm_set_bb_reg(p_dm_odm, 0x920, MASKDWORD, 0xe0d67231);
-			if (p_dm_odm->p_band_width == ODM_BW20M)
+			if (band_width == ODM_BW20M)
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x64741a20);
 			else
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x68741a20);
+
 		} else {
 			/* not supported */
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("Unsupported dfs_region_domain:%d\n", region_domain));
+			goto exit;
 		}
 
-	} else if (p_dm_odm->support_ic_type & (ODM_RTL8814A | ODM_RTL8822B)) {
+	} else if (p_dm_odm->support_ic_type & (ODM_RTL8814A | ODM_RTL8822B | ODM_RTL8821C)) {
 
 		odm_set_bb_reg(p_dm_odm, 0x814, 0x3fffffff, 0x04cc4d10);
 		odm_set_bb_reg(p_dm_odm, 0x834, MASKBYTE0, 0x06);
 
 		/* 8822B only, when BW = 20M, DFIR output is 40Mhz, but DFS input is 80MMHz, so it need to upgrade to 80MHz */
-		if (p_dm_odm->support_ic_type & ODM_RTL8822B) {
-			if (p_dm_odm->p_band_width == ODM_BW20M)
+		if (p_dm_odm->support_ic_type & (ODM_RTL8822B | ODM_RTL8821C)) {
+			if (band_width == ODM_BW20M)
 				odm_set_bb_reg(p_dm_odm, 0x1984, BIT(26), 1);
 			else
 				odm_set_bb_reg(p_dm_odm, 0x1984, BIT(26), 0);
@@ -124,6 +125,7 @@ void phydm_radar_detect_enable(void *p_dm_void)
 
 		if (p_dm_odm->radar_detect_dbg_parm_en) {
 			phydm_radar_detect_with_dbg_parm(p_dm_odm);
+			enable = 1;
 			goto exit;
 		}
 
@@ -142,37 +144,47 @@ void phydm_radar_detect_enable(void *p_dm_void)
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x0f141a20);
 			} else {
 				odm_set_bb_reg(p_dm_odm, 0x918, MASKDWORD, 0x1c166cdf);
-				if (p_dm_odm->p_band_width == ODM_BW20M)
+				if (band_width == ODM_BW20M)
 					odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x64721a20);
 				else
 					odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x68721a20);
 			}
+
 		} else if (region_domain == PHYDM_DFS_DOMAIN_FCC) {
 			odm_set_bb_reg(p_dm_odm, 0x918, MASKDWORD, 0x1c166cdf);
 			odm_set_bb_reg(p_dm_odm, 0x924, MASKDWORD, 0x095a8500);
 			odm_set_bb_reg(p_dm_odm, 0x920, MASKDWORD, 0xe0d67231);
-			if (p_dm_odm->p_band_width == ODM_BW20M)
+			if (band_width == ODM_BW20M)
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x64741a20);
 			else
 				odm_set_bb_reg(p_dm_odm, 0x91c, MASKDWORD, 0x68741a20);
+
 		} else {
 			/* not supported */
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("Unsupported dfs_region_domain:%d\n", region_domain));
+			goto exit;
 		}
 	} else {
 		/* not supported IC type*/
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("Unsupported IC type:%d\n", p_dm_odm->support_ic_type));
+		goto exit;
 	}
 
+	enable = 1;
+
 exit:
-	phydm_radar_detect_reset(p_dm_odm);
+	if (enable) {
+		phydm_radar_detect_reset(p_dm_odm);
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DFS, ODM_DBG_LOUD, ("on cch:%u, bw:%u\n", c_channel, band_width));
+	} else
+		phydm_radar_detect_disable(p_dm_odm);
 }
 
-bool phydm_radar_detect(void *p_dm_void)
+boolean phydm_radar_detect(void *p_dm_void)
 {
 	struct PHY_DM_STRUCT *p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	bool enable_DFS = false;
-	bool radar_detected = false;
+	boolean enable_DFS = false;
+	boolean radar_detected = false;
 	u8 region_domain = p_dm_odm->dfs_region_domain;
 
 	if (region_domain == PHYDM_DFS_DOMAIN_UNKNOWN) {
@@ -200,7 +212,7 @@ exit:
 }
 #endif /* defined(CONFIG_PHYDM_DFS_MASTER) */
 
-bool
+boolean
 phydm_dfs_master_enabled(
 	void		*p_dm_void
 )
@@ -223,13 +235,13 @@ phydm_dfs_debug(
 	u32		*_out_len
 )
 {
+#if defined(CONFIG_PHYDM_DFS_MASTER)
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u32 used = *_used;
 	u32 out_len = *_out_len;
 
 	switch (argv[0]) {
 	case 1:
-#if defined(CONFIG_PHYDM_DFS_MASTER)
 		/* set dbg parameters for radar detection instead of the default value */
 		if (argv[1] == 1) {
 			p_dm_odm->radar_detect_reg_918 = argv[2];
@@ -248,10 +260,10 @@ phydm_dfs_debug(
 			PHYDM_SNPRINTF((output + used, out_len - used, "Radar detection with default parameter\n"));
 		}
 		phydm_radar_detect_enable(p_dm_odm);
-#endif /* defined(CONFIG_PHYDM_DFS_MASTER) */
 
 		break;
 	default:
 		break;
 	}
+#endif /* defined(CONFIG_PHYDM_DFS_MASTER) */
 }

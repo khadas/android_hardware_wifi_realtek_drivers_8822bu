@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 
 #if (BT_SUPPORT == 1 && COEX_SUPPORT == 1)
 
@@ -176,7 +190,9 @@ enum bt_8821c_2ant_phase {
 enum bt_8821c_2ant_Scoreboard {
 	BT_8821C_2ANT_SCOREBOARD_ACTIVE								= BIT(0),
 	BT_8821C_2ANT_SCOREBOARD_ONOFF								= BIT(1),
-	BT_8821C_2ANT_SCOREBOARD_SCAN								= BIT(2)
+	BT_8821C_2ANT_SCOREBOARD_SCAN								= BIT(2),
+	BT_8821C_2ANT_SCOREBOARD_UNDERTEST							= BIT(3),
+	BT_8821C_2ANT_SCOREBOARD_WLBUSY								= BIT(6)
 };
 
 
@@ -268,21 +284,21 @@ struct coex_sta_8821c_2ant {
 	u32					high_priority_rx;
 	u32					low_priority_tx;
 	u32					low_priority_rx;
+	boolean             is_hiPri_rx_overhead;
 	u8					bt_rssi;
-	boolean					bt_tx_rx_mask;
 	u8					pre_bt_rssi_state;
 	u8					pre_wifi_rssi_state[4];
-	boolean					c2h_bt_info_req_sent;
 	u8					bt_info_c2h[BT_INFO_SRC_8821C_2ANT_MAX][10];
 	u32					bt_info_c2h_cnt[BT_INFO_SRC_8821C_2ANT_MAX];
 	boolean				bt_whck_test;
 	boolean					c2h_bt_inquiry_page;
 	boolean					c2h_bt_remote_name_req;
-	u8					bt_retry_cnt;
+
 	u8					bt_info_ext;
 	u8					bt_info_ext2;
 	u32					pop_event_cnt;
 	u8					scan_ap_num;
+	u8					bt_retry_cnt;
 
 	u32					crc_ok_cck;
 	u32					crc_ok_11g;
@@ -317,7 +333,6 @@ struct coex_sta_8821c_2ant {
 
 	u8					num_of_profile;
 	boolean				acl_busy;
-	boolean				wl_rf_off_on_event;
 	boolean				bt_create_connection;
 	boolean				wifi_is_high_pri_task;
 	u32					specific_pkt_period_cnt;
@@ -325,7 +340,7 @@ struct coex_sta_8821c_2ant {
 	u32					bt_coex_supported_version;
 
 	u8					bt_ble_scan_type;
-	u8					bt_ble_scan_para[3];
+	u32					bt_ble_scan_para[3];
 
 	boolean				run_time_state;
 	boolean				freeze_coexrun_by_btinfo;
@@ -343,11 +358,19 @@ struct coex_sta_8821c_2ant {
 	u32					cnt_ReInit;
 	u32					cnt_IgnWlanAct;
 	u32					cnt_Page;
+	u32					cnt_RoleSwitch;
 
 	u16					bt_reg_vendor_ac;
 	u16					bt_reg_vendor_ae;
 
 	boolean				is_setupLink;
+	u8				    wl_noisy_level;
+	u32                 gnt_error_cnt;
+
+	u8					bt_afh_map[10];
+	u8					bt_relink_downcount;
+	boolean				is_tdma_btautoslot;
+	boolean				is_tdma_btautoslot_hang;
 };
 
 
@@ -365,6 +388,8 @@ struct rfe_type_8821c_2ant {
 	boolean		ext_band_switch_exist;
 	u8			ext_band_switch_type;			/* 0:DPDT, 1:SPDT */
 	u8			ext_band_switch_ctrl_polarity;
+
+	boolean		ant_at_main_port;
 
 	boolean		wlg_Locate_at_btg;				/*  If true:  WLG at BTG, If false: WLG at WLAG */
 
@@ -475,4 +500,5 @@ void ex_halbtc8821c2ant_display_ant_detection(IN struct btc_coexist *btcoexist);
 #endif
 
 #endif
+
 

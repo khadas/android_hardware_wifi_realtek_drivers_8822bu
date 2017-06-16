@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -436,19 +431,16 @@ phydm_dynamic_tx_path_init(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _ODM_PATH_DIVERSITY_		*p_dm_path_div  = &(p_dm_odm->dm_path_div);
 	struct _ADAPTER		*p_adapter = p_dm_odm->adapter;
-#if ((DM_ODM_SUPPORT_TYPE == ODM_WIN) && USB_SWITCH_SUPPORT)
-	USB_MODE_MECH	*p_usb_mode_mech = &p_adapter->usb_mode_mechanism;
-#endif
 	u8			search_space_2[NUM_CHOOSE2_FROM4] = {PHYDM_AB, PHYDM_AC, PHYDM_AD, PHYDM_BC, PHYDM_BD, PHYDM_CD };
 	u8			search_space_3[NUM_CHOOSE3_FROM4] = {PHYDM_BCD, PHYDM_ACD,  PHYDM_ABD, PHYDM_ABC};
 
 #if ((DM_ODM_SUPPORT_TYPE == ODM_WIN) && USB_SWITCH_SUPPORT)
-	p_dm_path_div->is_u3_mode = (p_usb_mode_mech->cur_usb_mode == USB_MODE_U3) ? 1 : 0 ;
+	p_dm_path_div->is_u3_mode = (*p_dm_odm->hub_usb_mode == 2) ? 1 : 0 ;
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_PATH_DIV, ODM_DBG_LOUD, ("[WIN USB] is_u3_mode = (( %d ))\n", p_dm_path_div->is_u3_mode));
 #else
 	p_dm_path_div->is_u3_mode = 1;
 #endif
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_PATH_DIV, ODM_DBG_LOUD, ("Dynamic TX path Init 8814\n"));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_PATH_DIV, ODM_DBG_LOUD, ("is_u3_mode = (( %d ))\n", p_dm_path_div->is_u3_mode));
 
 	memcpy(&(p_dm_path_div->search_space_2[0]), &(search_space_2[0]), NUM_CHOOSE2_FROM4);
 	memcpy(&(p_dm_path_div->search_space_3[0]), &(search_space_3[0]), NUM_CHOOSE3_FROM4);
@@ -621,7 +613,7 @@ odm_path_diversity_init(
 
 	/*p_dm_odm->support_ability |= ODM_BB_PATH_DIV;*/
 
-	if (p_dm_odm->mp_mode == true)
+	if (*(p_dm_odm->p_mp_mode) == true)
 		return;
 
 	if (!(p_dm_odm->support_ability & ODM_BB_PATH_DIV)) {

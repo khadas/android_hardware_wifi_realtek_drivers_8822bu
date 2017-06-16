@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_MP_C_
 #include <drv_types.h>
 #ifdef PLATFORM_FREEBSD
@@ -595,12 +590,12 @@ static u8 PHY_QueryRFPathSwitch(PADAPTER padapter)
 	} else
 */
 
-/*	if (IS_HARDWARE_TYPE_8821C(padapter)) {
+	if (IS_HARDWARE_TYPE_8821C(padapter)) {
 #ifdef CONFIG_RTL8821C
-		bmain = PHY_QueryRFPathSwitch_8821C(padapter);
+		bmain = phy_query_rf_path_switch_8821c(padapter);
 #endif
 	}
-*/
+
 	return bmain;
 }
 
@@ -671,7 +666,7 @@ MPT_InitializeAdapter(
 	pMptCtx->MptH2cRspEvent = _FALSE;
 	pMptCtx->MptBtC2hEvent = _FALSE;
 	_rtw_init_sema(&pMptCtx->MPh2c_Sema, 0);
-	_init_timer(&pMptCtx->MPh2c_timeout_timer, pAdapter->pnetdev, MPh2c_timeout_handle, pAdapter);
+	rtw_init_timer(&pMptCtx->MPh2c_timeout_timer, pAdapter, MPh2c_timeout_handle, pAdapter);
 #endif
 
 	mpt_InitHWConfig(pAdapter);
@@ -818,46 +813,39 @@ void rtw_mp_trigger_lck(PADAPTER padapter)
 	PHY_LCCalibrate(padapter);
 }
 
-static void disable_dm(PADAPTER padapter)
+static void init_mp_data(PADAPTER padapter)
 {
 	u8 v8;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	struct PHY_DM_STRUCT		*pDM_Odm = &pHalData->odmpriv;
 
-	/* 3 1. disable firmware dynamic mechanism */
-	/* disable Power Training, Rate Adaptive */
+	/*disable BCN*/
 	v8 = rtw_read8(padapter, REG_BCN_CTRL);
 	v8 &= ~EN_BCN_FUNCTION;
 	rtw_write8(padapter, REG_BCN_CTRL, v8);
 
-	/* 3 2. disable driver dynamic mechanism */
-	rtw_phydm_func_disable_all(padapter);
-
-	/* enable APK, LCK and IQK but disable power tracking */
 	pDM_Odm->rf_calibrate_info.txpowertrack_control = _FALSE;
-	rtw_phydm_func_set(padapter, ODM_RF_CALIBRATION);
-
-	/* #ifdef CONFIG_BT_COEXIST */
-	/* rtw_btcoex_Switch(padapter, 0); */ /* remove for BT MP Down. */
-	/* #endif */
 }
-
 
 void MPT_PwrCtlDM(PADAPTER padapter, u32 bstart)
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	struct PHY_DM_STRUCT		*pDM_Odm = &pHalData->odmpriv;
+	u32	rf_ability;
 
 	if (bstart == 1) {
 		RTW_INFO("in MPT_PwrCtlDM start\n");
-		rtw_phydm_func_set(padapter, ODM_RF_TX_PWR_TRACK | ODM_RF_CALIBRATION);
+
+		rf_ability = ((u32)halrf_cmn_info_get(pDM_Odm, HALRF_CMNINFO_ABILITY)) | HAL_RF_TX_PWR_TRACK;
+		halrf_cmn_info_set(pDM_Odm, HALRF_CMNINFO_ABILITY, rf_ability);
 
 		pDM_Odm->rf_calibrate_info.txpowertrack_control = _TRUE;
 		padapter->mppriv.mp_dm = 1;
 
 	} else {
 		RTW_INFO("in MPT_PwrCtlDM stop\n");
-		disable_dm(padapter);
+		rf_ability = ((u32)halrf_cmn_info_get(pDM_Odm, HALRF_CMNINFO_ABILITY)) & ~HAL_RF_TX_PWR_TRACK;
+		halrf_cmn_info_set(pDM_Odm, HALRF_CMNINFO_ABILITY, rf_ability);
 		pDM_Odm->rf_calibrate_info.txpowertrack_control = _FALSE;
 		padapter->mppriv.mp_dm = 0;
 		{
@@ -938,7 +926,7 @@ u32 mp_join(PADAPTER padapter, u8 mode)
 
 	/* init mp_start_test status */
 	if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
-		rtw_disassoc_cmd(padapter, 500, _TRUE);
+		rtw_disassoc_cmd(padapter, 500, 0);
 		rtw_indicate_disconnect(padapter, 0, _FALSE);
 		rtw_free_assoc_resources(padapter, 1);
 	}
@@ -1016,17 +1004,10 @@ s32 mp_start_test(PADAPTER padapter)
 
 	padapter->registrypriv.mp_mode = 1;
 
-	/* 3 disable dynamic mechanism */
-	disable_dm(padapter);
+	init_mp_data(padapter);
 #ifdef CONFIG_RTL8814A
 	rtl8814_InitHalDm(padapter);
 #endif /* CONFIG_RTL8814A */
-#ifdef CONFIG_RTL8822B
-	rtl8822b_phy_init_haldm(padapter);
-#endif /* CONFIG_RTL8822B */
-#ifdef CONFIG_RTL8821C
-	rtl8821c_phy_init_haldm(padapter);
-#endif /* CONFIG_RTL8821C */
 #ifdef CONFIG_RTL8812A
 	rtl8812_InitHalDm(padapter);
 #endif /* CONFIG_RTL8812A */
@@ -1051,7 +1032,7 @@ s32 mp_start_test(PADAPTER padapter)
 
 	/* 3 0. update mp_priv */
 
-	if (padapter->registrypriv.rf_config == RF_MAX_TYPE) {
+	if (!RF_TYPE_VALID(padapter->registrypriv.rf_config)) {
 		/*		switch (phal->rf_type) { */
 		switch (GET_RF_TYPE(padapter)) {
 		case RF_1T1R:
@@ -1417,7 +1398,8 @@ exit:
 	pmptx->pallocated_buf = NULL;
 	pmptx->stop = 1;
 
-	thread_exit();
+	thread_exit(NULL);
+	return 0;
 }
 
 void fill_txdesc_for_mp(PADAPTER padapter, u8 *ptxdesc)
@@ -1939,8 +1921,10 @@ void SetPacketTx(PADAPTER padapter)
 	/* 3 6. start thread */
 #ifdef PLATFORM_LINUX
 	pmp_priv->tx.PktTxThread = kthread_run(mp_xmit_packet_thread, pmp_priv, "RTW_MP_THREAD");
-	if (IS_ERR(pmp_priv->tx.PktTxThread))
-		RTW_INFO("Create PktTx Thread Fail !!!!!\n");
+	if (IS_ERR(pmp_priv->tx.PktTxThread)) {
+		RTW_ERR("Create PktTx Thread Fail !!!!!\n");
+		pmp_priv->tx.PktTxThread = NULL;
+	}
 #endif
 #ifdef PLATFORM_FREEBSD
 	{
@@ -2709,6 +2693,17 @@ u8 rtw_mpRateParseFunc(PADAPTER pAdapter, u8 *targetStr)
 	}
 	return _FAIL;
 }
+
+u8 rtw_mp_mode_check(PADAPTER pAdapter)
+{
+	PADAPTER primary_adapter = GET_PRIMARY_ADAPTER(pAdapter);
+
+	if (primary_adapter->registrypriv.mp_mode == 1)
+		return _TRUE;
+	else
+		return _FALSE;
+}
+
 
 ULONG mpt_ProQueryCalTxPower(
 	PADAPTER	pAdapter,

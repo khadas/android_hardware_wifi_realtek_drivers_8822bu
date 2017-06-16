@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_COMMON_REG_H__
 #define __HAL_COMMON_REG_H__
 
@@ -126,7 +121,8 @@
 #define REG_TRXFF_STATUS				0x0118
 #define REG_RXFF_PTR					0x011C
 #define REG_HIMR						0x0120
-#define REG_HISR						0x0124
+#define REG_FE1IMR						0x0120
+#define REG_HISR							0x0124
 #define REG_HIMRE						0x0128
 #define REG_HISRE						0x012C
 #define REG_CPWM						0x012F
@@ -1432,6 +1428,17 @@ Current IOREG MAP
 #define BIT_MASK_Tx_OQT_free_space 0xff
 #define BIT_Tx_OQT_free_space(x) (((x) & BIT_MASK_Tx_OQT_free_space) << BIT_SHIFT_Tx_OQT_free_space)
 
+
+/* -----------------------------------------------------
+ *
+ *	0x0120h ~ 0x0123h	RX DMA Configuration
+ *
+ * ----------------------------------------------------- */
+#define BIT_FS_RXDONE_INT_EN				BIT(16)
+
+
+/* REG_RXPKT_NUM				(Offset 0x0284) */
+#define BIT_RW_RELEASE_EN				BIT(18)
 
 /* -----------------------------------------------------
  *

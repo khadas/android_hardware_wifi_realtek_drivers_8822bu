@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -32,7 +27,7 @@ odm_dynamic_tx_power_init(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	struct _ADAPTER	*adapter = p_dm_odm->adapter;
-	PMGNT_INFO			p_mgnt_info = &adapter->mgnt_info;
+	PMGNT_INFO			p_mgnt_info = &adapter->MgntInfo;
 	HAL_DATA_TYPE		*p_hal_data = GET_HAL_DATA(adapter);
 
 	/*if (!IS_HARDWARE_TYPE_8814A(adapter)) {*/
@@ -41,24 +36,24 @@ odm_dynamic_tx_power_init(
 	/*	return;*/
 	/*} else*/
 	{
-		p_mgnt_info->is_dynamic_tx_power_enable = true;
+		p_mgnt_info->bDynamicTxPowerEnable = true;
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD,
-			("odm_dynamic_tx_power_init DynamicTxPowerEnable=%d\n", p_mgnt_info->is_dynamic_tx_power_enable));
+			("odm_dynamic_tx_power_init DynamicTxPowerEnable=%d\n", p_mgnt_info->bDynamicTxPowerEnable));
 	}
 
 #if DEV_BUS_TYPE == RT_USB_INTERFACE
-	if (rt_get_interface_selection(adapter) == intf_sel1_usb_high_power) {
+	if (RT_GetInterfaceSelection(adapter) == INTF_SEL1_USB_High_Power) {
 		odm_dynamic_tx_power_save_power_index(p_dm_odm);
-		p_mgnt_info->is_dynamic_tx_power_enable = true;
+		p_mgnt_info->bDynamicTxPowerEnable = true;
 	} else
 #else
 	/* so 92c pci do not need dynamic tx power? vivi check it later */
-	p_mgnt_info->is_dynamic_tx_power_enable = false;
+	p_mgnt_info->bDynamicTxPowerEnable = false;
 #endif
 
 
-		p_hal_data->last_dtp_lvl = tx_high_pwr_level_normal;
-	p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_normal;
+		p_hal_data->LastDTPLvl = tx_high_pwr_level_normal;
+	p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_normal;
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 
@@ -75,8 +70,8 @@ odm_dynamic_tx_power_save_power_index(
 	void					*p_dm_void
 )
 {
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-#if (DM_ODM_SUPPORT_TYPE & (ODM_CE | ODM_WIN))
 	u8		index;
 	u32		power_index_reg[6] = {0xc90, 0xc91, 0xc92, 0xc98, 0xc99, 0xc9a};
 
@@ -84,7 +79,7 @@ odm_dynamic_tx_power_save_power_index(
 	struct _ADAPTER	*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
 	for (index = 0; index < 6; index++)
-		p_hal_data->power_index_backup[index] = platform_efio_read_1byte(adapter, power_index_reg[index]);
+		p_hal_data->PowerIndex_backup[index] = PlatformEFIORead1Byte(adapter, power_index_reg[index]);
 
 
 #endif
@@ -96,18 +91,18 @@ odm_dynamic_tx_power_restore_power_index(
 	void					*p_dm_void
 )
 {
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-#if (DM_ODM_SUPPORT_TYPE & (ODM_CE | ODM_WIN))
 	u8			index;
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
 	u32			power_index_reg[6] = {0xc90, 0xc91, 0xc92, 0xc98, 0xc99, 0xc9a};
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
+
 	for (index = 0; index < 6; index++)
-		platform_efio_write_1byte(adapter, power_index_reg[index], p_hal_data->power_index_backup[index]);
+		PlatformEFIOWrite1Byte(adapter, power_index_reg[index], p_hal_data->PowerIndex_backup[index]);
 
 
-#endif
+
 #endif
 }
 
@@ -246,9 +241,9 @@ odm_dynamic_tx_power_nic(
 		odm_dynamic_tx_power_8814a(p_dm_odm);
 	else if (p_dm_odm->support_ic_type & ODM_RTL8821) {
 		struct _ADAPTER		*adapter	 =  p_dm_odm->adapter;
-		PMGNT_INFO		p_mgnt_info = get_default_mgnt_info(adapter);
+		PMGNT_INFO		p_mgnt_info = GetDefaultMgntInfo(adapter);
 
-		if (p_mgnt_info->reg_rsp_pwr == 1)	{
+		if (p_mgnt_info->RegRspPwr == 1)	{
 			if (p_dm_odm->rssi_min > 60)
 				odm_set_mac_reg(p_dm_odm, ODM_REG_RESP_TX_11AC, BIT(20) | BIT19 | BIT18, 1); /*Resp TXAGC offset = -3dB*/
 			else if (p_dm_odm->rssi_min < 55)
@@ -264,8 +259,8 @@ odm_dynamic_tx_power_ap(
 
 )
 {
-	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 
 	/* #if ((RTL8192C_SUPPORT==1) || (RTL8192D_SUPPORT==1) || (RTL8188E_SUPPORT==1) || (RTL8812E_SUPPORT==1)) */
 
@@ -277,8 +272,8 @@ odm_dynamic_tx_power_ap(
 	if (!priv->pshare->rf_ft_var.tx_pwr_ctrl)
 		return;
 
-#if ((RTL8812A_SUPPORT == 1) || (RTL8881A_SUPPORT == 1) || (RTL8814A_SUPPORT == 1))
-	if (p_dm_odm->support_ic_type & (ODM_RTL8812 | ODM_RTL8881A | ODM_RTL8814A))
+#if ((RTL8812A_SUPPORT == 1) || (RTL8881A_SUPPORT == 1) || (RTL8814A_SUPPORT == 1) || (RTL8822B_SUPPORT == 1))
+	if (p_dm_odm->support_ic_type & (ODM_RTL8812 | ODM_RTL8881A | ODM_RTL8814A | ODM_RTL8822B))
 		pwr_thd = TX_POWER_NEAR_FIELD_THRESH_LVL1;
 #endif
 
@@ -385,65 +380,65 @@ odm_dynamic_tx_power_8814a(
 {
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _ADAPTER *adapter = p_dm_odm->adapter;
-	PMGNT_INFO			p_mgnt_info = &adapter->mgnt_info;
+	PMGNT_INFO			p_mgnt_info = &adapter->MgntInfo;
 	HAL_DATA_TYPE		*p_hal_data = GET_HAL_DATA(adapter);
 	s32				undecorated_smoothed_pwdb;
 
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD,
 		("TxLevel=%d p_mgnt_info->iot_action=%x p_mgnt_info->is_dynamic_tx_power_enable=%d\n",
-		p_hal_data->dynamic_tx_high_power_lvl, p_mgnt_info->iot_action, p_mgnt_info->is_dynamic_tx_power_enable));
+		p_hal_data->DynamicTxHighPowerLvl, p_mgnt_info->IOTAction, p_mgnt_info->bDynamicTxPowerEnable));
 
 	/*STA not connected and AP not connected*/
-	if ((!p_mgnt_info->is_media_connect) && (p_hal_data->entry_min_undecorated_smoothed_pwdb == 0)) {
+	if ((!p_mgnt_info->bMediaConnect) && (p_hal_data->EntryMinUndecoratedSmoothedPWDB == 0)) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("Not connected to any reset power lvl\n"));
-		p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_normal;
+		p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_normal;
 		return;
 	}
 
 
-	if ((p_mgnt_info->is_dynamic_tx_power_enable != true) || p_mgnt_info->iot_action & HT_IOT_ACT_DISABLE_HIGH_POWER)
-		p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_normal;
+	if ((p_mgnt_info->bDynamicTxPowerEnable != true) || p_mgnt_info->IOTAction & HT_IOT_ACT_DISABLE_HIGH_POWER)
+		p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_normal;
 	else {
-		if (p_mgnt_info->is_media_connect) {	/*Default port*/
+		if (p_mgnt_info->bMediaConnect) {	/*Default port*/
 			if (ACTING_AS_AP(adapter) || ACTING_AS_IBSS(adapter)) {
-				undecorated_smoothed_pwdb = p_hal_data->entry_min_undecorated_smoothed_pwdb;
+				undecorated_smoothed_pwdb = p_hal_data->EntryMinUndecoratedSmoothedPWDB;
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("AP Client PWDB = 0x%x\n", undecorated_smoothed_pwdb));
 			} else {
-				undecorated_smoothed_pwdb = p_hal_data->undecorated_smoothed_pwdb;
+				undecorated_smoothed_pwdb = p_hal_data->UndecoratedSmoothedPWDB;
 				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("STA Default Port PWDB = 0x%x\n", undecorated_smoothed_pwdb));
 			}
 		} else {/*associated entry pwdb*/
-			undecorated_smoothed_pwdb = p_hal_data->entry_min_undecorated_smoothed_pwdb;
+			undecorated_smoothed_pwdb = p_hal_data->EntryMinUndecoratedSmoothedPWDB;
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("AP Ext Port PWDB = 0x%x\n", undecorated_smoothed_pwdb));
 		}
 
 		/*Should we separate as 2.4G/5G band?*/
 
 		if (undecorated_smoothed_pwdb >= TX_POWER_NEAR_FIELD_THRESH_LVL2) {
-			p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_level2;
+			p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_level2;
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("tx_high_pwr_level_level1 (TxPwr=0x0)\n"));
 		} else if ((undecorated_smoothed_pwdb < (TX_POWER_NEAR_FIELD_THRESH_LVL2 - 3)) &&
 			(undecorated_smoothed_pwdb >= TX_POWER_NEAR_FIELD_THRESH_LVL1)) {
-			p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_level1;
+			p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_level1;
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("tx_high_pwr_level_level1 (TxPwr=0x10)\n"));
 		} else if (undecorated_smoothed_pwdb < (TX_POWER_NEAR_FIELD_THRESH_LVL1 - 5)) {
-			p_hal_data->dynamic_tx_high_power_lvl = tx_high_pwr_level_normal;
+			p_hal_data->DynamicTxHighPowerLvl = tx_high_pwr_level_normal;
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("tx_high_pwr_level_normal\n"));
 		}
 	}
 
 
-	if (p_hal_data->dynamic_tx_high_power_lvl != p_hal_data->last_dtp_lvl) {
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("odm_dynamic_tx_power_8814a() channel = %d\n", p_hal_data->current_channel));
-		odm_set_tx_power_level8814(adapter, p_hal_data->current_channel, p_hal_data->dynamic_tx_high_power_lvl);
+	if (p_hal_data->DynamicTxHighPowerLvl != p_hal_data->LastDTPLvl) {
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD, ("odm_dynamic_tx_power_8814a() channel = %d\n", p_hal_data->CurrentChannel));
+		odm_set_tx_power_level8814(adapter, p_hal_data->CurrentChannel, p_hal_data->DynamicTxHighPowerLvl);
 	}
 
 
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DYNAMIC_TXPWR, DBG_LOUD,
 		("odm_dynamic_tx_power_8814a() channel = %d  TXpower lvl=%d/%d\n",
-		p_hal_data->current_channel, p_hal_data->last_dtp_lvl, p_hal_data->dynamic_tx_high_power_lvl));
+		p_hal_data->CurrentChannel, p_hal_data->LastDTPLvl, p_hal_data->DynamicTxHighPowerLvl));
 
-	p_hal_data->last_dtp_lvl = p_hal_data->dynamic_tx_high_power_lvl;
+	p_hal_data->LastDTPLvl = p_hal_data->DynamicTxHighPowerLvl;
 
 }
 
@@ -488,9 +483,9 @@ odm_set_tx_power_level8814(
 
 	for (path = ODM_RF_PATH_A; path <= ODM_RF_PATH_D; ++path) {
 
-		u8	usb_host = usb_mode_query_hub_usb_type(adapter);
-		u8	usb_rfset = usb_mode_query_rf_set(adapter);
-		u8	usb_rf_type = rt_get_rftype(adapter);
+		u8	usb_host = UsbModeQueryHubUsbType(adapter);
+		u8	usb_rfset = UsbModeQueryRfSet(adapter);
+		u8	usb_rf_type = RT_GetRFType(adapter);
 
 		for (i = 0; i <= 16; i++) {
 			for (j = 0; j <= 3; j++) {
@@ -498,7 +493,7 @@ odm_set_tx_power_level8814(
 					continue;
 
 				txagc_table_wd =  0x00801000;
-				power_index = (u32) phy_get_tx_power_index(adapter, (u8)path, jaguar2_rates[i][j], p_hal_data->current_channel_bw, channel);
+				power_index = (u32) PHY_GetTxPowerIndex(adapter, (u8)path, jaguar2_rates[i][j], p_hal_data->CurrentChannelBW, channel);
 
 				/*for Query bus type to recude tx power.*/
 				if (usb_host != USB_MODE_U3 && usb_rfset == 1 && IS_HARDWARE_TYPE_8814AU(adapter) && usb_rf_type == RF_3T3R) {
@@ -519,17 +514,17 @@ odm_set_tx_power_level8814(
 				} else if (pwr_lvl == tx_high_pwr_level_level2)
 					power_index = 0;
 
-				txagc_table_wd |= (path << 8) | m_rate_to_hw_rate(jaguar2_rates[i][j]) | (power_index << 24);
+				txagc_table_wd |= (path << 8) | MRateToHwRate(jaguar2_rates[i][j]) | (power_index << 24);
 
-				phy_set_tx_power_index_shadow(adapter, (u8)power_index, (u8)path, jaguar2_rates[i][j]);
+				PHY_SetTxPowerIndexShadow(adapter, (u8)power_index, (u8)path, jaguar2_rates[i][j]);
 
 				value[k++] = txagc_table_wd;
 			}
 		}
 	}
 
-	if (adapter->mgnt_info.is_scan_in_progress == false &&  adapter->mgnt_info.reg_fw_offload == 2)
-		hal_download_tx_power_level8814(adapter, value);
+	if (adapter->MgntInfo.bScanInProgress == false &&  adapter->MgntInfo.RegFWOffload == 2)
+		HalDownloadTxPowerLevel8814(adapter, value);
 #endif
 }
 #endif

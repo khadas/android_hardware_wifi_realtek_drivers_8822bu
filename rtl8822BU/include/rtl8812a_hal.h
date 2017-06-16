@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTL8812A_HAL_H__
 #define __RTL8812A_HAL_H__
 
@@ -143,9 +138,11 @@ typedef struct _RT_FIRMWARE_8812 {
 #define BCNQ_PAGE_NUM_8812		0x07
 
 /* For WoWLan , more reserved page
- * ARP Rsp:1, RWC:1, GTK Info:1,GTK RSP:1,GTK EXT MEM:1, AOAC rpt: 1,PNO: 6 */
+ * ARP Rsp:1, RWC:1, GTK Info:1,GTK RSP:1,GTK EXT MEM:1, AOAC rpt: 1,PNO: 6
+ * NS offload: 1 NDP info: 1
+ */
 #ifdef CONFIG_WOWLAN
-	#define WOWLAN_PAGE_NUM_8812	0x06
+	#define WOWLAN_PAGE_NUM_8812	0x08
 #else
 	#define WOWLAN_PAGE_NUM_8812	0x00
 #endif
@@ -346,6 +343,7 @@ void rtl8812_stop_thread(PADAPTER padapter);
 #ifdef CONFIG_PCI_HCI
 BOOLEAN	InterruptRecognized8812AE(PADAPTER Adapter);
 VOID	UpdateInterruptMask8812AE(PADAPTER Adapter, u32 AddMSR, u32 AddMSR1, u32 RemoveMSR, u32 RemoveMSR1);
+VOID	InitTRXDescHwAddress8812AE(PADAPTER Adapter);
 #endif
 
 #ifdef CONFIG_BT_COEXIST

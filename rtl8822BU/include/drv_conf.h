@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __DRV_CONF_H__
 #define __DRV_CONF_H__
 #include "autoconf.h"
@@ -179,6 +174,23 @@
 	#undef CONFIG_TXPWR_LIMIT_EN
 	#define CONFIG_TXPWR_BY_RATE_EN 1
 	#define CONFIG_TXPWR_LIMIT_EN 1
+#endif
+
+#if !defined(CONFIG_TXPWR_LIMIT) && CONFIG_TXPWR_LIMIT_EN
+	#define CONFIG_TXPWR_LIMIT
+#endif
+
+#ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS {0xFF, 0xFF, 0xFF, 0xFF}
+#endif
+#ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS {0xFF, 0xFF, 0xFF, 0xFF}
+#endif
+#ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_3SS
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_3SS {0xFF, 0xFF, 0xFF, 0xFF}
+#endif
+#ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_4SS
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_4SS {0xFF, 0xFF, 0xFF, 0xFF}
 #endif
 
 #ifndef CONFIG_RTW_TARGET_TX_PWR_2G_A

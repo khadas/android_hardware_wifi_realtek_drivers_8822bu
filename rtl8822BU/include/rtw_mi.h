@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_MI_H_
 #define __RTW_MI_H_
 
@@ -33,6 +28,14 @@ struct mi_state {
 	u8 adhoc_num;		/* WIFI_FW_ADHOC_STATE */
 	u8 ld_adhoc_num;	/* WIFI_FW_ADHOC_STATE && asoc_sta_count > 2 */
 	u8 uwps_num;		/*WIFI_UNDER_WPS*/
+
+#ifdef CONFIG_IOCTL_CFG80211
+	#ifdef CONFIG_P2P
+	u8 roch_num;
+	#endif
+	u8 mgmt_tx_num;
+#endif
+
 	u8 union_ch;
 	u8 union_bw;
 	u8 union_offset;
@@ -46,6 +49,19 @@ struct mi_state {
 #define MSTATE_ADHOC_NUM(_mstate)		((_mstate)->adhoc_num)
 #define MSTATE_ADHOC_LD_NUM(_mstate)	((_mstate)->ld_adhoc_num)
 #define MSTATE_WPS_NUM(_mstate)			((_mstate)->uwps_num)
+
+#if defined(CONFIG_IOCTL_CFG80211) && defined(CONFIG_P2P)
+#define MSTATE_ROCH_NUM(_mstate)		((_mstate)->roch_num)
+#else
+#define MSTATE_ROCH_NUM(_mstate)		0
+#endif
+
+#if defined(CONFIG_IOCTL_CFG80211)
+#define MSTATE_MGMT_TX_NUM(_mstate)		((_mstate)->mgmt_tx_num)
+#else
+#define MSTATE_MGMT_TX_NUM(_mstate)		0
+#endif
+
 #define MSTATE_U_CH(_mstate)			((_mstate)->union_ch)
 #define MSTATE_U_BW(_mstate)			((_mstate)->union_bw)
 #define MSTATE_U_OFFSET(_mstate)		((_mstate)->union_offset)
@@ -62,15 +78,6 @@ void rtw_mi_status(_adapter *adapter, struct mi_state *mstate);
 void rtw_mi_status_no_self(_adapter *adapter, struct mi_state *mstate);
 
 void rtw_mi_update_iface_status(struct mlme_priv *pmlmepriv, sint state);
-
-u8 rtw_mi_mp_mode_check(_adapter *padapter);
-
-#ifdef CONFIG_CONCURRENT_MODE
-#define UNDER_SURVEY_T1	1 /*buddy under suvey*/
-#define UNDER_SURVEY_T2	2 /*buddy under suvey by scan_request*/
-u8 rtw_mi_buddy_under_survey(_adapter *padapter);
-void  rtw_mi_buddy_indicate_scan_done(_adapter *padapter, bool bscan_aborted);
-#endif
 
 u8 rtw_mi_netif_stop_queue(_adapter *padapter, bool carrier_off);
 u8 rtw_mi_buddy_netif_stop_queue(_adapter *padapter, bool carrier_off);
@@ -222,5 +229,10 @@ _adapter *rtw_mi_get_ap_adapter(_adapter *padapter);
 #endif
 
 void rtw_mi_update_ap_bmc_camid(_adapter *padapter, u8 camid_a, u8 camid_b);
+
+#ifdef CONFIG_AP_MODE
+void rtw_mi_ap_acdata_control(_adapter *padapter, u8 power_mode);
+void rtw_mi_buddy_ap_acdata_control(_adapter *padapter, u8 power_mode);
+#endif /*CONFIG_AP_MODE*/
 
 #endif /*__RTW_MI_H_*/

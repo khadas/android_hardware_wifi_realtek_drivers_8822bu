@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _HAL_MP_C_
 
 #include <drv_types.h>
@@ -1517,11 +1512,25 @@ void hal_mpt_TriggerRFThermalMeter(PADAPTER pAdapter)
 u8 hal_mpt_ReadRFThermalMeter(PADAPTER pAdapter)
 
 {
+	HAL_DATA_TYPE	*hal_data = GET_HAL_DATA(pAdapter);
+	struct PHY_DM_STRUCT *p_dm_odm = &hal_data->odmpriv;
 	u32 ThermalValue = 0;
+	s32 thermal_value_temp = 0;
+	s8 thermal_offset = 0;
 
 	ThermalValue = (u1Byte)phy_query_rf_reg(pAdapter, ODM_RF_PATH_A, 0x42, 0xfc00);	/*0x42: RF Reg[15:10]*/
-	return (u8)ThermalValue;
+	thermal_offset = phydm_get_thermal_offset(p_dm_odm);
 
+	thermal_value_temp = ThermalValue + thermal_offset;
+
+	if (thermal_value_temp > 63)
+		ThermalValue = 63;
+	else if (thermal_value_temp < 0)
+		ThermalValue = 0;
+	else
+		ThermalValue = thermal_value_temp;
+
+	return (u8)ThermalValue;
 }
 
 

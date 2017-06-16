@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_CMD_H_
 #define __RTW_CMD_H_
 
@@ -60,7 +55,8 @@ enum {
 struct cmd_priv {
 	_sema	cmd_queue_sema;
 	/* _sema	cmd_done_sema; */
-	_sema	terminate_cmdthread_sema;
+	_sema	start_cmdthread_sema;
+
 	_queue	cmd_queue;
 	u8	cmd_seq;
 	u8	*cmd_buf;	/* shall be non-paged, and 4 bytes aligned */
@@ -72,7 +68,7 @@ struct cmd_priv {
 	u32	rsp_cnt;
 	ATOMIC_T cmdthd_running;
 	/* u8 cmdthd_running; */
-	u8 stop_req;
+
 	_adapter *padapter;
 	_mutex sctx_mutex;
 };
@@ -90,7 +86,7 @@ struct evt_obj {
 struct	evt_priv {
 #ifdef CONFIG_EVENT_THREAD_MODE
 	_sema	evt_notify;
-	_sema	terminate_evtthread_sema;
+
 	_queue	evt_queue;
 #endif
 
@@ -192,6 +188,24 @@ extern void rtw_cmd_clr_isr(struct cmd_priv *pcmdpriv);
 extern void rtw_evt_notify_isr(struct evt_priv *pevtpriv);
 #ifdef CONFIG_P2P
 u8 p2p_protocol_wk_cmd(_adapter *padapter, int intCmdType);
+
+#ifdef CONFIG_IOCTL_CFG80211
+struct p2p_roch_parm {
+	u64 cookie;
+	struct wireless_dev *wdev;
+	struct ieee80211_channel ch;
+	enum nl80211_channel_type ch_type;
+	unsigned int duration;
+};
+
+u8 p2p_roch_cmd(_adapter *adapter
+	, u64 cookie, struct wireless_dev *wdev
+	, struct ieee80211_channel *ch, enum nl80211_channel_type ch_type
+	, unsigned int duration
+	, u8 flags
+);
+u8 p2p_cancel_roch_cmd(_adapter *adapter, u64 cookie, struct wireless_dev *wdev, u8 flags);
+#endif /* CONFIG_IOCTL_CFG80211 */
 #endif /* CONFIG_P2P */
 
 #else
@@ -514,35 +528,6 @@ struct getdatarate_parm {
 };
 struct getdatarate_rsp {
 	u8 datarates[NumRates];
-};
-
-
-/*
-Caller Mode: Any
-AP: AP can use the info for the contents of beacon frame
-Infra: STA can use the info when sitesurveying
-Ad-HoC(M): Like AP
-Ad-HoC(C): Like STA
-
-
-Notes: To set the phy capability of the NIC
-
-Command Mode
-
-*/
-
-struct	setphyinfo_parm {
-	struct regulatory_class class_sets[NUM_REGULATORYS];
-	u8	status;
-};
-
-struct	getphyinfo_parm {
-	u32 rsvd;
-};
-
-struct	getphyinfo_rsp {
-	struct regulatory_class class_sets[NUM_REGULATORYS];
-	u8	status;
 };
 
 /*
@@ -1011,7 +996,7 @@ extern u8 rtw_setstakey_cmd(_adapter  *padapter, struct sta_info *sta, u8 key_ty
 extern u8 rtw_clearstakey_cmd(_adapter *padapter, struct sta_info *sta, u8 enqueue);
 
 extern u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork);
-u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, bool enqueue);
+u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, int flags);
 extern u8 rtw_setopmode_cmd(_adapter  *padapter, NDIS_802_11_NETWORK_INFRASTRUCTURE networktype, bool enqueue);
 extern u8 rtw_setdatarate_cmd(_adapter  *padapter, u8 *rateset);
 extern u8 rtw_setbasicrate_cmd(_adapter  *padapter, u8 *rateset);
@@ -1056,7 +1041,7 @@ extern u8 rtw_ps_cmd(_adapter *padapter);
 u8 rtw_chk_hi_queue_cmd(_adapter *padapter);
 #ifdef CONFIG_DFS_MASTER
 u8 rtw_dfs_master_cmd(_adapter *adapter, bool enqueue);
-void rtw_dfs_master_timer_hdl(RTW_TIMER_HDL_ARGS);
+void rtw_dfs_master_timer_hdl(void *ctx);
 void rtw_dfs_master_enable(_adapter *adapter, u8 ch, u8 bw, u8 offset);
 void rtw_dfs_master_disable(_adapter *adapter, u8 ch, u8 bw, u8 offset, bool by_others);
 enum {

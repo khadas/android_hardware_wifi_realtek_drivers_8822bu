@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define  _RTW_SECURITY_C_
 
 #include <drv_types.h>
@@ -2210,7 +2205,7 @@ static int sha256_process(struct sha256_state *md, unsigned char *in,
 	unsigned long n;
 #define block_size 64
 
-	if (md->curlen > sizeof(md->buf))
+	if (md->curlen >= sizeof(md->buf))
 		return -1;
 
 	while (inlen > 0) {
@@ -3070,25 +3065,6 @@ int tdls_verify_mic(u8 *kck, u8 trans_seq,
 
 }
 #endif /* CONFIG_TDLS */
-
-void rtw_use_tkipkey_handler(RTW_TIMER_HDL_ARGS)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-
-
-
-	/*
-		if (RTW_CANNOT_RUN(padapter)) {
-
-			return;
-		}
-		*/
-
-	padapter->securitypriv.busetkipkey = _TRUE;
-
-
-
-}
 
 /* Restore HW wep key setting according to key_mask */
 void rtw_sec_restore_wep_key(_adapter *adapter)

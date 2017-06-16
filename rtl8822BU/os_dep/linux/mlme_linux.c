@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #define _MLME_OSDEP_C_
@@ -55,82 +50,6 @@ void Linkdown_workitem_callback(struct work_struct *work)
 
 }
 #endif
-
-
-/*
-void sitesurvey_ctrl_handler(void *FunctionContext)
-{
-	_adapter *adapter = (_adapter *)FunctionContext;
-
-	_sitesurvey_ctrl_handler(adapter);
-
-	_set_timer(&adapter->mlmepriv.sitesurveyctrl.sitesurvey_ctrl_timer, 3000);
-}
-*/
-
-void rtw_join_timeout_handler(void *FunctionContext)
-{
-	_adapter *adapter = (_adapter *)FunctionContext;
-	_rtw_join_timeout_handler(adapter);
-}
-
-
-void _rtw_scan_timeout_handler(void *FunctionContext)
-{
-	_adapter *adapter = (_adapter *)FunctionContext;
-	rtw_scan_timeout_handler(adapter);
-}
-
-
-void _dynamic_check_timer_handlder(void *FunctionContext)
-{
-	struct dvobj_priv *pdvobj = (struct dvobj_priv *)FunctionContext;
-	_adapter *adapter = dvobj_get_primary_adapter(pdvobj);
-
-#if (MP_DRIVER == 1)
-	if (adapter->registrypriv.mp_mode == 1 && adapter->mppriv.mp_dm == 0) { /* for MP ODM dynamic Tx power tracking */
-		/* RTW_INFO("_dynamic_check_timer_handlder mp_dm =0 return\n"); */
-		_set_timer(&pdvobj->dynamic_chk_timer, 2000);
-		return;
-	}
-#endif
-
-	rtw_dynamic_check_timer_handlder(adapter);
-
-	_set_timer(&pdvobj->dynamic_chk_timer, 2000);
-}
-
-#ifdef CONFIG_SET_SCAN_DENY_TIMER
-void _rtw_set_scan_deny_timer_hdl(void *FunctionContext)
-{
-	_adapter *adapter = (_adapter *)FunctionContext;
-	rtw_set_scan_deny_timer_hdl(adapter);
-}
-#endif
-
-
-void rtw_init_mlme_timer(_adapter *padapter)
-{
-	struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
-
-	_init_timer(&(pmlmepriv->assoc_timer), padapter->pnetdev, rtw_join_timeout_handler, padapter);
-	/* _init_timer(&(pmlmepriv->sitesurveyctrl.sitesurvey_ctrl_timer), padapter->pnetdev, sitesurvey_ctrl_handler, padapter); */
-	_init_timer(&(pmlmepriv->scan_to_timer), padapter->pnetdev, _rtw_scan_timeout_handler, padapter);
-
-#ifdef CONFIG_DFS_MASTER
-	_init_timer(&(pmlmepriv->dfs_master_timer), padapter->pnetdev, rtw_dfs_master_timer_hdl, padapter);
-#endif
-
-#ifdef CONFIG_SET_SCAN_DENY_TIMER
-	_init_timer(&(pmlmepriv->set_scan_deny_timer), padapter->pnetdev, _rtw_set_scan_deny_timer_hdl, padapter);
-#endif
-
-#ifdef RTK_DMP_PLATFORM
-	_init_workitem(&(pmlmepriv->Linkup_workitem), Linkup_workitem_callback, padapter);
-	_init_workitem(&(pmlmepriv->Linkdown_workitem), Linkdown_workitem_callback, padapter);
-#endif
-
-}
 
 extern void rtw_indicate_wx_assoc_event(_adapter *padapter);
 extern void rtw_indicate_wx_disassoc_event(_adapter *padapter);
@@ -199,7 +118,6 @@ void rtw_reset_securitypriv(_adapter *adapter)
 		pmlmeext->mgnt_80211w_IPN_rx = 0;
 #endif /* CONFIG_IEEE80211W */
 		_rtw_memset((unsigned char *)&adapter->securitypriv, 0, sizeof(struct security_priv));
-		/* _init_timer(&(adapter->securitypriv.tkip_timer),adapter->pnetdev, rtw_use_tkipkey_handler, adapter); */
 
 		/* Added by Albert 2009/02/18 */
 		/* Restore the PMK information to securitypriv structure for the following connection. */
@@ -298,94 +216,6 @@ void rtw_report_sec_ie(_adapter *adapter, u8 authmode, u8 *sec_ie)
 	}
 
 
-}
-
-void _survey_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-
-	survey_timer_hdl(padapter);
-}
-
-void _link_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-	link_timer_hdl(padapter);
-}
-
-#ifdef CONFIG_RTW_80211R
-void _ft_link_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-
-	ft_link_timer_hdl(padapter);
-}
-
-void _ft_roam_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-
-	ft_roam_timer_hdl(padapter);
-}
-#endif
-
-void _addba_timer_hdl(void *FunctionContext)
-{
-	struct sta_info *psta = (struct sta_info *)FunctionContext;
-	addba_timer_hdl(psta);
-}
-
-#ifdef CONFIG_IEEE80211W
-
-void _sa_query_timer_hdl(void *FunctionContext)
-{
-	struct sta_info *psta = (struct sta_info *)FunctionContext;
-
-	sa_query_timer_hdl(psta);
-}
-
-void init_dot11w_expire_timer(_adapter *padapter, struct sta_info *psta)
-{
-	_init_timer(&psta->dot11w_expire_timer, padapter->pnetdev, _sa_query_timer_hdl, psta);
-}
-
-#endif /* CONFIG_IEEE80211W */
-
-void init_addba_retry_timer(_adapter *padapter, struct sta_info *psta)
-{
-
-	_init_timer(&psta->addba_retry_timer, padapter->pnetdev, _addba_timer_hdl, psta);
-}
-
-/*
-void _reauth_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-	reauth_timer_hdl(padapter);
-}
-
-void _reassoc_timer_hdl(void *FunctionContext)
-{
-	_adapter *padapter = (_adapter *)FunctionContext;
-	reassoc_timer_hdl(padapter);
-}
-*/
-
-void init_mlme_ext_timer(_adapter *padapter)
-{
-	struct	mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
-
-	_init_timer(&pmlmeext->survey_timer, padapter->pnetdev, _survey_timer_hdl, padapter);
-	_init_timer(&pmlmeext->link_timer, padapter->pnetdev, _link_timer_hdl, padapter);
-#ifdef CONFIG_RTW_80211R
-	_init_timer(&pmlmeext->ft_link_timer, padapter->pnetdev, _ft_link_timer_hdl, padapter);
-	_init_timer(&pmlmeext->ft_roam_timer, padapter->pnetdev, _ft_roam_timer_hdl, padapter);
-#endif
-
-	/* _init_timer(&pmlmeext->ADDBA_timer, padapter->pnetdev, _addba_timer_hdl, padapter); */
-
-	/* _init_timer(&pmlmeext->reauth_timer, padapter->pnetdev, _reauth_timer_hdl, padapter); */
-	/* _init_timer(&pmlmeext->reassoc_timer, padapter->pnetdev, _reassoc_timer_hdl, padapter); */
 }
 
 #ifdef CONFIG_AP_MODE

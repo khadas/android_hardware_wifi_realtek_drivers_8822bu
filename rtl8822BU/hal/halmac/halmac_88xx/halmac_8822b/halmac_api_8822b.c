@@ -1,7 +1,22 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #include "halmac_8822b_cfg.h"
 #include "halmac_func_8822b.h"
 #include "../halmac_func_88xx.h"
-
+#include "halmac_gpio_8822b.h"
 
 /**
  * halmac_mount_api_8822b() - attach functions to function pointer
@@ -38,23 +53,27 @@ halmac_mount_api_8822b(
 	pHalmac_api->halmac_init_trx_cfg = halmac_init_trx_cfg_8822b;
 	pHalmac_api->halmac_init_protocol_cfg = halmac_init_protocol_cfg_8822b;
 	pHalmac_api->halmac_init_h2c = halmac_init_h2c_8822b;
+	pHalmac_api->halmac_pinmux_get_func = halmac_pinmux_get_func_8822b;
+	pHalmac_api->halmac_pinmux_set_func = halmac_pinmux_set_func_8822b;
+	pHalmac_api->halmac_pinmux_free_func = halmac_pinmux_free_func_8822b;
 
-	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface) {
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_SDIO) {
 		pHalmac_api->halmac_tx_allowed_sdio = halmac_tx_allowed_sdio_88xx;
 		pHalmac_api->halmac_cfg_tx_agg_align = halmac_cfg_tx_agg_align_sdio_not_support_88xx;
 		pHalmac_api->halmac_mac_power_switch = halmac_mac_power_switch_8822b_sdio;
 		pHalmac_api->halmac_phy_cfg = halmac_phy_cfg_8822b_sdio;
-
-	} else if (HALMAC_INTERFACE_USB == pHalmac_adapter->halmac_interface) {
+		pHalmac_api->halmac_interface_integration_tuning = halmac_interface_integration_tuning_8822b_sdio;
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_USB) {
 		pHalmac_api->halmac_mac_power_switch = halmac_mac_power_switch_8822b_usb;
 		pHalmac_api->halmac_cfg_tx_agg_align = halmac_cfg_tx_agg_align_usb_not_support_88xx;
 		pHalmac_api->halmac_phy_cfg = halmac_phy_cfg_8822b_usb;
-
-	} else if (HALMAC_INTERFACE_PCIE == pHalmac_adapter->halmac_interface) {
+		pHalmac_api->halmac_interface_integration_tuning = halmac_interface_integration_tuning_8822b_usb;
+	} else if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_PCIE) {
 		pHalmac_api->halmac_mac_power_switch = halmac_mac_power_switch_8822b_pcie;
 		pHalmac_api->halmac_cfg_tx_agg_align = halmac_cfg_tx_agg_align_pcie_not_support_88xx;
 		pHalmac_api->halmac_pcie_switch = halmac_pcie_switch_8822b;
 		pHalmac_api->halmac_phy_cfg = halmac_phy_cfg_8822b_pcie;
+		pHalmac_api->halmac_interface_integration_tuning = halmac_interface_integration_tuning_8822b_pcie;
 	} else {
 		pHalmac_api->halmac_pcie_switch = halmac_pcie_switch_8822b_nc;
 	}
@@ -62,13 +81,13 @@ halmac_mount_api_8822b(
 	return HALMAC_RET_SUCCESS;
 }
 
-
 /**
  * halmac_init_trx_cfg_8822b() - config trx dma register
- * @pHalmac_adapter
- * @halmac_trx_mode
+ * @pHalmac_adapter : the adapter of halmac
+ * @halmac_trx_mode : trx mode selection
  * Author : KaiYuan Chang/Ivan Lin
  * Return : HALMAC_RET_STATUS
+ * More details of status code can be found in prototype document
  */
 HALMAC_RET_STATUS
 halmac_init_trx_cfg_8822b(
@@ -82,13 +101,11 @@ halmac_init_trx_cfg_8822b(
 	PHALMAC_API pHalmac_api;
 	HALMAC_RET_STATUS status = HALMAC_RET_SUCCESS;
 
-	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+	if (halmac_adapter_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_ADAPTER_INVALID;
 
-	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+	if (halmac_api_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_API_INVALID;
-
-	halmac_api_record_id_88xx(pHalmac_adapter, HALMAC_API_INIT_TRX_CFG);
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
@@ -98,7 +115,7 @@ halmac_init_trx_cfg_8822b(
 
 	status = halmac_txdma_queue_mapping_8822b(pHalmac_adapter, halmac_trx_mode);
 
-	if (HALMAC_RET_SUCCESS != status) {
+	if (status != HALMAC_RET_SUCCESS) {
 		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_txdma_queue_mapping fail!\n");
 		return status;
 	}
@@ -110,8 +127,10 @@ halmac_init_trx_cfg_8822b(
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_H2CQ_CSR, BIT(31));
 
 	status = halmac_priority_queue_config_8822b(pHalmac_adapter, halmac_trx_mode);
+	if (pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode != HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE)
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, HALMAC_RX_DESC_DUMMY_SIZE_MAX_8822B >> 3);
 
-	if (HALMAC_RET_SUCCESS != status) {
+	if (status != HALMAC_RET_SUCCESS) {
 		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_txdma_queue_mapping fail!\n");
 		return status;
 	}
@@ -155,10 +174,11 @@ halmac_init_trx_cfg_8822b(
 }
 
 /**
- * halmac_init_protocol_cfg_8822b() - config protocol related register
- * @pHalmac_adapter
+ * halmac_init_protocol_cfg_8822b() - config protocol register
+ * @pHalmac_adapter : the adapter of halmac
  * Author : KaiYuan Chang/Ivan Lin
  * Return : HALMAC_RET_STATUS
+ * More details of status code can be found in prototype document
  */
 HALMAC_RET_STATUS
 halmac_init_protocol_cfg_8822b(
@@ -169,13 +189,11 @@ halmac_init_protocol_cfg_8822b(
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
 
-	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+	if (halmac_adapter_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_ADAPTER_INVALID;
 
-	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+	if (halmac_api_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_API_INVALID;
-
-	halmac_api_record_id_88xx(pHalmac_adapter, HALMAC_API_INIT_PROTOCOL_CFG);
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
@@ -203,9 +221,10 @@ halmac_init_protocol_cfg_8822b(
 
 /**
  * halmac_init_h2c_8822b() - config h2c packet buffer
- * @pHalmac_adapter
+ * @pHalmac_adapter : the adapter of halmac
  * Author : KaiYuan Chang/Ivan Lin
  * Return : HALMAC_RET_STATUS
+ * More details of status code can be found in prototype document
  */
 HALMAC_RET_STATUS
 halmac_init_h2c_8822b(
@@ -217,10 +236,10 @@ halmac_init_h2c_8822b(
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
 
-	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+	if (halmac_adapter_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_ADAPTER_INVALID;
 
-	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+	if (halmac_api_validate(pHalmac_adapter) != HALMAC_RET_SUCCESS)
 		return HALMAC_RET_API_INVALID;
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;

@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 /*============================================================*/
 /* Description:                                              */
 /*                                                           */
@@ -87,8 +101,8 @@ hal_txbf_8822b_rf_mode(
 #if 0
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u8				i, nr_index = 0;
-	bool				is_self_beamformer = false;
-	bool				is_self_beamformee = false;
+	boolean				is_self_beamformer = false;
+	boolean				is_self_beamformee = false;
 	struct _RT_BEAMFORMEE_ENTRY	beamformee_entry;
 
 	if (idx < BEAMFORMEE_ENTRY_NUM)
@@ -161,14 +175,14 @@ hal_txbf_8822b_download_ndpa(
 	u8			u1b_tmp = 0, tmp_reg422 = 0;
 	u8			bcn_valid_reg = 0, count = 0, dl_bcn_count = 0;
 	u16			head_page = 0x7FE;
-	bool			is_send_beacon = false;
+	boolean			is_send_beacon = false;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
 	u16			tx_page_bndy = LAST_ENTRY_OF_TX_PKT_BUFFER_8814A; /*default reseved 1 page for the IC type which is undefined.*/
 	struct _RT_BEAMFORMING_INFO	*p_beam_info = GET_BEAMFORM_INFO(adapter);
 	struct _RT_BEAMFORMEE_ENTRY	*p_beam_entry = p_beam_info->beamformee_entry + idx;
 
 	p_hal_data->is_fw_dw_rsvd_page_in_progress = true;
-	adapter->hal_func.get_hal_def_var_handler(adapter, HAL_DEF_TX_PAGE_BOUNDARY, (u16 *)&tx_page_bndy);
+	phydm_get_hal_def_var_handler_interface(p_dm_odm, HAL_DEF_TX_PAGE_BOUNDARY, (u16 *)&tx_page_bndy);
 
 	/*Set REG_CR bit 8. DMA beacon by SW.*/
 	u1b_tmp = platform_efio_read_1byte(adapter, REG_CR_8814A + 1);
@@ -242,7 +256,7 @@ hal_txbf_8822b_fw_txbf_cmd(
 	u8	PageNum0 = 0xFF, PageNum1 = 0xFF;
 	u8	u1_tx_bf_parm[3] = {0};
 
-	PMGNT_INFO				p_mgnt_info = &(adapter->mgnt_info);
+	PMGNT_INFO				p_mgnt_info = &(adapter->MgntInfo);
 	struct _RT_BEAMFORMING_INFO	*p_beam_info = GET_BEAMFORM_INFO(adapter);
 
 	for (idx = 0; idx < BEAMFORMEE_ENTRY_NUM; idx++) {
@@ -267,6 +281,7 @@ hal_txbf_8822b_fw_txbf_cmd(
 }
 #endif
 
+#if 0
 void
 hal_txbf_8822b_init(
 	void			*p_dm_void
@@ -307,10 +322,11 @@ hal_txbf_8822b_init(
 	/* Config HW to receive packet on the user position from registry for sniffer mode. */
 	/* odm_set_bb_reg(p_dm_odm, 0xB00, BIT(9), 1);*/ /* For A-cut only. RegB00[9] = 1 (enable PMAC Rx) */
 	odm_set_bb_reg(p_dm_odm, 0xB54, BIT(30), 1); /* RegB54[30] = 1 (force user position) */
-	odm_set_bb_reg(p_dm_odm, 0xB54, (BIT(29) | BIT28), adapter->mgnt_info.sniff_user_position); /* RegB54[29:28] = user position (0~3) */
-	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("Set adapter->mgnt_info.sniff_user_position=%#X\n", adapter->mgnt_info.sniff_user_position));
+	odm_set_bb_reg(p_dm_odm, 0xB54, (BIT(29) | BIT28), adapter->MgntInfo.sniff_user_position); /* RegB54[29:28] = user position (0~3) */
+	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("Set adapter->MgntInfo.sniff_user_position=%#X\n", adapter->MgntInfo.sniff_user_position));
 #endif
 }
+#endif
 
 void
 hal_txbf_8822b_enter(
@@ -394,7 +410,7 @@ hal_txbf_8822b_enter(
 		if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 			sta_id = p_beamformee_entry->mac_id;
 		else
-			sta_id = p_beamformee_entry->P_AID;
+			sta_id = p_beamformee_entry->p_aid;
 
 		for (i = 0; i < MAX_BEAMFORMEE_SU; i++) {
 			if ((p_beamforming_info->beamformee_su_reg_maping & BIT(i)) == 0) {
@@ -442,11 +458,11 @@ hal_txbf_8822b_enter(
 			odm_write_1byte(p_dm_odm, (REG_ASSOCIATED_BFMER0_INFO_8822B + i), p_beamformer_entry->mac_addr[i]);
 
 		/* Set partial AID */
-		odm_write_2byte(p_dm_odm, (REG_ASSOCIATED_BFMER0_INFO_8822B + 6), p_beamformer_entry->P_AID);
+		odm_write_2byte(p_dm_odm, (REG_ASSOCIATED_BFMER0_INFO_8822B + 6), p_beamformer_entry->p_aid);
 
 		/* Fill our AID to 0x1680[11:0] and [13:12] = 2b'00, BF report segment select to 3895 bytes*/
 		u1b_tmp = odm_read_1byte(p_dm_odm, 0x1680);
-		u1b_tmp = (p_beamformer_entry->AID) & 0xFFF;
+		u1b_tmp = (p_beamformer_entry->p_aid) & 0xFFF;
 		odm_write_1byte(p_dm_odm, 0x1680, u1b_tmp);
 
 		/* Set 80us for leaving ndp_rx_standby_state */
@@ -567,7 +583,7 @@ hal_txbf_8822b_enter(
 		value16 = odm_read_2byte(p_dm_odm, mu_reg[p_beamformee_entry->mu_reg_index]);
 		value16 &= 0xFE00; /*Clear PAID*/
 		value16 |= BIT(9); /*Enable MU BFee*/
-		value16 |= p_beamformee_entry->P_AID;
+		value16 |= p_beamformee_entry->p_aid;
 		odm_write_2byte(p_dm_odm, mu_reg[p_beamformee_entry->mu_reg_index], value16);
 
 		/* 0x42C[30] = 1 (0: from Tx desc, 1: from 0x45F) */
@@ -711,7 +727,7 @@ hal_txbf_8822b_status(
 	u32					beam_ctrl_reg;
 	struct _RT_BEAMFORMING_INFO	*p_beamforming_info = &p_dm_odm->beamforming_info;
 	struct _RT_BEAMFORMEE_ENTRY	*p_beamform_entry;
-	bool	is_mu_sounding = p_beamforming_info->is_mu_sounding, is_bitmap_ready = false;
+	boolean	is_mu_sounding = p_beamforming_info->is_mu_sounding, is_bitmap_ready = false;
 	u16 bitmap;
 	u8 idx, gid, i;
 	u8 id1, id0;
@@ -719,7 +735,7 @@ hal_txbf_8822b_status(
 	u32 user_position_lsb[6] = {0};
 	u32 user_position_msb[6] = {0};
 	u32 value32;
-	bool is_sounding_success[6] = {false};
+	boolean is_sounding_success[6] = {false};
 
 	if (beamform_idx < BEAMFORMEE_ENTRY_NUM)
 		p_beamform_entry = &p_beamforming_info->beamformee_entry[beamform_idx];
@@ -732,7 +748,7 @@ hal_txbf_8822b_status(
 		if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 			beam_ctrl_val = p_beamform_entry->mac_id;
 		else
-			beam_ctrl_val = p_beamform_entry->P_AID;
+			beam_ctrl_val = p_beamform_entry->p_aid;
 
 		ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("@%s, beamform_entry.beamform_entry_state = %d", __func__, p_beamform_entry->beamform_entry_state));
 
@@ -781,7 +797,7 @@ hal_txbf_8822b_status(
 			value32 = odm_get_bb_reg(p_dm_odm, 0xF4C, 0xFFFF0000);
 			/* odm_set_bb_reg(p_dm_odm, 0x19E0, MASKHWORD, 0xFFFF);Let MAC ignore bitmap */
 
-			is_bitmap_ready = (bool)((value32 & BIT(15)) >> 15);
+			is_bitmap_ready = (boolean)((value32 & BIT(15)) >> 15);
 			bitmap = (u16)(value32 & 0x3FFF);
 
 			for (idx = 0; idx < 15; idx++) {
@@ -1021,18 +1037,21 @@ phydm_8822btxbf_rfmode(
 
 	if ((su_bfee_cnt > 0) || (mu_bfee_cnt > 0)) {
 		for (i = ODM_RF_PATH_A; i <= ODM_RF_PATH_B; i++) {
-			odm_set_rf_reg(p_dm_odm, i, 0xEF, BIT(19), 0x1); /*RF mode table write enable*/
-			odm_set_rf_reg(p_dm_odm, i, 0x33, 0xF, 3); /*Select RX mode*/
-			odm_set_rf_reg(p_dm_odm, i, 0x3E, 0xfffff, 0x00036); /*Set Table data*/
-			odm_set_rf_reg(p_dm_odm, i, 0x3F, 0xfffff, 0x5AFCE); /*Set Table data*/
-			odm_set_rf_reg(p_dm_odm, i, 0xEF, BIT(19), 0x0); /*RF mode table write disable*/
+			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0xEF, BIT(19), 0x1); /*RF mode table write enable*/
+			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x33, 0xF, 3); /*Select RX mode*/
+			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x3E, 0xfffff, 0x00036); /*Set Table data*/
+			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x3F, 0xfffff, 0x5AFCE); /*Set Table data*/
+			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0xEF, BIT(19), 0x0); /*RF mode table write disable*/
 		}
 	}
+
+	odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8822B, BIT(30), 1);			/*if Nsts > Nc, don't apply V matrix*/
 
 	if (su_bfee_cnt > 0 || mu_bfee_cnt > 0) {
 		/*for 8814 19ac(idx 1), 19b4(idx 0), different Tx ant setting*/
 		odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8822B, BIT(28) | BIT29, 0x2);	/*enable BB TxBF ant mapping register*/
 		odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8822B, BIT(31), 1);			/*ignore user since 8822B only 2Tx*/
+		
 
 		/*Nsts = 2	AB*/
 		odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8822B, 0xffff, 0x0433);
@@ -1053,13 +1072,13 @@ phydm_8822btxbf_rfmode(
 void
 phydm_8822b_sutxbfer_workaroud(
 	void		*p_dm_void,
-	bool	enable_su_bfer,
+	boolean	enable_su_bfer,
 	u8	nc,
 	u8	nr,
 	u8	ng,
 	u8	CB,
 	u8	BW,
-	bool	is_vht
+	boolean	is_vht
 )
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;

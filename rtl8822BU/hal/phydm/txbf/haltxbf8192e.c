@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 /* ************************************************************
  * Description:
  *
@@ -30,8 +44,8 @@ hal_txbf_8192e_rf_mode(
 )
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	bool				is_self_beamformer = false;
-	bool				is_self_beamformee = false;
+	boolean				is_self_beamformer = false;
+	boolean				is_self_beamformee = false;
 	enum beamforming_cap	beamform_cap = BEAMFORMING_CAP_NONE;
 
 	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] Start!\n", __func__));
@@ -122,7 +136,7 @@ hal_txbf_8192e_download_ndpa(
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	u8			u1b_tmp = 0, tmp_reg422 = 0, head_page;
 	u8			bcn_valid_reg = 0, count = 0, dl_bcn_count = 0;
-	bool			is_send_beacon = false;
+	boolean			is_send_beacon = false;
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 	u8			tx_page_bndy = LAST_ENTRY_OF_TX_PKT_BUFFER_8812;
 	/*default reseved 1 page for the IC type which is undefined.*/
@@ -138,7 +152,7 @@ hal_txbf_8192e_download_ndpa(
 	else
 		head_page = 0xFE;
 
-	adapter->hal_func.get_hal_def_var_handler(adapter, HAL_DEF_TX_PAGE_BOUNDARY, (u8 *)&tx_page_bndy);
+	phydm_get_hal_def_var_handler_interface(p_dm_odm, HAL_DEF_TX_PAGE_BOUNDARY, (u8 *)&tx_page_bndy);
 
 	/*Set REG_CR bit 8. DMA beacon by SW.*/
 	u1b_tmp = odm_read_1byte(p_dm_odm, REG_CR_8192E+1);
@@ -268,7 +282,7 @@ hal_txbf_8192e_enter(
 		if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 			sta_id = beamformee_entry.mac_id;
 		else
-			sta_id = beamformee_entry.P_AID;
+			sta_id = beamformee_entry.p_aid;
 
 		ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s], sta_id=0x%X\n", __func__, sta_id));
 
@@ -345,7 +359,7 @@ hal_txbf_8192e_status(
 	if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 		beam_ctrl_val = beamform_entry.mac_id;
 	else
-		beam_ctrl_val = beamform_entry.P_AID;
+		beam_ctrl_val = beamform_entry.p_aid;
 
 	if (idx == 0)
 		beam_ctrl_reg = REG_TXBF_CTRL_8192E;

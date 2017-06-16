@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_BEAMFORMING_C_
 
 #include <drv_types.h>
@@ -867,8 +862,6 @@ static void _sounding_force_stop(PADAPTER adapter)
 {
 	struct beamforming_info	*info;
 	struct sounding_info *sounding;
-	u8 cancelled;
-
 
 	info = GET_BEAMFORM_INFO(adapter);
 	sounding = &info->sounding_info;
@@ -876,7 +869,7 @@ static void _sounding_force_stop(PADAPTER adapter)
 	if ((sounding->state == SOUNDING_STATE_SU_START)
 	    || (sounding->state == SOUNDING_STATE_MU_START)) {
 		u8 res = _FALSE;
-		_cancel_timer(&info->sounding_timeout_timer, &cancelled);
+		_cancel_timer_ex(&info->sounding_timeout_timer);
 		rtw_bf_cmd(adapter, BEAMFORMING_CTRL_END_PERIOD, &res, 1, 1);
 		return;
 	}
@@ -1075,22 +1068,20 @@ static void _bfer_remove_entry(PADAPTER adapter, struct beamformer_entry *entry)
 
 static u8 _bfer_set_entry_gid(PADAPTER adapter, u8 *addr, u8 *gid, u8 *position)
 {
-	struct beamformer_entry *bfer = NULL;
+	struct beamformer_entry bfer;
 
-
-	bfer = _bfer_get_entry_by_addr(adapter, addr);
-	if (!bfer) {
-		RTW_INFO("%s: Cannot find BFer entry!!\n", __FUNCTION__);
-		return _FAIL;
-	}
+	memset(&bfer, 0, sizeof(bfer));
+	memcpy(bfer.mac_addr, addr, 6);
 
 	/* Parsing Membership Status Array */
-	_rtw_memcpy(bfer->gid_valid, gid, 8);
+	memcpy(bfer.gid_valid, gid, 8);
+
 	/* Parsing User Position Array */
-	_rtw_memcpy(bfer->user_position, position, 16);
+	memcpy(bfer.user_position, position, 16);
 
 	/* Config HW GID table */
-	rtw_bf_cmd(adapter, BEAMFORMING_CTRL_SET_GID_TABLE, (u8*)&bfer, sizeof(struct beamformer_entry *), 1);
+	rtw_bf_cmd(adapter, BEAMFORMING_CTRL_SET_GID_TABLE, (u8 *) &bfer,
+			sizeof(bfer), 1);
 
 	return _SUCCESS;
 }
@@ -1342,7 +1333,7 @@ static void _bfee_remove_entry(PADAPTER adapter, struct beamformee_entry *entry)
 	_sounding_update_min_period(adapter, 0, _TRUE);
 }
 
-static enum _BEAMFORMING_CAP _bfee_get_entry_cap_by_macid(PADAPTER adapter, u8 macid)
+static enum beamforming_cap _bfee_get_entry_cap_by_macid(PADAPTER adapter, u8 macid)
 {
 	struct beamforming_info *info;
 	struct beamformee_entry *bfee;
@@ -1495,8 +1486,7 @@ static void _beamforming_leave(PADAPTER adapter, u8 *ra)
 	/* Stop sounding if there is no any BFee */
 	if ((info->beamformee_su_cnt == 0)
 	    && (info->beamformee_mu_cnt == 0)) {
-		u8 cancelled;
-		_cancel_timer(&info->sounding_timer, &cancelled);
+		_cancel_timer_ex(&info->sounding_timer);
 		_sounding_init(&info->sounding_info);
 	}
 
@@ -1567,13 +1557,11 @@ static void _beamforming_sounding_down(PADAPTER adapter, u8 status)
 static void _c2h_snd_txbf(PADAPTER adapter, u8 *buf, u8 buf_len)
 {
 	struct beamforming_info	*info;
-	u8 cancelled;
 	u8 res;
-
 
 	info = GET_BEAMFORM_INFO(adapter);
 
-	_cancel_timer(&info->sounding_timeout_timer, &cancelled);
+	_cancel_timer_ex(&info->sounding_timeout_timer);
 
 	res = C2H_SND_TXBF_GET_SND_RESULT(buf) ? _TRUE : _FALSE;
 	RTW_INFO("+%s: %s\n", __FUNCTION__, res==_TRUE?"Success":"Fail!");
@@ -1585,10 +1573,10 @@ static void _c2h_snd_txbf(PADAPTER adapter, u8 *buf, u8 buf_len)
  * Description:
  *	This function is for phydm only
  */
-enum _BEAMFORMING_CAP rtw_bf_bfee_get_entry_cap_by_macid(void *mlme, u8 macid)
+enum beamforming_cap rtw_bf_bfee_get_entry_cap_by_macid(void *mlme, u8 macid)
 {
 	PADAPTER adapter;
-	enum _BEAMFORMING_CAP cap = BEAMFORMING_CAP_NONE;
+	enum beamforming_cap cap = BEAMFORMING_CAP_NONE;
 
 
 	adapter = mlme_to_adapter((struct mlme_priv *)mlme);
@@ -1804,10 +1792,11 @@ void rtw_bf_init(PADAPTER adapter)
 	info->beamformee_mu_reg_maping = 0;
 	info->first_mu_bfee_index = 0xFF;
 	info->mu_bfer_curidx = 0xFF;
+	info->cur_csi_rpt_rate = HALMAC_OFDM24;
 
 	_sounding_init(&info->sounding_info);
-	_init_timer(&info->sounding_timer, adapter->pnetdev, _sounding_timer_handler, adapter);
-	_init_timer(&info->sounding_timeout_timer, adapter->pnetdev, _sounding_timeout_timer_handler, adapter);
+	rtw_init_timer(&info->sounding_timer, adapter, _sounding_timer_handler, adapter);
+	rtw_init_timer(&info->sounding_timeout_timer, adapter, _sounding_timeout_timer_handler, adapter);
 
 	info->SetHalBFEnterOnDemandCnt = 0;
 	info->SetHalBFLeaveOnDemandCnt = 0;
@@ -1842,7 +1831,7 @@ void rtw_bf_cmd_hdl(PADAPTER adapter, u8 type, u8 *pbuf)
 		break;
 
 	case BEAMFORMING_CTRL_SET_GID_TABLE:
-		rtw_hal_set_hwreg(adapter, HW_VAR_SOUNDING_SET_GID_TABLE, *(void**)pbuf);
+		rtw_hal_set_hwreg(adapter, HW_VAR_SOUNDING_SET_GID_TABLE, pbuf);
 		break;
 
 	case BEAMFORMING_CTRL_SET_CSI_REPORT:
@@ -3094,8 +3083,14 @@ u8	beamforming_wk_cmd(_adapter *padapter, s32 type, u8 *pbuf, s32 size, u8 enque
 	struct cmd_obj	*ph2c;
 	struct drvextra_cmd_parm	*pdrvextra_cmd_parm;
 	struct cmd_priv	*pcmdpriv = &padapter->cmdpriv;
+	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u8	res = _SUCCESS;
 
+	/*20170214 ad_hoc mode and mp_mode not support BF*/
+	if ((padapter->registrypriv.mp_mode == 1)
+		|| (pmlmeinfo->state == WIFI_FW_ADHOC_STATE))
+		return res;
 
 	if (enqueue) {
 		u8	*wk_buf;

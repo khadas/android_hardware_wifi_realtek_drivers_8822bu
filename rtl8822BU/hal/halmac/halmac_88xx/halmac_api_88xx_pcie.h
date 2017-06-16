@@ -1,15 +1,23 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HALMAC_API_88XX_PCIE_H_
 #define _HALMAC_API_88XX_PCIE_H_
 
 #include "../halmac_2_platform.h"
 #include "../halmac_type.h"
-
-#define LINK_CTRL2_REG_OFFSET	0xA0
-#define GEN2_CTRL_OFFSET		0x80C
-#define LINK_STATUS_REG_OFFSET	0x82
-#define GEN1_SPEED				0x01
-#define GEN2_SPEED				0x02
-
 
 HALMAC_RET_STATUS
 halmac_init_pcie_cfg_88xx(

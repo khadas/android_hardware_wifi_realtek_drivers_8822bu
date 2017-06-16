@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef __HALMAC_COM_REG_H__
 #define __HALMAC_COM_REG_H__
 /*-------------------------Modification Log-----------------------------------
@@ -662,7 +677,7 @@
 #endif
 
 
-#if (HALMAC_8814B_SUPPORT || HALMAC_8821C_SUPPORT)
+#if (HALMAC_8814B_SUPPORT || HALMAC_8821C_SUPPORT || HALMAC_8822B_SUPPORT)
 
 #define REG_C2HEVT_1					0x01A4
 #define REG_C2HEVT_2					0x01A8

@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #ifndef	__PHYDMCCX_H__
 #define    __PHYDMCCX_H__
 
@@ -47,13 +61,38 @@ struct _CCX_INFO {
 	u16		CLM_result;
 
 
-	bool		echo_NHM_en;
-	bool		echo_CLM_en;
+	boolean		echo_NHM_en;
+	boolean		echo_CLM_en;
 	u8		echo_IGI;
 
 };
 
 /*NHM*/
+
+void
+phydm_nhm_counter_statistics_init(
+	void					*p_dm_void
+);
+
+void
+phydm_nhm_counter_statistics(
+	void					*p_dm_void
+);
+
+void
+phydm_nhm_counter_statistics_reset(
+	void			*p_dm_void
+);
+
+void
+phydm_get_nhm_counter_statistics(
+	void			*p_dm_void
+);
+
+boolean
+phydm_cal_nhm_cnt(
+	void		*p_dm_void
+);
 
 void
 phydm_nhm_setting(
@@ -71,7 +110,7 @@ phydm_get_nhm_result(
 	void		*p_dm_void
 );
 
-bool
+boolean
 phydm_check_nhm_ready(
 	void		*p_dm_void
 );
@@ -88,13 +127,13 @@ phydm_clm_trigger(
 	void			*p_dm_void
 );
 
-bool
-phydm_check_cl_mready(
+boolean
+phydm_check_clm_ready(
 	void			*p_dm_void
 );
 
 void
-phydm_get_cl_mresult(
+phydm_get_clm_result(
 	void			*p_dm_void
 );
 

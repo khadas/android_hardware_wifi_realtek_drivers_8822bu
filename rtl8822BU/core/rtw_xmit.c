@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_XMIT_C_
 
 #include <drv_types.h>
@@ -59,6 +54,21 @@ void	_rtw_init_sta_xmit_priv(struct sta_xmit_priv *psta_xmitpriv)
 
 }
 
+void rtw_init_xmit_block(_adapter *padapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	_rtw_spinlock_init(&dvobj->xmit_block_lock);
+	dvobj->xmit_block = XMIT_BLOCK_NONE;
+
+}
+void rtw_free_xmit_block(_adapter *padapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	_rtw_spinlock_free(&dvobj->xmit_block_lock);
+}
+
 s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 {
 	int i;
@@ -73,7 +83,6 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 	_rtw_spinlock_init(&pxmitpriv->lock);
 	_rtw_spinlock_init(&pxmitpriv->lock_sctx);
 	_rtw_init_sema(&pxmitpriv->xmit_sema, 0);
-	_rtw_init_sema(&pxmitpriv->terminate_xmitthread_sema, 0);
 
 	/*
 	Please insert all the queue initializaiton using _rtw_init_queue below
@@ -315,19 +324,19 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 #endif
 
 #ifdef CONFIG_TX_AMSDU
-	_init_timer(&(pxmitpriv->amsdu_vo_timer), padapter->pnetdev,
+	rtw_init_timer(&(pxmitpriv->amsdu_vo_timer), padapter,
 		rtw_amsdu_vo_timeout_handler, padapter);
 	pxmitpriv->amsdu_vo_timeout = RTW_AMSDU_TIMER_UNSET;
 
-	_init_timer(&(pxmitpriv->amsdu_vi_timer), padapter->pnetdev,
+	rtw_init_timer(&(pxmitpriv->amsdu_vi_timer), padapter,
 		rtw_amsdu_vi_timeout_handler, padapter);
 	pxmitpriv->amsdu_vi_timeout = RTW_AMSDU_TIMER_UNSET;
 
-        _init_timer(&(pxmitpriv->amsdu_be_timer), padapter->pnetdev,
+	rtw_init_timer(&(pxmitpriv->amsdu_be_timer), padapter,
 		rtw_amsdu_be_timeout_handler, padapter);
 	pxmitpriv->amsdu_be_timeout = RTW_AMSDU_TIMER_UNSET;
 
-	_init_timer(&(pxmitpriv->amsdu_bk_timer), padapter->pnetdev,
+	rtw_init_timer(&(pxmitpriv->amsdu_bk_timer), padapter,
 		rtw_amsdu_bk_timeout_handler, padapter);
 	pxmitpriv->amsdu_bk_timeout = RTW_AMSDU_TIMER_UNSET;
 
@@ -336,6 +345,7 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 	pxmitpriv->amsdu_debug_coalesce_one = 0;
 	pxmitpriv->amsdu_debug_coalesce_two = 0;
 #endif
+	rtw_init_xmit_block(padapter);
 	rtw_hal_init_xmit_priv(padapter);
 
 exit:
@@ -349,7 +359,6 @@ void  rtw_mfree_xmit_priv_lock(struct xmit_priv *pxmitpriv)
 {
 	_rtw_spinlock_free(&pxmitpriv->lock);
 	_rtw_free_sema(&pxmitpriv->xmit_sema);
-	_rtw_free_sema(&pxmitpriv->terminate_xmitthread_sema);
 
 	_rtw_spinlock_free(&pxmitpriv->be_pending.lock);
 	_rtw_spinlock_free(&pxmitpriv->bk_pending.lock);
@@ -435,7 +444,7 @@ void _rtw_free_xmit_priv(struct xmit_priv *pxmitpriv)
 #ifdef CONFIG_XMIT_ACK
 	_rtw_mutex_free(&pxmitpriv->ack_tx_mutex);
 #endif
-
+	rtw_free_xmit_block(padapter);
 out:
 	return;
 }
@@ -902,6 +911,17 @@ static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattri
 		pattrib->ampdu_spacing = padapter->driver_ampdu_spacing;
 	else
 		pattrib->ampdu_spacing = psta->htpriv.rx_ampdu_min_spacing;
+
+	/* check if enable ampdu */
+	if (pattrib->ht_en && psta->htpriv.ampdu_enable) {
+		if (psta->htpriv.agg_enable_bitmap & BIT(pattrib->priority)) {
+			pattrib->ampdu_en = _TRUE;
+			if (psta->htpriv.tx_amsdu_enable == _TRUE)
+				pattrib->amsdu_ampdu_en = _TRUE;
+			else
+				pattrib->amsdu_ampdu_en = _FALSE;
+		}
+	}
 #endif /* CONFIG_80211N_HT */
 	/* if(pattrib->ht_en && psta->htpriv.ampdu_enable) */
 	/* { */
@@ -1771,12 +1791,13 @@ s32 rtw_make_wlanhdr(_adapter *padapter , u8 *hdr, struct pkt_attrib *pattrib)
 				SetSeqNum(hdr, pattrib->seqnum);
 
 #ifdef CONFIG_80211N_HT
+#if 0 /* move into update_attrib_phy_info(). */
 				/* check if enable ampdu */
 				if (pattrib->ht_en && psta->htpriv.ampdu_enable) {
 					if (psta->htpriv.agg_enable_bitmap & BIT(pattrib->priority))
 						pattrib->ampdu_en = _TRUE;
 				}
-
+#endif
 				/* re-check if enable ampdu by BA_starting_seqctrl */
 				if (pattrib->ampdu_en == _TRUE) {
 					u16 tx_seq;
@@ -2165,7 +2186,7 @@ u32 rtw_calculate_wlan_pkt_size_by_attribue(struct pkt_attrib *pattrib)
 s32 check_amsdu(struct xmit_frame *pxmitframe)
 {
 	struct pkt_attrib *pattrib;
-	int ret = _TRUE;
+	s32 ret = _TRUE;
 
 	if (!pxmitframe)
 		ret = _FALSE;
@@ -2192,6 +2213,28 @@ s32 check_amsdu(struct xmit_frame *pxmitframe)
 	return ret;
 }
 
+s32 check_amsdu_tx_support(_adapter *padapter)
+{
+	struct dvobj_priv *pdvobjpriv;
+	int tx_amsdu;
+	int tx_amsdu_rate;
+	int current_tx_rate;
+	s32 ret = _FALSE;
+
+	pdvobjpriv = adapter_to_dvobj(padapter);
+	tx_amsdu = padapter->tx_amsdu;
+	tx_amsdu_rate = padapter->tx_amsdu_rate;
+	current_tx_rate = pdvobjpriv->traffic_stat.cur_tx_tp;
+
+	if (tx_amsdu == 1)
+		ret = _TRUE;
+	else if (tx_amsdu == 2 && (tx_amsdu_rate == 0 || current_tx_rate > tx_amsdu_rate))
+		ret = _TRUE;
+	else
+		ret = _FALSE;
+
+	return ret;
+}
 
 s32 rtw_xmitframe_coalesce_amsdu(_adapter *padapter, struct xmit_frame *pxmitframe, struct xmit_frame *pxmitframe_queue)
 {
@@ -2984,7 +3027,7 @@ struct xmit_frame *__rtw_alloc_cmdxmitframe(struct xmit_priv *pxmitpriv,
 	pcmdframe->buf_addr = pxmitbuf->pbuf;
 
 	/* initial memory to zero */
-	_rtw_memset(pcmdframe->buf_addr, 0, pxmitbuf->alloc_sz);
+	_rtw_memset(pcmdframe->buf_addr, 0, MAX_CMDBUF_SZ);
 
 	pxmitbuf->priv_data = pcmdframe;
 
@@ -5172,6 +5215,9 @@ struct xmit_buf *select_and_dequeue_pending_xmitbuf(_adapter *padapter)
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 	struct xmit_buf *pxmitbuf = NULL;
 
+	if (_TRUE == rtw_is_xmit_blocked(padapter))
+		return pxmitbuf;
+
 	if (rtw_xmit_ac_blocked(padapter) == _TRUE)
 		pxmitbuf = dequeue_pending_xmitbuf_under_survey(pxmitpriv);
 	else {
@@ -5218,11 +5264,73 @@ thread_return rtw_xmit_thread(thread_context context)
 		flush_signals_thread();
 	} while (_SUCCESS == err);
 
-	_rtw_up_sema(&padapter->xmitpriv.terminate_xmitthread_sema);
+	RTW_INFO(FUNC_ADPT_FMT " Exit\n", FUNC_ADPT_ARG(padapter));
 
-	thread_exit();
+	rtw_thread_wait_stop();
+
+	return 0;
 }
 #endif
+
+#ifdef DBG_XMIT_BLOCK
+void dump_xmit_block(void *sel, _adapter *padapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	RTW_PRINT_SEL(sel, "[XMIT-BLOCK] xmit_block :0x%02x\n", dvobj->xmit_block);
+	if (dvobj->xmit_block & XMIT_BLOCK_REDLMEM)
+		RTW_PRINT_SEL(sel, "Reason:%s\n", "XMIT_BLOCK_REDLMEM");
+	if (dvobj->xmit_block & XMIT_BLOCK_SUSPEND)
+		RTW_PRINT_SEL(sel, "Reason:%s\n", "XMIT_BLOCK_SUSPEND");
+	if (dvobj->xmit_block == XMIT_BLOCK_NONE)
+		RTW_PRINT_SEL(sel, "Reason:%s\n", "XMIT_BLOCK_NONE");
+}
+void dump_xmit_block_info(void *sel, const char *fun_name, _adapter *padapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	RTW_INFO("\n"ADPT_FMT" call %s\n", ADPT_ARG(padapter), fun_name);
+	dump_xmit_block(sel, padapter);
+}
+#define DBG_XMIT_BLOCK_DUMP(adapter)	dump_xmit_block_info(RTW_DBGDUMP, __func__, adapter)
+#endif
+
+void rtw_set_xmit_block(_adapter *padapter, enum XMIT_BLOCK_REASON reason)
+{
+	_irqL irqL;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	_enter_critical_bh(&dvobj->xmit_block_lock, &irqL);
+	dvobj->xmit_block |= reason;
+	_exit_critical_bh(&dvobj->xmit_block_lock, &irqL);
+
+	#ifdef DBG_XMIT_BLOCK
+	DBG_XMIT_BLOCK_DUMP(padapter);
+	#endif
+}
+
+void rtw_clr_xmit_block(_adapter *padapter, enum XMIT_BLOCK_REASON reason)
+{
+	_irqL irqL;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	_enter_critical_bh(&dvobj->xmit_block_lock, &irqL);
+	dvobj->xmit_block &= ~reason;
+	_exit_critical_bh(&dvobj->xmit_block_lock, &irqL);
+
+	#ifdef DBG_XMIT_BLOCK
+	DBG_XMIT_BLOCK_DUMP(padapter);
+	#endif
+}
+bool rtw_is_xmit_blocked(_adapter *padapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+
+	#ifdef DBG_XMIT_BLOCK
+	DBG_XMIT_BLOCK_DUMP(padapter);
+	#endif
+	return ((dvobj->xmit_block) ? _TRUE : _FALSE);
+}
 
 bool rtw_xmit_ac_blocked(_adapter *adapter)
 {
@@ -5396,7 +5504,6 @@ void rtw_amsdu_cancel_timer(_adapter *padapter, u8 priority)
 {
 	struct xmit_priv        *pxmitpriv = &padapter->xmitpriv;
 	_timer* amsdu_timer = NULL;
-	u8 cancel;
 
 	switch(priority)
 	{
@@ -5418,7 +5525,7 @@ void rtw_amsdu_cancel_timer(_adapter *padapter, u8 priority)
 			amsdu_timer = &pxmitpriv->amsdu_be_timer;
 			break;
 	}
-	_cancel_timer(amsdu_timer, &cancel);
+	_cancel_timer_ex(amsdu_timer);
 }
 #endif /* CONFIG_TX_AMSDU */
 

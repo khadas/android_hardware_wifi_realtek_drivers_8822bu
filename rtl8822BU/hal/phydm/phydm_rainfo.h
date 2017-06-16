@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMRAINFO_H__
 #define    __PHYDMRAINFO_H__
@@ -39,7 +34,7 @@
 #define	RA_FLOOR_UP_GAP		3
 #define	RA_FLOOR_TABLE_SIZE	7
 
-#define	ACTIVE_TP_THRESHOLD	150
+#define	ACTIVE_TP_THRESHOLD	1
 #define	RA_RETRY_DESCEND_NUM	2
 #define	RA_RETRY_LIMIT_LOW	4
 #define	RA_RETRY_LIMIT_HIGH	32
@@ -73,7 +68,11 @@
 	#define		RA_FIRST_MACID	0
 #endif
 
+#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
+#define AP_InitRateAdaptiveState		odm_rate_adaptive_state_ap_init
+#else
 #define ap_init_rate_adaptive_state	odm_rate_adaptive_state_ap_init
+#endif
 
 #if (RA_MASK_PHYDMLIZE_CE || RA_MASK_PHYDMLIZE_AP || RA_MASK_PHYDMLIZE_WIN)
 	#define		DM_RATR_STA_INIT			0
@@ -221,25 +220,25 @@ struct _odm_ra_info_ {
 struct _rate_adaptive_table_ {
 	u8		firstconnect;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	bool		PT_collision_pre;
+	boolean		PT_collision_pre;
 #endif
 
 #if (defined(CONFIG_RA_DBG_CMD))
-	bool		is_ra_dbg_init;
+	boolean		is_ra_dbg_init;
 
 	u8	RTY_P[ODM_NUM_RATE_IDX];
 	u8	RTY_P_default[ODM_NUM_RATE_IDX];
-	bool	RTY_P_modify_note[ODM_NUM_RATE_IDX];
+	boolean	RTY_P_modify_note[ODM_NUM_RATE_IDX];
 
 	u8	RATE_UP_RTY_RATIO[ODM_NUM_RATE_IDX];
 	u8	RATE_UP_RTY_RATIO_default[ODM_NUM_RATE_IDX];
-	bool	RATE_UP_RTY_RATIO_modify_note[ODM_NUM_RATE_IDX];
+	boolean	RATE_UP_RTY_RATIO_modify_note[ODM_NUM_RATE_IDX];
 
 	u8	RATE_DOWN_RTY_RATIO[ODM_NUM_RATE_IDX];
 	u8	RATE_DOWN_RTY_RATIO_default[ODM_NUM_RATE_IDX];
-	bool	RATE_DOWN_RTY_RATIO_modify_note[ODM_NUM_RATE_IDX];
+	boolean	RATE_DOWN_RTY_RATIO_modify_note[ODM_NUM_RATE_IDX];
 
-	bool ra_para_feedback_req;
+	boolean ra_para_feedback_req;
 
 	u8   para_idx;
 	u8	rate_idx;
@@ -274,13 +273,13 @@ struct _ODM_RATE_ADAPTIVE {
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 	u8				ldpc_thres;			/* if RSSI > ldpc_thres => switch from LPDC to BCC */
-	bool				is_lower_rts_rate;
+	boolean				is_lower_rts_rate;
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	u8				rts_thres;
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
-	bool				is_use_ldpc;
+	boolean				is_use_ldpc;
 #else
 	u8				ultra_low_rssi_thresh;
 	u32				last_ratr;			/* RATR Register Content */
@@ -463,11 +462,11 @@ phydm_RA_level_decision(
 	u8			ratr_state
 );
 
-bool
+boolean
 odm_ra_state_check(
 	void		*p_dm_void,
 	s32			RSSI,
-	bool			is_force_update,
+	boolean			is_force_update,
 	u8			*p_ra_tr_state
 );
 
@@ -486,13 +485,13 @@ u8
 odm_find_rts_rate(
 	void		*p_dm_void,
 	u8			tx_rate,
-	bool			is_erp_protect
+	boolean			is_erp_protect
 );
 
 void
 odm_update_noisy_state(
 	void		*p_dm_void,
-	bool		is_noisy_state_from_c2h
+	boolean		is_noisy_state_from_c2h
 );
 
 void
@@ -507,7 +506,7 @@ s32
 phydm_find_minimum_rssi(
 	struct PHY_DM_STRUCT		*p_dm_odm,
 	struct _ADAPTER		*p_adapter,
-	OUT	bool	*p_is_link_temp
+	OUT	boolean	*p_is_link_temp
 );
 
 void
@@ -534,7 +533,7 @@ void
 odm_dynamic_arfb_select(
 	void		*p_dm_void,
 	u8		rate,
-	bool		collision_state
+	boolean		collision_state
 );
 #endif
 
@@ -543,6 +542,8 @@ odm_rate_adaptive_state_ap_init(
 	void			*PADAPTER_VOID,
 	struct sta_info	*p_entry
 );
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 
 static void

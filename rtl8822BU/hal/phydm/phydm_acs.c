@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -51,7 +46,7 @@ odm_get_auto_channel_select_result(
 void
 odm_auto_channel_select_setting(
 	void			*p_dm_void,
-	bool			is_enable
+	boolean			is_enable
 )
 {
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
@@ -178,11 +173,9 @@ odm_auto_channel_select(
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ACS, ODM_DBG_LOUD, ("odm_auto_channel_select(): Channel_Info[0][%d] = %d, Channel_Info[1][%d] = %d\n", channel_idx, p_acs->channel_info_2g[0][channel_idx], channel_idx, p_acs->channel_info_2g[1][channel_idx]));
 
 		for (search_idx = 0; search_idx < ODM_MAX_CHANNEL_2G; search_idx++) {
-			if (p_acs->channel_info_2g[1][search_idx] != 0) {
-				if (p_acs->channel_info_2g[0][search_idx] >= max_score) {
-					max_score = p_acs->channel_info_2g[0][search_idx];
-					p_acs->clean_channel_2g = search_idx + 1;
-				}
+			if (p_acs->channel_info_2g[1][search_idx] != 0 && p_acs->channel_info_2g[0][search_idx] >= max_score) {
+				max_score = p_acs->channel_info_2g[0][search_idx];
+				p_acs->clean_channel_2g = search_idx + 1;
 			}
 		}
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_ACS, ODM_DBG_LOUD, ("(1)odm_auto_channel_select(): 2G: clean_channel_2g = %d, max_score = %d\n",

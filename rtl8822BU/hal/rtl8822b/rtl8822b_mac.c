@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822B_MAC_C_
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
@@ -205,13 +200,14 @@ s32 rtl8822b_fw_dl(PADAPTER adapter, u8 wowlan)
 	}
 
 	if (!err) {
-		adapter->bFWReady = _TRUE;
+		hal->bFWReady = _TRUE;
 		hal->fw_ractrl = _TRUE;
 		RTW_INFO("%s Download Firmware from %s success\n", __FUNCTION__, (fw_bin) ? "file" : "array");
-		RTW_INFO("%s FW Version:%d SubVersion:%d\n", (wowlan) ? "WOW" : "NIC", hal->firmware_version, hal->firmware_sub_version);
+		RTW_INFO("%s FW Version:%d SubVersion:%d FW size:%d\n", (wowlan) ? "WOW" : "NIC",
+			hal->firmware_version, hal->firmware_sub_version, hal->firmware_size);
 		return _SUCCESS;
 	} else {
-		adapter->bFWReady = _FALSE;
+		hal->bFWReady = _FALSE;
 		hal->fw_ractrl = _FALSE;
 		RTW_ERR("%s Download Firmware from %s failed\n", __FUNCTION__, (fw_bin) ? "file" : "array");
 		return _FAIL;

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_PWRCTRL_H_
 #define __RTW_PWRCTRL_H_
 
@@ -48,10 +43,10 @@
 #ifdef CONFIG_DEFAULT_PATTERNS_EN
 	#ifdef CONFIG_PLATFORM_ANDROID_INTEL_X86
 		/* TCP/ICMP/UDP multicast with specific IP addr */
-		#define DEFAULT_PATTERN_NUM 3
+		#define DEFAULT_PATTERN_NUM 4
 	#else
 		/* TCP/ICMP */
-		#define DEFAULT_PATTERN_NUM 2
+		#define DEFAULT_PATTERN_NUM 3
 	#endif
 #else
 	#define DEFAULT_PATTERN_NUM 0
@@ -96,6 +91,13 @@ enum Power_Mgnt {
 	PM_Radio_Off			,
 	PM_Card_Disable		,
 	PS_MODE_NUM,
+};
+
+enum lps_level {
+	LPS_NORMAL = 0,
+	LPS_LCLK,
+	LPS_PG,
+	LPS_LEVEL_MAX,
 };
 
 #ifdef CONFIG_PNO_SUPPORT
@@ -383,13 +385,14 @@ struct pwrctrl_priv {
 	u8		wowlan_mode;
 	u8		wowlan_p2p_mode;
 	u8		wowlan_pno_enable;
+	u8		wowlan_in_resume;
 #ifdef CONFIG_GPIO_WAKEUP
 	u8		is_high_active;
 #endif /* CONFIG_GPIO_WAKEUP */
 #ifdef CONFIG_WOWLAN
+	u8		wowlan_ns_offload_en;
 	u8		wowlan_txpause_status;
 	u8		wowlan_pattern_idx;
-	u8		wowlan_in_resume;
 	u64		wowlan_fw_iv;
 	struct rtl_priv_pattern	patterns[MAX_WKFM_CAM_NUM];
 #ifdef CONFIG_PNO_SUPPORT
@@ -403,6 +406,7 @@ struct pwrctrl_priv {
 #endif
 	u8		wowlan_aoac_rpt_loc;
 	struct aoac_report wowlan_aoac_rpt;
+	u8		wowlan_dis_lps;/*for debug purpose*/
 #endif /* CONFIG_WOWLAN */
 	_timer	pwr_state_check_timer;
 	int		pwr_state_check_interval;
@@ -442,7 +446,8 @@ struct pwrctrl_priv {
 #ifdef CONFIG_LPS_POFF
 	lps_poff_info_t	*plps_poff_info;
 #endif
-
+	u8 lps_level_bk;
+	u8 lps_level; /*LPS_NORMAL,LPA_CG,LPS_PG*/
 #ifdef CONFIG_LPS_PG
 	u8 lpspg_rsvd_page_locate;
 	u8 blpspg_info_up;
@@ -514,6 +519,7 @@ void traffic_check_for_leave_lps(PADAPTER padapter, u8 tx, u32 tx_packets);
 void rtw_set_ps_mode(PADAPTER padapter, u8 ps_mode, u8 smart_ps, u8 bcn_ant_mode, const char *msg);
 void rtw_set_fw_in_ips_mode(PADAPTER padapter, u8 enable);
 void rtw_set_rpwm(_adapter *padapter, u8 val8);
+void rtw_wow_lps_level_decide(_adapter *adapter, u8 wow_en);
 #endif
 
 #ifdef CONFIG_RESUME_IN_WORKQUEUE
@@ -541,6 +547,7 @@ int _rtw_pwr_wakeup(_adapter *padapter, u32 ips_deffer_ms, const char *caller);
 #define rtw_pwr_wakeup_ex(adapter, ips_deffer_ms) _rtw_pwr_wakeup(adapter, ips_deffer_ms, __FUNCTION__)
 int rtw_pm_set_ips(_adapter *padapter, u8 mode);
 int rtw_pm_set_lps(_adapter *padapter, u8 mode);
+int rtw_pm_set_lps_level(_adapter *padapter, u8 level);
 
 void rtw_ps_deny(PADAPTER padapter, PS_DENY_REASON reason);
 void rtw_ps_deny_cancel(PADAPTER padapter, PS_DENY_REASON reason);

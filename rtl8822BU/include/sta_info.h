@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __STA_INFO_H_
 #define __STA_INFO_H_
 
@@ -115,6 +110,7 @@ struct	stainfo_stats	{
 		u64 rx_probersp_uo_pkts;
 	u64 rx_ctrl_pkts;
 	u64 rx_data_pkts;
+	u64 rx_data_last_pkts;		/* For Read & Clear requirement in proc_get_rx_stat() */
 	u64 rx_data_qos_pkts[TID_NUM];
 	u64	last_rx_mgnt_pkts;
 		u64 last_rx_beacon_pkts;
@@ -135,6 +131,12 @@ struct	stainfo_stats	{
 	u64	tx_pkts;
 	u64	tx_bytes;
 	u64  tx_drops;
+
+	u32 duplicate_cnt;	/* Read & Clear, in proc_get_rx_stat() */
+	u32 rxratecnt[128];	/* Read & Clear, in proc_get_rx_stat() */
+	u32 tx_ok_cnt;		/* Read & Clear, in proc_get_tx_stat() */
+	u32 tx_fail_cnt;	/* Read & Clear, in proc_get_tx_stat() */
+	u32 tx_retry_cnt;	/* Read & Clear, in proc_get_tx_stat() */
 };
 
 #ifndef DBG_SESSION_TRACKER
@@ -460,6 +462,7 @@ struct sta_info {
 	u16 RxMgmtFrameSeqNum;
 
 	struct st_ctl_t st_ctl;
+	u8 max_agg_num_minimal_record; /*keep minimal tx desc max_agg_num setting*/
 };
 
 #define sta_rx_pkts(sta) \
@@ -609,7 +612,8 @@ struct	sta_priv {
 #ifdef CONFIG_ATMEL_RC_PATCH
 	u8 atmel_rc_pattern[6];
 #endif
-
+	struct sta_info *c2h_sta;
+	struct submit_ctx *gotc2h;
 };
 
 

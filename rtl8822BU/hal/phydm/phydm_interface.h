@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 
 #ifndef	__ODM_INTERFACE_H__
@@ -102,6 +97,7 @@ enum phydm_h2c_cmd {
 	PHYDM_H2C_FW_TRACE_EN	= 0x49,
 	ODM_H2C_WIFI_CALIBRATION	= 0x6d,
 	PHYDM_H2C_MU				= 0x4a,
+	PHYDM_H2C_FW_GENERAL_INIT = 0x4c,
 	ODM_MAX_H2CCMD
 };
 
@@ -125,6 +121,18 @@ enum phydm_extend_c2h_evt {
 
 };
 
+enum phydm_halmac_param {
+	PHYDM_HALMAC_CMD_MAC_W8 = 0,
+	PHYDM_HALMAC_CMD_MAC_W16 = 1,
+	PHYDM_HALMAC_CMD_MAC_W32 = 2,
+	PHYDM_HALMAC_CMD_BB_W8,
+	PHYDM_HALMAC_CMD_BB_W16,
+	PHYDM_HALMAC_CMD_BB_W32,
+	PHYDM_HALMAC_CMD_RF_W,
+	PHYDM_HALMAC_CMD_DELAY_US,
+	PHYDM_HALMAC_CMD_DELAY_MS,
+	PHYDM_HALMAC_CMD_END = 0XFF,
+};
 
 /*
  * =========== Extern Variable ??? It should be forbidden.
@@ -223,6 +231,17 @@ odm_get_rf_reg(
 );
 
 
+enum hal_status
+phydm_set_reg_by_fw(
+	struct PHY_DM_STRUCT			*p_dm_odm,
+	enum phydm_halmac_param	config_type,
+	u32	offset,
+	u32	data,
+	u32	mask,
+	enum odm_rf_radio_path_e	e_rf_path,
+	u32 delay_time
+);
+
 /*
  * Memory Relative Function.
  *   */
@@ -308,7 +327,7 @@ odm_schedule_work_item(
 	PRT_WORK_ITEM	p_rt_work_item
 );
 
-bool
+boolean
 odm_is_work_item_scheduled(
 	PRT_WORK_ITEM	p_rt_work_item
 );
@@ -393,4 +412,78 @@ odm_get_progressing_time(
 	u64			start_time
 );
 
+#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN|ODM_CE)) && !defined(DM_ODM_CE_MAC80211)
+
+void
+phydm_set_hw_reg_handler_interface (
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	u8				reg_Name,
+	u8				*val
+	);
+
+void
+phydm_get_hal_def_var_handler_interface (
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	enum _HAL_DEF_VARIABLE		e_variable,
+	void						*p_value
+	);
+
+#endif
+
+void
+odm_set_tx_power_index_by_rate_section (
+	struct PHY_DM_STRUCT	*p_dm_odm,
+	u8				RFPath,
+	u8				Channel,
+	u8				RateSection
+);
+
+u8
+odm_get_tx_power_index (
+	struct PHY_DM_STRUCT	*p_dm_odm,
+	u8				RFPath,
+	u8				tx_rate,
+	u8				band_width,
+	u8				Channel
+);
+
+u8
+odm_efuse_one_byte_read(
+	struct PHY_DM_STRUCT	*p_dm_odm,
+	u16			addr,
+	u8			*data,
+	boolean		b_pseu_do_test
+);
+
+void
+odm_efuse_logical_map_read(
+	struct	PHY_DM_STRUCT	*p_dm_odm,
+	u8	type,
+	u16	offset,
+	u32	*data
+);
+
+enum hal_status
+odm_iq_calibrate_by_fw(
+	struct PHY_DM_STRUCT	*p_dm_odm,
+	u8 clear,
+	u8 segment
+);
+
+void
+odm_cmn_info_ptr_array_hook(
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	enum odm_cmninfo_e	cmn_info,
+	u16			index,
+	void			*p_value
+);
+
+void
+phydm_cmn_sta_info_hook(
+	struct PHY_DM_STRUCT		*p_dm_odm,
+	u8			index,
+	struct cmn_sta_info *pcmn_sta_info
+);
+
 #endif /* __ODM_INTERFACE_H__ */
+

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 /* ************************************************************
  * include files
@@ -76,8 +71,8 @@ get_igi_for_diff(int value_IGI)
 void
 odm_fa_threshold_check(
 	void			*p_dm_void,
-	bool			is_dfs_band,
-	bool			is_performance,
+	boolean			is_dfs_band,
+	boolean			is_performance,
 	u32			rx_tp,
 	u32			tx_tp,
 	u32			*dm_FA_thres
@@ -88,6 +83,11 @@ odm_fa_threshold_check(
 	if (p_dm_odm->is_linked && (is_performance || is_dfs_band)) {
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 		/*For AP*/
+#if (DIG_HW == 1)
+		dm_FA_thres[0] = p_dm_odm->priv->pshare->rf_ft_var.dbg_dig_th1;
+		dm_FA_thres[1] = p_dm_odm->priv->pshare->rf_ft_var.dbg_dig_th2;
+		dm_FA_thres[2] = p_dm_odm->priv->pshare->rf_ft_var.dbg_dig_th3;
+#else
 		if ((rx_tp >> 2) > tx_tp && rx_tp < 10000 && rx_tp > 500) {			/*10Mbps & 0.5Mbps*/
 			dm_FA_thres[0] = 0x080;
 			dm_FA_thres[1] = 0x100;
@@ -97,6 +97,7 @@ odm_fa_threshold_check(
 			dm_FA_thres[1] = 0x200;
 			dm_FA_thres[2] = 0x300;
 		}
+#endif
 #else
 		/*For NIC*/
 		dm_FA_thres[0] = DM_DIG_FA_TH0;
@@ -235,7 +236,7 @@ odm_inband_noise_calculate(
 	struct PHY_DM_STRUCT			*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _dynamic_initial_gain_threshold_				*p_dm_dig_table = &p_dm_odm->dm_dig_table;
 	u8				igi_backup, time_cnt = 0, valid_cnt = 0;
-	bool				is_timeout = true;
+	boolean				is_timeout = true;
 	s8				s_noise_a, s_noise_b;
 	s32				noise_rpt_a = 0, noise_rpt_b = 0;
 	u32				tmp = 0;
@@ -536,7 +537,7 @@ odm_pause_dig(
 	case PHYDM_PAUSE:
 	{
 		/* Disable DIG */
-		odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, p_dm_odm->support_ability & (~ODM_BB_DIG));
+		p_dm_odm->support_ability &= ~ODM_BB_DIG;
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_pause_dig(): Pause DIG !!\n"));
 
 		/* Backup IGI value */
@@ -579,7 +580,7 @@ odm_pause_dig(
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_pause_dig(): Write original IGI = 0x%x\n", p_dm_dig_table->igi_backup));
 
 			/* Enable DIG */
-			odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, p_dm_odm->support_ability | ODM_BB_DIG);
+			p_dm_odm->support_ability |= ODM_BB_DIG;
 			break;
 		}
 
@@ -612,7 +613,7 @@ odm_pause_dig(
 
 }
 
-bool
+boolean
 odm_dig_abort(
 	void			*p_dm_void
 )
@@ -658,7 +659,7 @@ odm_dig_abort(
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 #if OS_WIN_FROM_WIN7(OS_VERSION)
-	if (is_ap_mode_exist(p_adapter) && p_adapter->is_in_hct_test) {
+	if (IsAPModeExist(p_adapter) && p_adapter->bInHctTest) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Return: Is AP mode or In HCT Test\n"));
 		return	true;
 	}
@@ -710,8 +711,10 @@ odm_dig_init(
 	p_dm_dig_table->backoff_val = DM_DIG_BACKOFF_DEFAULT;
 	p_dm_dig_table->backoff_val_range_max = DM_DIG_BACKOFF_MAX;
 	p_dm_dig_table->backoff_val_range_min = DM_DIG_BACKOFF_MIN;
+	#if PHYDM_SUPPORT_CCKPD
 	p_dm_dig_table->pre_cck_cca_thres = 0xFF;
 	p_dm_dig_table->cur_cck_cca_thres = 0x83;
+	#endif
 	p_dm_dig_table->forbidden_igi = DM_DIG_MIN_NIC;
 	p_dm_dig_table->large_fa_hit = 0;
 	p_dm_dig_table->large_fa_timeout = 0;
@@ -748,8 +751,10 @@ odm_dig_init(
 
 	odm_memory_set(p_dm_odm, p_dm_dig_table->pause_dig_value, 0, (DM_DIG_MAX_PAUSE_TYPE + 1));
 	p_dm_dig_table->pause_dig_level = 0;
+	#if PHYDM_SUPPORT_CCKPD
 	odm_memory_set(p_dm_odm, p_dm_dig_table->pause_cckpd_value, 0, (DM_DIG_MAX_PAUSE_TYPE + 1));
 	p_dm_dig_table->pause_cckpd_level = 0;
+	#endif
 #endif
 
 	if (p_dm_odm->board_type & (ODM_BOARD_EXT_PA | ODM_BOARD_EXT_LNA)) {
@@ -781,6 +786,11 @@ odm_dig_init(
 		}
 	}
 #endif
+
+
+#if (DIG_HW == 1)
+	p_dm_dig_table->pre_rssi_min = 0;
+#endif
 }
 
 
@@ -801,27 +811,50 @@ odm_DIG(
 	/* Common parameters */
 	struct _dynamic_initial_gain_threshold_						*p_dm_dig_table = &p_dm_odm->dm_dig_table;
 	struct _FALSE_ALARM_STATISTICS		*p_false_alm_cnt = (struct _FALSE_ALARM_STATISTICS *)phydm_get_structure(p_dm_odm, PHYDM_FALSEALMCNT);
-	bool						first_connect, first_dis_connect;
+	boolean						first_connect, first_dis_connect;
 	u8						dig_max_of_min, dig_dynamic_min;
 	u8						dm_dig_max, dm_dig_min;
 	u8						current_igi = p_dm_dig_table->cur_ig_value;
 	u8						offset;
 	u32						dm_FA_thres[3];
 	u32						tx_tp = 0, rx_tp = 0;
-	bool						dig_go_up_check = true;
-	bool						is_dfs_band = false;
-	bool						is_performance = true, is_first_tp_target = false, is_first_coverage = false;
+	boolean						is_dfs_band = false;
+	boolean						is_performance = true, is_first_tp_target = false, is_first_coverage = false;
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	u32						tp_train_th_min = dm_dig_tp_target_th0;
 	static		u8			time_cnt = 0;
 	u8						i;
 #endif
+#if (DIG_HW == 1)
+	boolean						dig_go_up_check = true;
+	u8						step_size_1 = 0, step_size_2 = 0, step_size_3 = 0;
+#endif
 
 	if (odm_dig_abort(p_dm_odm) == true)
 		return;
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG()===========================>\n\n"));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG Start===>\n"));
 
+#if (DIG_HW == 1)
+	if (p_dm_odm->is_linked) {
+		if (p_dm_dig_table->pre_rssi_min <= p_dm_odm->rssi_min) {
+			step_size_1 = 2;
+			step_size_2 = 1;
+			step_size_3 = 2;
+		} else {
+			step_size_1 = 4;
+			step_size_2 = 2;
+			step_size_3 = 2;
+		}
+		p_dm_dig_table->pre_rssi_min = p_dm_odm->rssi_min;
+	} else {
+		step_size_1 = 2;
+		step_size_2 = 1;
+		step_size_3 = 2;
+	}
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("rssi_min = %d, pre_rssi_min = %d\n", p_dm_odm->rssi_min, p_dm_dig_table->pre_rssi_min));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("step_size_1 = %d, step_size_2 = %d, step_size_3 = %d\n", step_size_1, step_size_2, step_size_3));
+#endif
 
 	/* 1 Update status */
 	{
@@ -845,7 +878,7 @@ odm_DIG(
 				tx_tp += (u32)(p_entry->tx_byte_cnt_low_maw >> 7);			/* Kbps */
 			}
 		}
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): TX TP = %dkbps, RX TP = %dkbps\n", tx_tp, rx_tp));
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: TX TP = %dkbps, RX TP = %dkbps\n", tx_tp, rx_tp));
 	}
 
 	switch (p_dm_odm->priv->pshare->rf_ft_var.dig_cov_enable) {
@@ -868,7 +901,7 @@ odm_DIG(
 			if (p_dm_dig_table->tp_train_th_min > dm_dig_tp_target_th1)
 				tp_train_th_min = dm_dig_tp_target_th1;
 
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): TP training mode lower bound = %dkbps\n", tp_train_th_min));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: TP training mode lower bound = %dkbps\n", tp_train_th_min));
 
 			/* 2 Decide DIG mode by total TP */
 			if ((tx_tp + rx_tp) > dm_dig_tp_target_th1) {		/* change to performance mode */
@@ -927,7 +960,12 @@ odm_DIG(
 		if (!is_performance) {
 			dm_dig_max = DM_DIG_MAX_AP_COVERAGR;
 			dm_dig_min = DM_DIG_MIN_AP_COVERAGE;
+#if (DIG_HW == 1)
+			dig_max_of_min = DM_DIG_MIN_AP_COVERAGE;
+#else
 			dig_max_of_min = DM_DIG_MAX_OF_MIN_COVERAGE;
+#endif
+
 		} else {
 			if (p_dm_odm->rf_type == ODM_1T1R)
 				dm_dig_max = DM_DIG_MAX_AP - 6;
@@ -936,9 +974,17 @@ odm_DIG(
 
 			if ((*p_dm_odm->p_band_type == ODM_BAND_2_4G) && (p_dm_odm->support_ic_type & ODM_RTL8814A)) /* for 2G 8814 */
 				dm_dig_min = 0x1c;
+			else if (p_dm_odm->support_ic_type & ODM_RTL8197F)
+				dm_dig_min = 0x1e;
 			else
 				dm_dig_min = DM_DIG_MIN_AP;
+
+#if (DIG_HW == 1)
+			dig_max_of_min = DM_DIG_MIN_AP_COVERAGE;
+#else
 			dig_max_of_min = DM_DIG_MAX_OF_MIN;
+#endif
+
 		}
 
 		/* 4 TX2path */
@@ -992,15 +1038,15 @@ odm_DIG(
 				dm_dig_min = DM_DIG_MIN_AP_DFS + 2;
 			else
 				dm_dig_min = DM_DIG_MIN_AP_DFS;
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): ====== In DFS band ======\n"));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: ====== In DFS band ======\n"));
 		}
 #endif
 	}
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Absolutly upper bound = 0x%x, lower bound = 0x%x\n", dm_dig_max, dm_dig_min));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Absolutly upper bound = 0x%x, lower bound = 0x%x\n", dm_dig_max, dm_dig_min));
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 	if (p_dm_odm->pu1_forced_igi_lb && (0 < *p_dm_odm->pu1_forced_igi_lb)) {
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Force IGI lb to: 0x%02x !!!!!!\n", *p_dm_odm->pu1_forced_igi_lb));
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Force IGI lb to: 0x%02x\n", *p_dm_odm->pu1_forced_igi_lb));
 		dm_dig_min = *p_dm_odm->pu1_forced_igi_lb;
 		dm_dig_max = (dm_dig_min <= dm_dig_max) ? (dm_dig_max) : (dm_dig_min + 1);
 	}
@@ -1015,7 +1061,7 @@ odm_DIG(
 		/* 4 Modify DIG upper bound for 92E, 8723A\B, 8821 & 8812 BT */
 		if ((p_dm_odm->support_ic_type & (ODM_RTL8192E | ODM_RTL8723B | ODM_RTL8812 | ODM_RTL8821)) && (p_dm_odm->is_bt_limited_dig == 1)) {
 			offset = 10;
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Coex. case: Force upper bound to RSSI + %d !!!!!!\n", offset));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Coex. case: Force upper bound to RSSI + %d\n", offset));
 		} else
 			offset = 15;
 #endif
@@ -1041,7 +1087,7 @@ odm_DIG(
 #if (DM_ODM_SUPPORT_TYPE & ODM_CE)
 			if (is_dfs_band) {
 				dig_dynamic_min = dm_dig_min;
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): DFS band: Force lower bound to 0x%x after link !!!!!!\n", dm_dig_min));
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: DFS band: Force lower bound to 0x%x after link\n", dm_dig_min));
 			}
 #endif
 		}
@@ -1055,7 +1101,7 @@ odm_DIG(
 #endif
 			if (is_dfs_band) {
 				dig_dynamic_min = dm_dig_min;
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): DFS band: Force lower bound to 0x%x after link !!!!!!\n", dm_dig_min));
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: DFS band: Force lower bound to 0x%x after link\n", dm_dig_min));
 			} else {
 				if (p_dm_odm->rssi_min < dm_dig_min)
 					dig_dynamic_min = dm_dig_min;
@@ -1070,7 +1116,7 @@ odm_DIG(
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP | ODM_CE))
 		if (is_performance && is_dfs_band) {
 			p_dm_dig_table->rx_gain_range_max = 0x28;
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): DFS band: Force upper bound to 0x%x before link !!!!!!\n", p_dm_dig_table->rx_gain_range_max));
+			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: DFS band: Force upper bound to 0x%x before link\n", p_dm_dig_table->rx_gain_range_max));
 		} else
 #endif
 		{
@@ -1090,14 +1136,14 @@ odm_DIG(
 					dig_dynamic_min = dig_max_of_min;
 				else
 					dig_dynamic_min = (u8) p_dm_dig_table->ant_div_rssi_max;
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Antenna diversity case: Force lower bound to 0x%x !!!!!!\n", dig_dynamic_min));
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Antenna diversity case: RSSI_max = 0x%x !!!!!!\n", p_dm_dig_table->ant_div_rssi_max));
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: AntDiv case: Force lower bound to 0x%x\n", dig_dynamic_min));
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: AntDiv case: RSSI_max = 0x%x\n", p_dm_dig_table->ant_div_rssi_max));
 			}
 		}
 	}
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Adjust boundary by RSSI Upper bound = 0x%x, Lower bound = 0x%x\n",
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Adjust boundary by RSSI Upper bound = 0x%x, Lower bound = 0x%x\n",
 			p_dm_dig_table->rx_gain_range_max, dig_dynamic_min));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Link status: is_linked = %d, RSSI = %d, bFirstConnect = %d, bFirsrDisConnect = %d\n\n",
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Link status: is_linked = %d, RSSI = %d, bFirstConnect = %d, bFirsrDisConnect = %d\n",
 		p_dm_odm->is_linked, p_dm_odm->rssi_min, first_connect, first_dis_connect));
 
 	/* 1 Modify DIG lower bound, deal with abnormal case */
@@ -1121,29 +1167,33 @@ odm_DIG(
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 	if (p_dm_odm->is_linked && !first_connect) {
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("Beacon Num (%d)\n", p_dm_odm->phy_dbg_info.num_qry_beacon_pkt));
-		if ((p_dm_odm->phy_dbg_info.num_qry_beacon_pkt < 5) && (p_dm_odm->bsta_state)) {
-			p_dm_dig_table->rx_gain_range_min = 0x1c;
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Abnrormal #beacon (%d) case in STA mode: Force lower bound to 0x%x !!!!!!\n\n",
-				p_dm_odm->phy_dbg_info.num_qry_beacon_pkt, p_dm_dig_table->rx_gain_range_min));
+#if (RTL8723D_SUPPORT == 1)
+		if (p_dm_odm->support_ic_type != ODM_RTL8723D) {
+			if ((p_dm_odm->phy_dbg_info.num_qry_beacon_pkt < 5) && (p_dm_odm->bsta_state)) {
+				p_dm_dig_table->rx_gain_range_min = 0x1c;
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Abnrormal #beacon (%d) case in STA mode: Force lower bound to 0x%x\n",
+					p_dm_odm->phy_dbg_info.num_qry_beacon_pkt, p_dm_dig_table->rx_gain_range_min));
+			}
 		}
+#endif
 	}
 #endif
 
 	/* 2 Abnormal lower bound case */
 	if (p_dm_dig_table->rx_gain_range_min > p_dm_dig_table->rx_gain_range_max) {
 		p_dm_dig_table->rx_gain_range_min = p_dm_dig_table->rx_gain_range_max;
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Abnrormal lower bound case: Force lower bound to 0x%x !!!!!!\n\n", p_dm_dig_table->rx_gain_range_min));
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Abnrormal lower bound case: Force lower bound to 0x%x\n", p_dm_dig_table->rx_gain_range_min));
 	}
 
 
 	/* 1 False alarm threshold decision */
 	odm_fa_threshold_check(p_dm_odm, is_dfs_band, is_performance, rx_tp, tx_tp, dm_FA_thres);
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): False alarm threshold = %d, %d, %d \n\n", dm_FA_thres[0], dm_FA_thres[1], dm_FA_thres[2]));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: False alarm threshold = %d, %d, %d\n", dm_FA_thres[0], dm_FA_thres[1], dm_FA_thres[2]));
 
 	/* 1 Adjust initial gain by false alarm */
 	if (p_dm_odm->is_linked && is_performance) {
 		/* 2 After link */
-		ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Adjust IGI after link\n"));
+		ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Adjust IGI after link\n"));
 
 		if (is_first_tp_target || (first_connect && is_performance)) {
 			p_dm_dig_table->large_fa_hit = 0;
@@ -1154,7 +1204,7 @@ odm_DIG(
 					current_igi = 0x28;
 				else
 					current_igi = p_dm_odm->rssi_min;
-				ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): DFS band: One-shot to 0x28 upmost!!!!!!\n"));
+				ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: DFS band: One-shot to 0x28 upmost\n"));
 			} else
 #endif
 			{
@@ -1174,52 +1224,69 @@ odm_DIG(
 #endif
 			}
 
-			ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): First connect case: IGI does on-shot to 0x%x\n", current_igi));
+			ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: First connect case: IGI does on-shot to 0x%x\n", current_igi));
 
 		} else {
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
-
+#if ((DM_ODM_SUPPORT_TYPE & (ODM_AP)) && (DIG_HW == 1))
 			if (priv->pshare->rf_ft_var.dig_upcheck_enable)
 				dig_go_up_check = phydm_dig_go_up_check(p_dm_odm);
 #endif
 
+#if (DIG_HW == 1)
 			if ((p_false_alm_cnt->cnt_all > dm_FA_thres[2]) && dig_go_up_check)
-				current_igi = current_igi + 4;
+				current_igi = current_igi + step_size_1;
 			else if ((p_false_alm_cnt->cnt_all > dm_FA_thres[1]) && dig_go_up_check)
+				current_igi = current_igi + step_size_2;
+			else if (p_false_alm_cnt->cnt_all < dm_FA_thres[0])
+				current_igi = current_igi - step_size_3;
+#else
+			if (p_false_alm_cnt->cnt_all > dm_FA_thres[2])
+				current_igi = current_igi + 4;
+			else if (p_false_alm_cnt->cnt_all > dm_FA_thres[1])
 				current_igi = current_igi + 2;
 			else if (p_false_alm_cnt->cnt_all < dm_FA_thres[0])
 				current_igi = current_igi - 2;
+#endif
 
 			/* 4 Abnormal # beacon case */
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 			if ((p_dm_odm->phy_dbg_info.num_qry_beacon_pkt < 5) && (p_false_alm_cnt->cnt_all < DM_DIG_FA_TH1) && (p_dm_odm->bsta_state)) {
 				current_igi = p_dm_dig_table->rx_gain_range_min;
-				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Abnormal #beacon (%d) case: IGI does one-shot to 0x%x\n",
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Abnormal #beacon (%d) case: IGI does one-shot to 0x%x\n",
 					p_dm_odm->phy_dbg_info.num_qry_beacon_pkt, current_igi));
 			}
 #endif
 		}
 	} else {
 		/* 2 Before link */
-		ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): Adjust IGI before link\n"));
+		ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: Adjust IGI before link\n"));
 
 		if (first_dis_connect || is_first_coverage) {
 			current_igi = dm_dig_min;
-			ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): First disconnect case: IGI does on-shot to lower bound\n"));
+			ODM_RT_TRACE(p_dm_odm,	ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: First disconnect case: IGI does on-shot to lower bound\n"));
 		} else {
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
+#if ((DM_ODM_SUPPORT_TYPE & (ODM_AP)) && (DIG_HW == 1))
 			if (priv->pshare->rf_ft_var.dig_upcheck_enable)
 				dig_go_up_check = phydm_dig_go_up_check(p_dm_odm);
 #endif
 
+#if (DIG_HW == 1)
 			if ((p_false_alm_cnt->cnt_all > dm_FA_thres[2]) && dig_go_up_check)
-				current_igi = current_igi + 4;
+				current_igi = current_igi + step_size_1;
 			else if ((p_false_alm_cnt->cnt_all > dm_FA_thres[1]) && dig_go_up_check)
+				current_igi = current_igi + step_size_2;
+			else if (p_false_alm_cnt->cnt_all < dm_FA_thres[0])
+				current_igi = current_igi - step_size_3;
+#else
+			if (p_false_alm_cnt->cnt_all > dm_FA_thres[2])
+				current_igi = current_igi + 4;
+			else if (p_false_alm_cnt->cnt_all > dm_FA_thres[1])
 				current_igi = current_igi + 2;
 			else if (p_false_alm_cnt->cnt_all < dm_FA_thres[0])
 				current_igi = current_igi - 2;
+#endif
 		}
 	}
 
@@ -1230,7 +1297,7 @@ odm_DIG(
 	if (current_igi > p_dm_dig_table->rx_gain_range_max)
 		current_igi = p_dm_dig_table->rx_gain_range_max;
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_DIG(): cur_ig_value=0x%x, TotalFA = %d\n\n", current_igi, p_false_alm_cnt->cnt_all));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG: cur_ig_value=0x%x, TotalFA = %d\n", current_igi, p_false_alm_cnt->cnt_all));
 
 	/* 1 Update status */
 	{
@@ -1260,6 +1327,7 @@ odm_DIG(
 			p_dm_dig_table->dig_dynamic_min_0 = dig_dynamic_min;
 		}
 	}
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("DIG end\n"));
 }
 
 void
@@ -1324,9 +1392,7 @@ odm_false_alarm_counter_statistics(
 {
 	struct PHY_DM_STRUCT					*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _FALSE_ALARM_STATISTICS	*false_alm_cnt = (struct _FALSE_ALARM_STATISTICS *)phydm_get_structure(p_dm_odm, PHYDM_FALSEALMCNT);
-#if (PHYDM_LA_MODE_SUPPORT == 1)
-	struct _RT_ADCSMP					*adc_smp = &(p_dm_odm->adcsmp);
-#endif
+	struct _ADAPTIVITY_STATISTICS	*adaptivity = (struct _ADAPTIVITY_STATISTICS *)phydm_get_structure(p_dm_odm, PHYDM_ADAPTIVITY);
 	u32						ret_value;
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
@@ -1341,7 +1407,7 @@ odm_false_alarm_counter_statistics(
 	if (!(p_dm_odm->support_ability & ODM_BB_FA_CNT))
 		return;
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics()======>\n"));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("FA_Counter()======>\n"));
 
 #if (ODM_IC_11N_SERIES_SUPPORT == 1)
 	if (p_dm_odm->support_ic_type & ODM_IC_11N_SERIES) {
@@ -1386,6 +1452,16 @@ odm_false_alarm_counter_statistics(
 		/* read VHT CRC32 counter */
 		false_alm_cnt->cnt_vht_crc32_error = 0;
 		false_alm_cnt->cnt_vht_crc32_ok = 0;
+		
+#if (RTL8723D_SUPPORT == 1)
+		if (p_dm_odm->support_ic_type == ODM_RTL8723D) {
+			/* read HT CRC32 agg counter */
+			ret_value = odm_get_bb_reg(p_dm_odm, ODM_REG_HT_CRC32_CNT_11N_AGG, MASKDWORD);
+			false_alm_cnt->cnt_ht_crc32_error_agg = (ret_value & 0xffff0000) >> 16;
+			false_alm_cnt->cnt_ht_crc32_ok_agg= ret_value & 0xffff;
+		}
+#endif
+		
 
 #if (RTL8188E_SUPPORT == 1)
 		if (p_dm_odm->support_ic_type == ODM_RTL8188E) {
@@ -1445,21 +1521,10 @@ odm_false_alarm_counter_statistics(
 			odm_set_bb_reg(p_dm_odm, ODM_REG_PAGE_F_RST_11N, BIT(16), 1);
 			odm_set_bb_reg(p_dm_odm, ODM_REG_PAGE_F_RST_11N, BIT(16), 0);
 		}
-
-		/* Get debug port 0 */
-		odm_set_bb_reg(p_dm_odm, ODM_REG_DBG_RPT_11N, MASKDWORD, 0x0);
-		false_alm_cnt->dbg_port0 = odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11N, MASKDWORD);
-
-		/* Get EDCCA flag */
-		odm_set_bb_reg(p_dm_odm, ODM_REG_DBG_RPT_11N, MASKDWORD, 0x208);
-		false_alm_cnt->edcca_flag = (bool)odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11N, BIT(30));
-
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_fast_fsync=%d, cnt_sb_search_fail=%d\n",
-			false_alm_cnt->cnt_fast_fsync, false_alm_cnt->cnt_sb_search_fail));
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_parity_fail=%d, cnt_rate_illegal=%d\n",
-			false_alm_cnt->cnt_parity_fail, false_alm_cnt->cnt_rate_illegal));
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_crc8_fail=%d, cnt_mcs_fail=%d\n",
-			false_alm_cnt->cnt_crc8_fail, false_alm_cnt->cnt_mcs_fail));
+	
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[OFDM FA Detail] Parity_Fail = (( %d )), Rate_Illegal = (( %d )), CRC8_fail = (( %d )), Mcs_fail = (( %d )), Fast_Fsync = (( %d )), SB_Search_fail = (( %d ))\n",
+			false_alm_cnt->cnt_parity_fail, false_alm_cnt->cnt_rate_illegal, false_alm_cnt->cnt_crc8_fail, false_alm_cnt->cnt_mcs_fail, false_alm_cnt->cnt_fast_fsync, false_alm_cnt->cnt_sb_search_fail));
+		
 	}
 #endif
 
@@ -1543,40 +1608,38 @@ odm_false_alarm_counter_statistics(
 			false_alm_cnt->cnt_all = false_alm_cnt->cnt_ofdm_fail;
 			false_alm_cnt->cnt_cca_all = false_alm_cnt->cnt_ofdm_cca;
 		}
-
-#if (PHYDM_LA_MODE_SUPPORT == 1)
-		if (adc_smp->adc_smp_state == ADCSMP_STATE_IDLE)
-#endif
-		{
-			/* Get debug port 0 */
-			odm_set_bb_reg(p_dm_odm, ODM_REG_DBG_RPT_11AC, MASKDWORD, 0x0);
-			false_alm_cnt->dbg_port0 = odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11AC, MASKDWORD);
-
-			/* Get EDCCA flag */
-			odm_set_bb_reg(p_dm_odm, ODM_REG_DBG_RPT_11AC, MASKDWORD, 0x209);
-			false_alm_cnt->edcca_flag = (bool)odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11AC, BIT(30));
-		}
-
 	}
 #endif
+	if (p_dm_odm->support_ic_type != ODM_RTL8723D) {
+		if (phydm_set_bb_dbg_port(p_dm_odm, BB_DBGPORT_PRIORITY_1, 0x0)) {/*set debug port to 0x0*/
+			false_alm_cnt->dbg_port0 = phydm_get_bb_dbg_port_value(p_dm_odm);
+			phydm_release_bb_dbg_port(p_dm_odm);
+		}
 
-
+		if (phydm_set_bb_dbg_port(p_dm_odm, BB_DBGPORT_PRIORITY_1, adaptivity->adaptivity_dbg_port)) {
+			if (p_dm_odm->support_ic_type & (ODM_RTL8723B | ODM_RTL8188E))
+				false_alm_cnt->edcca_flag = (boolean)((phydm_get_bb_dbg_port_value(p_dm_odm) & BIT(30)) >> 30);
+			else
+				false_alm_cnt->edcca_flag = (boolean)((phydm_get_bb_dbg_port_value(p_dm_odm) & BIT(29)) >> 29);
+			phydm_release_bb_dbg_port(p_dm_odm);
+		}
+	}
 	false_alm_cnt->cnt_crc32_error_all = false_alm_cnt->cnt_vht_crc32_error + false_alm_cnt->cnt_ht_crc32_error + false_alm_cnt->cnt_ofdm_crc32_error + false_alm_cnt->cnt_cck_crc32_error;
 	false_alm_cnt->cnt_crc32_ok_all = false_alm_cnt->cnt_vht_crc32_ok + false_alm_cnt->cnt_ht_crc32_ok + false_alm_cnt->cnt_ofdm_crc32_ok + false_alm_cnt->cnt_cck_crc32_ok;
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_ofdm_cca=%d\n", false_alm_cnt->cnt_ofdm_cca));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_cck_cca=%d\n", false_alm_cnt->cnt_cck_cca));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_cca_all=%d\n", false_alm_cnt->cnt_cca_all));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_ofdm_fail=%d\n", false_alm_cnt->cnt_ofdm_fail));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_cck_fail=%d\n", false_alm_cnt->cnt_cck_fail));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): cnt_ofdm_fail=%d\n", false_alm_cnt->cnt_ofdm_fail));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): Total False Alarm=%d\n", false_alm_cnt->cnt_all));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): CCK CRC32 fail: %d, ok: %d\n", false_alm_cnt->cnt_cck_crc32_error, false_alm_cnt->cnt_cck_crc32_ok));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): OFDM CRC32 fail: %d, ok: %d\n", false_alm_cnt->cnt_ofdm_crc32_error, false_alm_cnt->cnt_ofdm_crc32_ok));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): HT CRC32 fail: %d, ok: %d\n", false_alm_cnt->cnt_ht_crc32_error, false_alm_cnt->cnt_ht_crc32_ok));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): VHT CRC32 fail: %d, ok: %d\n", false_alm_cnt->cnt_vht_crc32_error, false_alm_cnt->cnt_vht_crc32_ok));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): Total CRC32 fail: %d, ok: %d\n", false_alm_cnt->cnt_crc32_error_all, false_alm_cnt->cnt_crc32_ok_all));
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("odm_false_alarm_counter_statistics(): dbg port 0x0 = 0x%x, EDCCA = %d\n\n", false_alm_cnt->dbg_port0, false_alm_cnt->edcca_flag));
+
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[CCA Cnt] {CCK, OFDM, Total} = {%d, %d, %d}\n",
+		false_alm_cnt->cnt_cck_cca, false_alm_cnt->cnt_ofdm_cca, false_alm_cnt->cnt_cca_all));
+
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[FA Cnt] {CCK, OFDM, Total} = {%d, %d, %d}\n",
+		false_alm_cnt->cnt_cck_fail, false_alm_cnt->cnt_ofdm_fail, false_alm_cnt->cnt_all));
+
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[CCK]  CRC32 {error, ok}= {%d, %d}\n", false_alm_cnt->cnt_cck_crc32_error, false_alm_cnt->cnt_cck_crc32_ok));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[OFDM]CRC32 {error, ok}= {%d, %d}\n", false_alm_cnt->cnt_ofdm_crc32_error, false_alm_cnt->cnt_ofdm_crc32_ok));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[ HT ]  CRC32 {error, ok}= {%d, %d}\n", false_alm_cnt->cnt_ht_crc32_error, false_alm_cnt->cnt_ht_crc32_ok));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[VHT]  CRC32 {error, ok}= {%d, %d}\n", false_alm_cnt->cnt_vht_crc32_error, false_alm_cnt->cnt_vht_crc32_ok));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("[VHT]  CRC32 {error, ok}= {%d, %d}\n", false_alm_cnt->cnt_crc32_error_all, false_alm_cnt->cnt_crc32_ok_all));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("FA_Cnt: Dbg port 0x0 = 0x%x, EDCCA = %d\n\n", false_alm_cnt->dbg_port0, false_alm_cnt->edcca_flag));
 }
 
 /* 3============================================================
@@ -1591,6 +1654,7 @@ odm_pause_cck_packet_detection(
 	u8					cck_pd_threshold
 )
 {
+#if PHYDM_SUPPORT_CCKPD
 	struct PHY_DM_STRUCT			*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _dynamic_initial_gain_threshold_				*p_dm_dig_table = &p_dm_odm->dm_dig_table;
 
@@ -1617,7 +1681,7 @@ odm_pause_cck_packet_detection(
 	case PHYDM_PAUSE:
 	{
 		/* Disable CCK PD */
-		odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, p_dm_odm->support_ability & (~ODM_BB_CCK_PD));
+		p_dm_odm->support_ability &= ~ODM_BB_CCK_PD;
 		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_pause_cck_packet_detection(): Pause CCK packet detection threshold !!\n"));
 
 		/* Backup original CCK PD threshold decided by CCK PD mechanism */
@@ -1661,7 +1725,7 @@ odm_pause_cck_packet_detection(
 			ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_pause_cck_packet_detection(): Write original CCKPD = 0x%x\n", p_dm_dig_table->cck_pd_backup));
 
 			/* Enable DIG */
-			odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, p_dm_odm->support_ability | ODM_BB_CCK_PD);
+			p_dm_odm->support_ability |= ODM_BB_CCK_PD;
 			break;
 		}
 
@@ -1691,9 +1755,10 @@ odm_pause_cck_packet_detection(
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_pause_cck_packet_detection(): pause value = 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		p_dm_dig_table->pause_cckpd_value[7], p_dm_dig_table->pause_cckpd_value[6], p_dm_dig_table->pause_cckpd_value[5], p_dm_dig_table->pause_cckpd_value[4],
 		p_dm_dig_table->pause_cckpd_value[3], p_dm_dig_table->pause_cckpd_value[2], p_dm_dig_table->pause_cckpd_value[1], p_dm_dig_table->pause_cckpd_value[0]));
+#endif
 }
 
-
+#if PHYDM_SUPPORT_CCKPD
 void
 odm_cck_packet_detection_thresh(
 	void		*p_dm_void
@@ -1703,25 +1768,28 @@ odm_cck_packet_detection_thresh(
 	struct _dynamic_initial_gain_threshold_					*p_dm_dig_table = &p_dm_odm->dm_dig_table;
 	struct _FALSE_ALARM_STATISTICS	*false_alm_cnt = (struct _FALSE_ALARM_STATISTICS *)phydm_get_structure(p_dm_odm, PHYDM_FALSEALMCNT);
 	u8					cur_cck_cca_thres = p_dm_dig_table->cur_cck_cca_thres, RSSI_thd = 35;
+#if (RTL8197F_SUPPORT == 1)
+	u8					pd_th = 0, cs_ration = 0;
+#endif
 
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	/* modify by Guo.Mingzhi 2011-12-29 */
 	if (p_dm_odm->is_dual_mac_smart_concurrent == true)
-		/*	if (p_dm_odm->is_dual_mac_smart_concurrent == false) */
 		return;
+	
 	if (p_dm_odm->is_bt_hs_operation) {
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_cck_packet_detection_thresh() write 0xcd for BT HS mode!!\n"));
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("CCK_PD: 0xcd for BT HS mode!!\n"));
 		odm_write_cck_cca_thres(p_dm_odm, 0xcd);
 		return;
 	}
 #endif
 
 	if ((!(p_dm_odm->support_ability & ODM_BB_CCK_PD)) || (!(p_dm_odm->support_ability & ODM_BB_FA_CNT))) {
-		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_cck_packet_detection_thresh()  return==========\n"));
-#ifdef MCR_WIRELESS_EXTEND
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("CCK_PD: return==========\n"));
+		#ifdef MCR_WIRELESS_EXTEND
 		odm_write_cck_cca_thres(p_dm_odm, 0x43);
-#endif
+		#endif
 		return;
 	}
 
@@ -1730,23 +1798,29 @@ odm_cck_packet_detection_thresh(
 		return;
 #endif
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_cck_packet_detection_thresh()  ==========>\n"));
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("CCK_PD: ==========>\n"));
 
 	if (p_dm_dig_table->cck_fa_ma == 0xffffffff)
 		p_dm_dig_table->cck_fa_ma = false_alm_cnt->cnt_cck_fail;
 	else
 		p_dm_dig_table->cck_fa_ma = ((p_dm_dig_table->cck_fa_ma << 1) + p_dm_dig_table->cck_fa_ma + false_alm_cnt->cnt_cck_fail) >> 2;
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_cck_packet_detection_thresh(): CCK FA moving average = %d\n", p_dm_dig_table->cck_fa_ma));
+	
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("CCK_PD: CCK FA moving average = %d\n", p_dm_dig_table->cck_fa_ma));
 
 	if (p_dm_odm->is_linked) {
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
-#if 0 /*for [PCIE-1596]*/
+
+		#if 0 /*for [PCIE-1596]*/
 		if (p_dm_odm->rssi_min > (RSSI_thd + 14))
 			cur_cck_cca_thres = 0xed;
 		else if (p_dm_odm->rssi_min > (RSSI_thd + 6))
 			cur_cck_cca_thres = 0xdd;
 		else
-#endif
+		#endif
+		/*Add hp_hw_id condition due to 22B LPS power consumption issue and [PCIE-1596]*/
+		if (p_dm_odm->is_hp_hw_id && (p_dm_odm->traffic_load == TRAFFIC_ULTRA_LOW))
+			cur_cck_cca_thres = 0x40;
+		else {
 			if (p_dm_odm->rssi_min > RSSI_thd)
 				cur_cck_cca_thres = 0xcd;
 			else if (p_dm_odm->rssi_min > 20) {
@@ -1754,36 +1828,112 @@ odm_cck_packet_detection_thresh(
 					cur_cck_cca_thres = 0xcd;
 				else if (p_dm_dig_table->cck_fa_ma < (DM_DIG_FA_TH0 >> 1))
 					cur_cck_cca_thres = 0x83;
-			} else if (p_dm_odm->rssi_min > 7)
-				cur_cck_cca_thres = 0x83;
-			else
+			} else if (p_dm_odm->rssi_min > 3) {
+				if(p_dm_odm->p_advance_ota & PHYDM_ASUS_OTA_SETTING) {	/*for ASUS OTA test*/
+					if (p_dm_dig_table->cck_fa_ma > 200)
+						cur_cck_cca_thres = 0xc3;
+					else
+						cur_cck_cca_thres = 0x83;
+				} else if (p_dm_odm->rssi_min > 7)
+					cur_cck_cca_thres = 0x83;
+			} else
 				cur_cck_cca_thres = 0x40;
-#else
-		if (p_dm_dig_table->cur_ig_value > (0x24 + 14))
-			cur_cck_cca_thres = 0xed;
-		else if (p_dm_dig_table->cur_ig_value > (0x24 + 6))
-			cur_cck_cca_thres = 0xdd;
-		else if (p_dm_dig_table->cur_ig_value > 0x24)
-			cur_cck_cca_thres = 0xcd;
-		else {
-			if (p_dm_dig_table->cck_fa_ma > 0x400)
-				cur_cck_cca_thres = 0x83;
-			else if (p_dm_dig_table->cck_fa_ma < 0x200)
-				cur_cck_cca_thres = 0x40;
+		}
+			
+#else	/*ODM_AP*/
+
+		if (p_dm_odm->support_ic_type & ODM_RTL8197F) {
+			if ((p_dm_dig_table->cur_ig_value > (0x24 + 14)) || (p_dm_odm->rssi_min > 32))
+				cur_cck_cca_thres = 0xed;
+			else if ((p_dm_dig_table->cur_ig_value > (0x24 + 6)) || (p_dm_odm->rssi_min > 32))
+				cur_cck_cca_thres = 0xdd;
+			else if ((p_dm_dig_table->cur_ig_value > 0x24) || (p_dm_odm->rssi_min > 24 && p_dm_odm->rssi_min <= 30))
+				cur_cck_cca_thres = 0xcd;
+			else if ((p_dm_dig_table->cur_ig_value <= 0x24) || (p_dm_odm->rssi_min < 22)) {
+				if (p_dm_dig_table->cck_fa_ma > 0x400)
+					cur_cck_cca_thres = 0x83;
+				else if (p_dm_dig_table->cck_fa_ma < 0x200)
+					cur_cck_cca_thres = 0x40;
+			}
+		} else {
+			if (p_dm_dig_table->cur_ig_value > (0x24 + 14))
+				cur_cck_cca_thres = 0xed;
+			else if (p_dm_dig_table->cur_ig_value > (0x24 + 6))
+				cur_cck_cca_thres = 0xdd;
+			else if (p_dm_dig_table->cur_ig_value > 0x24)
+				cur_cck_cca_thres = 0xcd;
+			else {
+				#if 0
+				if (p_dm_dig_table->cck_fa_ma > 0x400)
+					cur_cck_cca_thres = 0x83;
+				else if (p_dm_dig_table->cck_fa_ma < 0x200)
+					cur_cck_cca_thres = 0x40;
+				#else
+					cur_cck_cca_thres = 0x83;
+				#endif
+			}
 		}
 
 #endif
 	} else {
+	
 		if (p_dm_dig_table->cck_fa_ma > 0x400)
 			cur_cck_cca_thres = 0x83;
 		else if (p_dm_dig_table->cck_fa_ma < 0x200)
 			cur_cck_cca_thres = 0x40;
 	}
 
-	odm_write_cck_cca_thres(p_dm_odm, cur_cck_cca_thres);
+	#if (RTL8197F_SUPPORT == 1)
+	/*Add by Yu Chen 20160902, pd_th for 0xa0a, cs_ration for 0xaaa*/
+	if (p_dm_odm->support_ic_type & ODM_RTL8197F) {
+		switch (cur_cck_cca_thres) {
+			case 0xed:
+				cs_ration = p_dm_dig_table->aaa_default + AAA_BASE + AAA_STEP*2;
+				pd_th = 0xd;
+				break;
 
-	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_cck_packet_detection_thresh()  cur_cck_cca_thres = 0x%x\n", cur_cck_cca_thres));
+			case 0xdd:
+				cs_ration = p_dm_dig_table->aaa_default + AAA_BASE + AAA_STEP;
+				pd_th = 0xd;
+				break;
+
+			case 0xcd:
+				cs_ration = p_dm_dig_table->aaa_default + AAA_BASE;
+				pd_th = 0xd;
+				break;
+
+			case 0x83:
+				cs_ration = p_dm_dig_table->aaa_default + AAA_STEP;
+				pd_th = 0x7;
+				break;
+
+			case 0x40:
+				cs_ration = p_dm_dig_table->aaa_default;
+				pd_th = 0x3;
+				break;
+
+			default:
+				cs_ration = p_dm_dig_table->aaa_default;
+				pd_th = 0x3;
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("cck pd use default\n"));
+				break;
+		}
+	}
+	#endif  /*#if (RTL8197F_SUPPORT == 1)*/
+
+	#if (RTL8197F_SUPPORT == 1)
+	if (p_dm_odm->support_ic_type & ODM_RTL8197F) {
+		odm_set_bb_reg(p_dm_odm, 0xa08, 0xf0000, pd_th);
+		odm_set_bb_reg(p_dm_odm, 0xaa8, 0x1f0000, cs_ration);
+	} else
+	#endif
+	{
+		odm_write_cck_cca_thres(p_dm_odm, cur_cck_cca_thres);
+	}
+
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_DIG, ODM_DBG_LOUD, ("CCK_PD: cck_cca_th=((0x%x))\n\n", cur_cck_cca_thres));
 }
+#endif
 
 void
 odm_write_cck_cca_thres(
@@ -1791,22 +1941,34 @@ odm_write_cck_cca_thres(
 	u8			cur_cck_cca_thres
 )
 {
+#if PHYDM_SUPPORT_CCKPD
 	struct PHY_DM_STRUCT			*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _dynamic_initial_gain_threshold_				*p_dm_dig_table = &p_dm_odm->dm_dig_table;
 
 	if (p_dm_dig_table->cur_cck_cca_thres != cur_cck_cca_thres) {	/* modify by Guo.Mingzhi 2012-01-03 */
 		odm_write_1byte(p_dm_odm, ODM_REG(CCK_CCA, p_dm_odm), cur_cck_cca_thres);
 		p_dm_dig_table->cck_fa_ma = 0xffffffff;
+		
+#if (RTL8723D_SUPPORT == 1)
+		if (p_dm_odm->support_ic_type & ODM_RTL8723D) {	/* modify by David_Ding for 8723D no Beacon issue */
+			if (cur_cck_cca_thres == 0x40)
+				odm_write_1byte(p_dm_odm, 0xAAA, 0x0C);
+			else
+				odm_write_1byte(p_dm_odm, 0xAAA, 0x10);
+		}
+#endif
 	}
 	p_dm_dig_table->pre_cck_cca_thres = p_dm_dig_table->cur_cck_cca_thres;
 	p_dm_dig_table->cur_cck_cca_thres = cur_cck_cca_thres;
+#endif
 }
 
-bool
+boolean
 phydm_dig_go_up_check(
 	void		*p_dm_void
 )
 {
+#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	struct PHY_DM_STRUCT				*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _CCX_INFO				*ccx_info = &p_dm_odm->dm_ccx_info;
 	struct _dynamic_initial_gain_threshold_					*p_dm_dig_table = &p_dm_odm->dm_dig_table;
@@ -1819,7 +1981,8 @@ phydm_dig_go_up_check(
 	u32					total_NHM_cnt;
 	u32					DIG_cover_cnt;
 	u32					over_DIG_cover_cnt;
-	bool					ret = true;
+#endif
+	boolean					ret = true;
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	struct rtl8192cd_priv				*priv = p_dm_odm->priv;
@@ -1953,7 +2116,7 @@ odm_mpt_dig_work_item_callback(
 {
 	struct _ADAPTER	*adapter = (struct _ADAPTER *)p_context;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 
 	ODM_MPT_DIG(p_dm_odm);
 }
@@ -1963,9 +2126,9 @@ odm_mpt_dig_callback(
 	struct timer_list		*p_timer
 )
 {
-	struct _ADAPTER		*adapter = (struct _ADAPTER *)p_timer->adapter;
+	struct _ADAPTER		*adapter = (struct _ADAPTER *)p_timer->Adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 
 
 #if DEV_BUS_TYPE == RT_PCI_INTERFACE
@@ -2054,7 +2217,7 @@ ODM_MPT_DIG(
 #endif
 
 #else
-	if (!(p_dm_odm->priv->pshare->rf_ft_var.mp_specific && p_dm_odm->priv->pshare->mp_dig_on))
+	if (!(*(p_dm_odm->p_mp_mode) && p_dm_odm->priv->pshare->mp_dig_on))
 		return;
 
 	if (*p_dm_odm->p_band_type == ODM_BAND_5G)

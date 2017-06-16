@@ -19,11 +19,15 @@
  ******************************************************************************/
 
 #include "mp_precomp.h"
+#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 #include "../phydm_precomp.h"
+#else
+#include "../../phydm_precomp.h"
+#endif
 
 #if (RTL8822B_SUPPORT == 1)
 
-bool
+boolean
 get_mix_mode_tx_agc_bb_swing_offset_8822b(
 	void				*p_dm_void,
 	enum pwrtrack_method	method,
@@ -94,7 +98,7 @@ odm_tx_pwr_track_set_pwr8822b(
 	struct _ADAPTER	*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
 	struct odm_rf_calibration_structure	*p_rf_calibrate_info = &(p_dm_odm->rf_calibrate_info);
-	u8			channel  = p_hal_data->current_channel;
+	u8			channel  = *p_dm_odm->p_channel;
 	u8			band_width  = p_hal_data->current_channel_bw;
 	u8			tx_power_index = 0;
 	u8			tx_rate = 0xFF;
@@ -102,7 +106,7 @@ odm_tx_pwr_track_set_pwr8822b(
 
 	PHALMAC_PWR_TRACKING_OPTION p_pwr_tracking_opt = &(p_rf_calibrate_info->HALMAC_PWR_TRACKING_INFO);
 
-	if (p_dm_odm->mp_mode == true) {
+	if (*(p_dm_odm->p_mp_mode) == true) {
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 #if (MP_DRIVER == 1)
@@ -121,7 +125,7 @@ odm_tx_pwr_track_set_pwr8822b(
 
 		if (!rate) { /*auto rate*/
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-			tx_rate = adapter->hal_func.get_hw_rate_from_m_rate_handler(p_dm_odm->tx_rate);
+			tx_rate = adapter->HalFunc.GetHwRateFromMRateHandler(p_dm_odm->tx_rate);
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
 			if (p_dm_odm->number_linked_client != 0)
 				tx_rate = hw_rate_to_m_rate(p_dm_odm->tx_rate);
@@ -174,24 +178,33 @@ odm_tx_pwr_track_set_pwr8822b(
 
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
+#if (DM_ODM_SUPPORT_TYPE & ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	struct rtl_priv *rtlpriv = (struct rtl_priv *)p_dm_odm->adapter;
+	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+	u8			channel  = rtlphy->current_channel;
+	u8			band_width  = rtlphy->current_chan_bw;
+#else
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(adapter);
-	u8			channel  = p_hal_data->current_channel;
-	u8			band_width  = p_hal_data->current_channel_bw;
+	u8			channel  = *p_dm_odm->p_channel;
+	u8			band_width  = *p_dm_odm->p_band_width;
+#endif
 	u8			tx_rate = 0xFF;
 
-	if (p_dm_odm->mp_mode == true) {
+	if (*(p_dm_odm->p_mp_mode) == true) {
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 #if (MP_DRIVER == 1)
-		PMPT_CONTEXT p_mpt_ctx = &(adapter->mpt_ctx);
+		PMPT_CONTEXT p_mpt_ctx = &(adapter->MptCtx);
 
-		tx_rate = mpt_to_mgnt_rate(p_mpt_ctx->mpt_rate_index);
+		tx_rate = MptToMgntRate(p_mpt_ctx->MptRateIndex);
 #endif
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
+#if (MP_DRIVER == 1)
 		PMPT_CONTEXT p_mpt_ctx = &(adapter->mppriv.mpt_ctx);
 
 		tx_rate = mpt_to_mgnt_rate(p_mpt_ctx->mpt_rate_index);
+#endif
 #endif
 #endif
 	} else {
@@ -199,7 +212,9 @@ odm_tx_pwr_track_set_pwr8822b(
 
 		if (!rate) { /*auto rate*/
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
-			tx_rate = adapter->hal_func.get_hw_rate_from_m_rate_handler(p_dm_odm->tx_rate);
+			tx_rate = adapter->HalFunc.GetHwRateFromMRateHandler(p_dm_odm->tx_rate);
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE) && defined(DM_ODM_CE_MAC80211)
+			tx_rate = p_dm_odm->tx_rate;
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
 			if (p_dm_odm->number_linked_client != 0)
 				tx_rate = hw_rate_to_m_rate(p_dm_odm->tx_rate);
@@ -219,8 +234,15 @@ odm_tx_pwr_track_set_pwr8822b(
 		("pRF->absolute_ofdm_swing_idx=%d   pRF->remnant_ofdm_swing_idx=%d   pRF->absolute_cck_swing_idx=%d   pRF->remnant_cck_swing_idx=%d   rf_path=%d\n",
 		p_rf_calibrate_info->absolute_ofdm_swing_idx[rf_path], p_rf_calibrate_info->remnant_ofdm_swing_idx[rf_path], p_rf_calibrate_info->absolute_cck_swing_idx[rf_path], p_rf_calibrate_info->remnant_cck_swing_idx, rf_path));
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
-	tx_power_index = phy_get_tx_power_index(adapter, (enum odm_rf_radio_path_e) rf_path, tx_rate, band_width, channel);
+#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
+	tx_power_index = odm_get_tx_power_index(p_dm_odm, (enum odm_rf_radio_path_e) rf_path, tx_rate, (CHANNEL_WIDTH)band_width, channel);
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
+	if (*(p_dm_odm->p_mp_mode) == true)
+		tx_power_index = odm_get_tx_power_index(p_dm_odm, (enum odm_rf_radio_path_e) rf_path, tx_rate, (CHANNEL_WIDTH)band_width, channel);
+	else {
+		if (p_dm_odm->number_linked_client != 0)
+			tx_power_index = odm_get_tx_power_index(p_dm_odm, (enum odm_rf_radio_path_e) rf_path, tx_rate, (CHANNEL_WIDTH)band_width, channel);
+	}
 #else
 	tx_power_index = config_phydm_read_txagc_8822b(p_dm_odm, rf_path, 0x04); /*0x04(TX_AGC_OFDM_6M)*/
 #endif
@@ -305,10 +327,14 @@ get_delta_swing_table_8822b(
 
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	u8			channel			= *(p_dm_odm->p_channel);
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	struct rtl_priv *rtlpriv = (struct rtl_priv *)p_dm_odm->adapter;
+	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+	u8			channel  = rtlphy->current_channel;
 #else
 	struct _ADAPTER		*adapter			= p_dm_odm->adapter;
 	HAL_DATA_TYPE	*p_hal_data		= GET_HAL_DATA(adapter);
-	u8			channel			= p_hal_data->current_channel;
+	u8			channel			= *p_dm_odm->p_channel;
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
@@ -347,52 +373,72 @@ _phy_lc_calibrate_8822b(
 	struct PHY_DM_STRUCT	*p_dm_odm
 )
 {
-	u32 lc_cal = 0, cnt = 0;
+	u32 lc_cal = 0, cnt = 0,tmp0xc00, tmp0xe00;
 
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]LCK start!!!!!!!\n"));
+	tmp0xc00 = odm_read_4byte(p_dm_odm, 0xc00);
+	tmp0xe00 = odm_read_4byte(p_dm_odm, 0xe00);
+	odm_write_4byte(p_dm_odm, 0xc00, 0x4);
+	odm_write_4byte(p_dm_odm, 0xe00, 0x4);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0x0, bRFRegOffsetMask, 0x10000);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_B, 0x0, bRFRegOffsetMask, 0x10000);
 	/*backup RF0x18*/
 	lc_cal = odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK);
-
+	/*disable RTK*/
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0xc4, RFREGOFFSETMASK, 0x01402);
 	/*Start LCK*/
 	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK, lc_cal | 0x08000);
-
 	ODM_delay_ms(100);
-
 	for (cnt = 0; cnt < 100; cnt++) {
 		if (odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, 0x8000) != 0x1)
 			break;
 		ODM_delay_ms(10);
 	}
-
 	/*Recover channel number*/
 	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK, lc_cal);
+	/*enable RTK*/
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0xc4, RFREGOFFSETMASK, 0x81402);
+	/**restore*/
+	odm_write_4byte(p_dm_odm, 0xc00, tmp0xc00);
+	odm_write_4byte(p_dm_odm, 0xe00, tmp0xe00);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0x0, bRFRegOffsetMask, 0x3ffff);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_B, 0x0, bRFRegOffsetMask, 0x3ffff);
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]LCK end!!!!!!!\n"));
 }
 
-
-
+/*LCK VERSION:0x1*/
 void
 phy_lc_calibrate_8822b(
 	void	*p_dm_void
 )
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
-	bool	is_start_cont_tx = false, is_single_tone = false, is_carrier_suppression = false;
+	boolean	is_start_cont_tx = false, is_single_tone = false, is_carrier_suppression = false;
 	u64		start_time;
 	u64		progressing_time;
 
+	struct _hal_rf_				*p_rf = &(p_dm_odm->rf_table);
 
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
-	struct _ADAPTER		*p_adapter = p_dm_odm->adapter;
-
 #if (MP_DRIVER == 1)
+	struct _ADAPTER		*p_adapter = p_dm_odm->adapter;
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	PMPT_CONTEXT	p_mpt_ctx = &(p_adapter->mpt_ctx);
+	PMPT_CONTEXT	p_mpt_ctx = &(p_adapter->MptCtx);
+	is_start_cont_tx = p_mpt_ctx->bStartContTx;
+	is_single_tone = p_mpt_ctx->bSingleTone;
+	is_carrier_suppression = p_mpt_ctx->bCarrierSuppression;
 #else
 	PMPT_CONTEXT	p_mpt_ctx = &(p_adapter->mppriv.mpt_ctx);
-#endif
 	is_start_cont_tx = p_mpt_ctx->is_start_cont_tx;
 	is_single_tone = p_mpt_ctx->is_single_tone;
 	is_carrier_suppression = p_mpt_ctx->is_carrier_suppression;
 #endif
+#endif
+#endif
+
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+	if (!(p_rf->rf_supportability & HAL_RF_LCK))
+		return;
 #endif
 
 	if (is_start_cont_tx || is_single_tone || is_carrier_suppression) {
@@ -400,8 +446,15 @@ phy_lc_calibrate_8822b(
 		return;
 	}
 
+	while (*(p_dm_odm->p_is_scan_in_process)) {
+		ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]scan is in process, bypass LCK\n"));
+		return;
+	}
+
 	start_time = odm_get_current_time(p_dm_odm);
+	p_dm_odm->rf_calibrate_info.is_lck_in_progress = true;
 	_phy_lc_calibrate_8822b(p_dm_odm);
+	p_dm_odm->rf_calibrate_info.is_lck_in_progress = false;
 	progressing_time = odm_get_progressing_time(p_dm_odm, start_time);
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]LCK progressing_time = %lld\n", progressing_time));
 }
@@ -435,24 +488,28 @@ void configure_txpower_track_8822b(
 void phy_set_rf_path_switch_8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	struct PHY_DM_STRUCT		*p_dm_odm,
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	struct PHY_DM_STRUCT		*p_dm_odm,
 #else
 	struct _ADAPTER	*p_adapter,
 #endif
-	bool		is_main
+	boolean		is_main
 )
 {
-#if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+#elif !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->odmpriv;
 #endif
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #endif
 #endif
 
 	/*BY SY Request */
 	odm_set_bb_reg(p_dm_odm, 0x4C, (BIT(24) | BIT(23)), 0x2);
+
 	odm_set_bb_reg(p_dm_odm, 0x974, 0xff, 0xff);
 
 	/*odm_set_bb_reg(p_dm_odm, 0x1991, 0x3, 0x0);*/
@@ -469,41 +526,46 @@ void phy_set_rf_path_switch_8822b(
 
 	if (is_main) {
 		/*odm_set_bb_reg(p_dm_odm, 0xCBD, 0x3, 0x2);		WiFi */
-		odm_set_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT8), 0x2);		/*WiFi */
+		odm_set_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT(8)), 0x2);		/*WiFi */
 	} else {
 		/*odm_set_bb_reg(p_dm_odm, 0xCBD, 0x3, 0x1);	 BT*/
-		odm_set_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT8), 0x1);	 /*BT*/
+		odm_set_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT(8)), 0x1);	 /*BT*/
 	}
 }
 
-bool
+boolean
 _phy_query_rf_path_switch_8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
+	struct PHY_DM_STRUCT	*p_dm_odm
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE) && defined(DM_ODM_CE_MAC80211)
 	struct PHY_DM_STRUCT	*p_dm_odm
 #else
 	struct _ADAPTER	*p_adapter
 #endif
 )
 {
-#if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+#elif !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 	HAL_DATA_TYPE	*p_hal_data = GET_HAL_DATA(p_adapter);
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->odmpriv;
 #endif
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #endif
 #endif
 
-	if (odm_get_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT8)) == 0x2)	/*WiFi */
+	if (odm_get_bb_reg(p_dm_odm, 0xCBC, (BIT(9) | BIT(8))) == 0x2)	/*WiFi */
 		return true;
 	else
 		return false;
 }
 
 
-bool phy_query_rf_path_switch_8822b(
+boolean phy_query_rf_path_switch_8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
+	struct PHY_DM_STRUCT		*p_dm_odm
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
 	struct PHY_DM_STRUCT		*p_dm_odm
 #else
 	struct _ADAPTER	*p_adapter
@@ -516,6 +578,8 @@ bool phy_query_rf_path_switch_8822b(
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
+	return _phy_query_rf_path_switch_8822b(p_dm_odm);
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
 	return _phy_query_rf_path_switch_8822b(p_dm_odm);
 #else
 	return _phy_query_rf_path_switch_8822b(p_adapter);

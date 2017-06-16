@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMPATHDIV_H__
 #define    __PHYDMPATHDIV_H__
@@ -99,8 +94,8 @@ struct _ODM_PATH_DIVERSITY_ {
 	u32	path_d_cnt_all;
 
 	u8	dtp_period;
-	bool	is_become_linked;
-	bool	is_u3_mode;
+	boolean	is_become_linked;
+	boolean	is_u3_mode;
 	u8	num_tx_path;
 	u8	default_path;
 	u8	num_candidate;
@@ -109,13 +104,13 @@ struct _ODM_PATH_DIVERSITY_ {
 	u8	ant_candidate_3;
 	u8     phydm_dtp_state;
 	u8	dtp_check_patha_counter;
-	bool	fix_path_bfer;
+	boolean	fix_path_bfer;
 	u8	search_space_2[NUM_CHOOSE2_FROM4];
 	u8	search_space_3[NUM_CHOOSE3_FROM4];
 
 	u8	pre_tx_path;
 	u8	use_path_a_as_default_ant;
-	bool is_path_a_exist;
+	boolean is_path_a_exist;
 
 #endif
 };
@@ -203,12 +198,12 @@ odm_1t_path_diversity_init_92c(
 	struct _ADAPTER	*adapter
 );
 
-bool
+boolean
 odm_is_connected_92c(
 	struct _ADAPTER	*adapter
 );
 
-bool
+boolean
 odm_path_diversity_before_link92c(
 	/* struct _ADAPTER*	adapter */
 	struct PHY_DM_STRUCT		*p_dm_odm
@@ -269,8 +264,8 @@ odm_path_div_chk_ant_switch(
 void
 odm_cck_path_diversity_chk_per_pkt_rssi(
 	struct _ADAPTER		*adapter,
-	bool			is_def_port,
-	bool			is_match_bssid,
+	boolean			is_def_port,
+	boolean			is_match_bssid,
 	struct _WLAN_STA	*p_entry,
 	PRT_RFD			p_rfd,
 	u8			*p_desc
@@ -279,8 +274,8 @@ odm_cck_path_diversity_chk_per_pkt_rssi(
 void
 odm_path_div_chk_per_pkt_rssi(
 	struct _ADAPTER		*adapter,
-	bool			is_def_port,
-	bool			is_match_bssid,
+	boolean			is_def_port,
+	boolean			is_match_bssid,
 	struct _WLAN_STA	*p_entry,
 	PRT_RFD			p_rfd
 );

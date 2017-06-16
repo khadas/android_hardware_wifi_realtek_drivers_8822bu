@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #include "btc/mp_precomp.h"
 #include <hal_btcoex_wifionly.h>
 
@@ -97,6 +111,8 @@ void hal_btcoex_wifionly_switchband_notify(PADAPTER padapter)
 
 	if (IS_HARDWARE_TYPE_8822B(padapter))
 		ex_hal8822b_wifi_only_switchbandnotify(&GLBtCoexistWifiOnly, is_5g);
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_switchbandnotify(&GLBtCoexistWifiOnly, is_5g);
 }
 
 void hal_btcoex_wifionly_scan_notify(PADAPTER padapter)
@@ -109,6 +125,8 @@ void hal_btcoex_wifionly_scan_notify(PADAPTER padapter)
 
 	if (IS_HARDWARE_TYPE_8822B(padapter))
 		ex_hal8822b_wifi_only_scannotify(&GLBtCoexistWifiOnly, is_5g);
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_scannotify(&GLBtCoexistWifiOnly, is_5g);
 }
 
 void hal_btcoex_wifionly_hw_config(PADAPTER padapter)
@@ -119,6 +137,8 @@ void hal_btcoex_wifionly_hw_config(PADAPTER padapter)
 		ex_hal8723b_wifi_only_hw_config(pwifionlycfg);
 	else if (IS_HARDWARE_TYPE_8822B(padapter))
 		ex_hal8822b_wifi_only_hw_config(pwifionlycfg);
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_hw_config(pwifionlycfg);
 }
 
 void hal_btcoex_wifionly_initlizevariables(PADAPTER padapter)
@@ -144,5 +164,7 @@ void hal_btcoex_wifionly_initlizevariables(PADAPTER padapter)
 	pwifionly_haldata->customer_id = CUSTOMER_NORMAL;
 	pwifionly_haldata->efuse_pg_antnum = pHalData->EEPROMBluetoothAntNum;
 	pwifionly_haldata->efuse_pg_antpath = pHalData->ant_path;
+	pwifionly_haldata->rfe_type = pHalData->rfe_type;
+	pwifionly_haldata->ant_div_cfg = pHalData->AntDivCfg;
 }
 

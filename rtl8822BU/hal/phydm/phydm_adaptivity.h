@@ -1,7 +1,6 @@
-
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -12,20 +11,15 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMADAPTIVITY_H__
 #define    __PHYDMADAPTIVITY_H__
 
-#define ADAPTIVITY_VERSION	"9.3.4"	/*20160512 changed by Kevin, modify 0xce8[13]=1 for 8197F when adaptivity is enabled*/
+#define ADAPTIVITY_VERSION	"9.5.2"	/*20170330 changed by Kevin, change th_l2h_ini setting for 5G: v2.1.0*/
 
 #define pwdb_upper_bound	7
-#define dfir_loss	5
+#define dfir_loss	7
 
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN))
 enum phydm_regulation_type {
@@ -68,6 +62,12 @@ enum phydm_mac_edcca_type {
 	phydm_dont_ignore_edcca	= 1
 };
 
+enum phydm_adaptivity_mode {
+	PHYDM_ADAPT_MSG	= 0,
+	PHYDM_ADAPT_DEBUG	= 1,
+	PHYDM_ADAPT_RESUME	= 2
+};
+
 struct _ADAPTIVITY_STATISTICS {
 	s8			th_l2h_ini_backup;
 	s8			th_edcca_hl_diff_backup;
@@ -76,25 +76,28 @@ struct _ADAPTIVITY_STATISTICS {
 	u8			nhm_wait;
 	s8			h2l_lb;
 	s8			l2h_lb;
-	bool			is_first_link;
-	bool			is_check;
-	bool			dynamic_link_adaptivity;
+	boolean			is_first_link;
+	boolean			is_check;
+	boolean			dynamic_link_adaptivity;
 	u8			ap_num_th;
 	u8			adajust_igi_level;
-	bool			acs_for_adaptivity;
+	boolean			acs_for_adaptivity;
 	s8			backup_l2h;
 	s8			backup_h2l;
-	bool			is_stop_edcca;
+	boolean			is_stop_edcca;
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	RT_WORK_ITEM	phydm_pause_edcca_work_item;
 	RT_WORK_ITEM	phydm_resume_edcca_work_item;
 #endif
+	u32			adaptivity_dbg_port; /*N:0x208, AC:0x209*/
+	u8			debug_mode;
+	s8			th_l2h_ini_debug;
 };
 
 void
 phydm_pause_edcca(
 	void	*p_dm_void,
-	bool	is_pasue_edcca
+	boolean	is_pasue_edcca
 );
 
 void
@@ -105,26 +108,6 @@ phydm_check_adaptivity(
 void
 phydm_check_environment(
 	void					*p_dm_void
-);
-
-void
-phydm_nhm_counter_statistics_init(
-	void					*p_dm_void
-);
-
-void
-phydm_nhm_counter_statistics(
-	void					*p_dm_void
-);
-
-void
-phydm_nhm_counter_statistics_reset(
-	void			*p_dm_void
-);
-
-void
-phydm_get_nhm_counter_statistics(
-	void			*p_dm_void
 );
 
 void
@@ -145,11 +128,6 @@ phydm_set_trx_mux(
 	void			*p_dm_void,
 	enum phydm_trx_mux_type			tx_mode,
 	enum phydm_trx_mux_type			rx_mode
-);
-
-bool
-phydm_cal_nhm_cnt(
-	void		*p_dm_void
 );
 
 void
@@ -180,24 +158,6 @@ phydm_set_edcca_threshold_api(
 	u8	IGI
 );
 
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-void
-phydm_disable_edcca(
-	void					*p_dm_void
-);
-
-void
-phydm_dynamic_edcca(
-	void					*p_dm_void
-);
-
-void
-phydm_adaptivity_bsod(
-	void					*p_dm_void
-);
-
-#endif
-
 void
 phydm_pause_edcca_work_item_callback(
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
@@ -214,6 +174,25 @@ phydm_resume_edcca_work_item_callback(
 #else
 	void			*p_dm_void
 #endif
+);
+
+void
+phydm_adaptivity_debug(
+	void		*p_dm_void,
+	u32		*const dm_value,
+	u32		*_used,
+	char		*output,
+	u32		*_out_len
+);
+
+void
+phydm_set_l2h_th_ini(
+	void		*p_dm_void
+);
+
+void
+phydm_set_forgetting_factor(
+	void		*p_dm_void
 );
 
 #endif

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,11 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTL8192E_SPEC_H__
 #define __RTL8192E_SPEC_H__
 
@@ -313,17 +309,5 @@
 #define	AcmHw_VoqStatus_8192E			BIT(5)
 #define	AcmHw_ViqStatus_8192E			BIT(6)
 #define	AcmHw_BeqStatus_8192E			BIT(7)
-
-/* ********************************************************
- * General definitions
- * ******************************************************** */
-
-#define MACID_NUM_8192E 128
-#define SEC_CAM_ENT_NUM_8192E 64
-#define HW_PORT_NUM_8192E	2
-#define NSS_NUM_8192E 2
-#define BAND_CAP_8192E (BAND_CAP_2G)
-#define BW_CAP_8192E (BW_CAP_20M | BW_CAP_40M)
-#define PROTO_CAP_8192E (PROTO_CAP_11B | PROTO_CAP_11G | PROTO_CAP_11N)
 
 #endif /* __RTL8192E_SPEC_H__ */

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 /*-------------------------------------------------------------------------------
 
 	For type defines and data structure defines
@@ -84,12 +79,6 @@ typedef struct _ADAPTER _adapter, ADAPTER, *PADAPTER;
 #include <xmit_osdep.h>
 #include <rtw_recv.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
-#define ieee80211_band nl80211_band
-#define IEEE80211_BAND_2GHZ NL80211_BAND_2GHZ
-#define IEEE80211_BAND_5GHZ NL80211_BAND_5GHZ
-#define IEEE80211_NUM_BANDS NUM_NL80211_BANDS
-#endif
 #ifdef CONFIG_BEAMFORMING
 	#include <rtw_beamforming.h>
 #endif
@@ -204,13 +193,18 @@ struct registry_priv {
 	u8	soft_ap;
 	u8	power_mgnt;
 	u8	ips_mode;
+	u8	lps_level;
 	u8	smart_ps;
 	u8   usb_rxagg_mode;
+	u8	dynamic_agg_enable;
 	u8	long_retry_lmt;
 	u8	short_retry_lmt;
 	u16	busy_thresh;
 	u8	ack_policy;
 	u8	mp_mode;
+#if defined(CONFIG_MP_INCLUDED) && defined(CONFIG_RTW_CUSTOMER_STR)
+	u8 mp_customer_str;
+#endif
 	u8  mp_dm;
 	u8	software_encrypt;
 	u8	software_decrypt;
@@ -240,6 +234,7 @@ struct registry_priv {
 	u8	ampdu_enable;/* for tx */
 	u8	rx_stbc;
 	u8	ampdu_amsdu;/* A-MPDU Supports A-MSDU is permitted */
+	u8 rx_ampdu_sz_limit_by_nss_bw[4][4]; /* 1~4SS, BW20~BW160 */
 	/* Short GI support Bit Map */
 	/* BIT0 - 20MHz, 1: support, 0: non-support */
 	/* BIT1 - 40MHz, 1: support, 0: non-support */
@@ -266,7 +261,7 @@ struct registry_priv {
 #ifdef CONFIG_80211AC_VHT
 	u8	vht_enable; /* 0:disable, 1:enable, 2:auto */
 	u8	ampdu_factor;
-	u8	vht_rate_sel;
+	u8 vht_rx_mcs_map[2];
 #endif /* CONFIG_80211AC_VHT */
 
 	u8	lowrate_two_xmit;
@@ -334,10 +329,10 @@ struct registry_priv {
 	u8 pll_ref_clk_sel;
 
 	/* define for tx power adjust */
+#ifdef CONFIG_TXPWR_LIMIT
 	u8	RegEnableTxPowerLimit;
+#endif
 	u8	RegEnableTxPowerByRate;
-	u8	RegPowerBase;
-	u8	RegPwrTblSel;
 
 	u8 target_tx_pwr_valid;
 	s8 target_tx_pwr_2g[RF_PATH_MAX][RATE_SECTION_NUM];
@@ -418,6 +413,10 @@ struct registry_priv {
 	u8 trx_share_mode;
 #endif
 	u8 check_hw_status;
+
+	u32 pci_aspm_config;
+
+	u8 iqk_fw_offload;
 };
 
 /* For registry parameters */
@@ -449,9 +448,9 @@ struct registry_priv {
 #define REGSTY_IS_11AC_AUTO(regsty) ((regsty)->vht_enable == 2)
 
 typedef struct rtw_if_operations {
-	int __must_check(*read)(struct dvobj_priv *d, int addr, void *buf,
+	int __must_check (*read)(struct dvobj_priv *d, unsigned int addr, void *buf,
 				size_t len, bool fixed);
-	int __must_check(*write)(struct dvobj_priv *d, int addr, void *buf,
+	int __must_check (*write)(struct dvobj_priv *d, unsigned int addr, void *buf,
 				 size_t len, bool fixed);
 } RTW_IF_OPS, *PRTW_IF_OPS;
 
@@ -781,7 +780,25 @@ struct macid_ctl_t {
 #define RATE_BMP_GET_VHT_2SS(_bmp_vht)		((_bmp_vht & RATE_BMP_VHT_2SS) >> 10)
 #define RATE_BMP_GET_VHT_3SS(_bmp_vht)		((_bmp_vht & RATE_BMP_VHT_3SS) >> 20)
 
+#define TXPWR_LMT_REF_VHT_FROM_HT	BIT0
+#define TXPWR_LMT_REF_HT_FROM_VHT	BIT1
+
+#define TXPWR_LMT_HAS_CCK_1T	BIT0
+#define TXPWR_LMT_HAS_CCK_2T	BIT1
+#define TXPWR_LMT_HAS_CCK_3T	BIT2
+#define TXPWR_LMT_HAS_CCK_4T	BIT3
+#define TXPWR_LMT_HAS_OFDM_1T	BIT4
+#define TXPWR_LMT_HAS_OFDM_2T	BIT5
+#define TXPWR_LMT_HAS_OFDM_3T	BIT6
+#define TXPWR_LMT_HAS_OFDM_4T	BIT7
+
 struct rf_ctl_t {
+	const struct country_chplan *country_ent;
+	u8 ChannelPlan;
+	u8 max_chan_nums;
+	RT_CHANNEL_INFO channel_set[MAX_CHANNEL_NUM];
+	struct p2p_channels channel_list;
+
 	/* used for debug or by tx power limit */
 	u16 rate_bmp_cck_ofdm;		/* 20MHz */
 	u32 rate_bmp_ht_by_bw[2];	/* 20MHz, 40MHz. 4SS supported */
@@ -790,6 +807,21 @@ struct rf_ctl_t {
 	/* used by tx power limit */
 	u8 highest_ht_rate_bw_bmp;
 	u8 highest_vht_rate_bw_bmp;
+
+#ifdef CONFIG_TXPWR_LIMIT
+	_mutex txpwr_lmt_mutex;
+	_list reg_exc_list;
+	u8 regd_exc_num;
+	_list txpwr_lmt_list;
+	u8 txpwr_regd_num;
+	const char *regd_name;
+
+	u8 txpwr_lmt_2g_cck_ofdm_state;
+	#ifdef CONFIG_IEEE80211_BAND_5GHZ
+	u8 txpwr_lmt_5g_cck_ofdm_state;
+	u8 txpwr_lmt_5g_20_40_ref;
+	#endif
+#endif
 
 #ifdef CONFIG_DFS_MASTER
 	bool radar_detect_by_others;
@@ -846,6 +878,7 @@ struct halmacpriv {
 	/* For asynchronous functions */
 	struct halmac_indicator *indicator;
 
+	/* Hardware parameters */
 #ifdef CONFIG_SDIO_HCI
 	/* Store hardware tx queue page number setting */
 	u16 txpage[HW_QUEUE_ENTRY];
@@ -923,13 +956,20 @@ struct dvobj_priv {
 
 	ATOMIC_T disable_func;
 
+	u8 xmit_block;
+	_lock xmit_block_lock;
+
 	struct pwrctrl_priv pwrctl_priv;
 
 	struct rtw_traffic_statistics	traffic_stat;
 
-#if defined(CONFIG_IOCTL_CFG80211) && defined(RTW_SINGLE_WIPHY)
+#ifdef PLATFORM_LINUX
+	_thread_hdl_ rtnl_lock_holder;
+
+	#if defined(CONFIG_IOCTL_CFG80211) && defined(RTW_SINGLE_WIPHY)
 	struct wiphy *wiphy;
-#endif
+	#endif
+#endif /* PLATFORM_LINUX */
 
 #ifdef CONFIG_SWTIMER_BASED_TXBCN
 	_timer txbcn_timer;
@@ -941,6 +981,9 @@ struct dvobj_priv {
 	struct halmacpriv hmpriv;
 #endif /* RTW_HALMAC */
 
+#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+	u8 default_port_id;
+#endif
 	/*-------- below is for SDIO INTERFACE --------*/
 
 #ifdef INTF_DATA
@@ -1073,6 +1116,8 @@ struct dvobj_priv {
 #define DEV_ADHOC_NUM(_dvobj)		MSTATE_ADHOC_NUM(&((_dvobj)->iface_state))
 #define DEV_ADHOC_LD_NUM(_dvobj)	MSTATE_ADHOC_LD_NUM(&((_dvobj)->iface_state))
 #define DEV_WPS_NUM(_dvobj)			MSTATE_WPS_NUM(&((_dvobj)->iface_state))
+#define DEV_ROCH_NUM(_dvobj)		MSTATE_ROCH_NUM(&((_dvobj)->iface_state))
+#define DEV_MGMT_TX_NUM(_dvobj)		MSTATE_MGMT_TX_NUM(&((_dvobj)->iface_state))
 #define DEV_U_CH(_dvobj)			MSTATE_U_CH(&((_dvobj)->iface_state))
 #define DEV_U_BW(_dvobj)			MSTATE_U_BW(&((_dvobj)->iface_state))
 #define DEV_U_OFFSET(_dvobj)		MSTATE_U_OFFSET(&((_dvobj)->iface_state))
@@ -1083,10 +1128,29 @@ struct dvobj_priv {
 #define dvobj_to_sec_camctl(dvobj) (&(dvobj->cam_ctl))
 #define dvobj_to_regsty(dvobj) (&(dvobj->padapters[IFACE_ID0]->registrypriv))
 #if defined(CONFIG_IOCTL_CFG80211) && defined(RTW_SINGLE_WIPHY)
-	#define dvobj_to_wiphy(dvobj) ((dvobj)->wiphy)
+#define dvobj_to_wiphy(dvobj) ((dvobj)->wiphy)
 #endif
 #define dvobj_to_rfctl(dvobj) (&(dvobj->rf_ctl))
 #define rfctl_to_dvobj(rfctl) container_of((rfctl), struct dvobj_priv, rf_ctl)
+
+static inline void dev_set_surprise_removed(struct dvobj_priv *dvobj)
+{
+	ATOMIC_SET(&dvobj->bSurpriseRemoved, _TRUE);
+}
+static inline void dev_clr_surprise_removed(struct dvobj_priv *dvobj)
+{
+	ATOMIC_SET(&dvobj->bSurpriseRemoved, _FALSE);
+}
+static inline void dev_set_drv_stopped(struct dvobj_priv *dvobj)
+{
+	ATOMIC_SET(&dvobj->bDriverStopped, _TRUE);
+}
+static inline void dev_clr_drv_stopped(struct dvobj_priv *dvobj)
+{
+	ATOMIC_SET(&dvobj->bDriverStopped, _FALSE);
+}
+#define dev_is_surprise_removed(dvobj)	(ATOMIC_READ(&dvobj->bSurpriseRemoved) == _TRUE)
+#define dev_is_drv_stopped(dvobj)		(ATOMIC_READ(&dvobj->bDriverStopped) == _TRUE)
 
 #ifdef PLATFORM_LINUX
 static struct device *dvobj_to_dev(struct dvobj_priv *dvobj)
@@ -1111,6 +1175,8 @@ static struct device *dvobj_to_dev(struct dvobj_priv *dvobj)
 #endif
 
 _adapter *dvobj_get_port0_adapter(struct dvobj_priv *dvobj);
+_adapter *dvobj_get_unregisterd_adapter(struct dvobj_priv *dvobj);
+_adapter *dvobj_get_adapter_by_addr(struct dvobj_priv *dvobj, u8 *addr);
 #define dvobj_get_primary_adapter(dvobj)	((dvobj)->padapters[IFACE_ID0])
 
 enum _hw_port {
@@ -1199,6 +1265,9 @@ struct _ADAPTER {
 	struct	registry_priv	registrypriv;
 
 	struct	led_priv	ledpriv;
+#ifdef CONFIG_CHNL_LOAD_MAGT
+	BOOLEAN clm_flag;
+#endif
 
 #ifdef CONFIG_RTW_NAPI
 	struct	napi_struct napi;
@@ -1273,6 +1342,7 @@ struct _ADAPTER {
 	_thread_hdl_ xmitThread;
 	_thread_hdl_ recvThread;
 
+	u8 registered;
 #ifndef PLATFORM_LINUX
 	NDIS_STATUS(*dvobj_init)(struct dvobj_priv *dvobj);
 	void (*dvobj_deinit)(struct dvobj_priv *dvobj);
@@ -1343,7 +1413,6 @@ struct _ADAPTER {
 
 	u8 netif_up;
 
-	u8 bFWReady;
 	u8 bBTFWReady;
 	u8 bLinkInfoDump;
 	u8 bRxRSSIDisplay;
@@ -1406,6 +1475,14 @@ struct _ADAPTER {
 	u8 data_fb; /* data rate fallback, valid only when fix_rate is not 0xff */
 	u8 power_offset;
 	u8 driver_tx_bw_mode;
+	u8 rsvd_page_offset;
+	u8 rsvd_page_num;
+
+#ifdef CONFIG_SUPPORT_FIFO_DUMP
+	u8 fifo_sel;
+	u32 fifo_addr;
+	u32 fifo_size;
+#endif
 
 	u8 driver_vcs_en; /* Enable=1, Disable=0 driver control vrtl_carrier_sense for tx */
 	u8 driver_vcs_type;/* force 0:disable VCS, 1:RTS-CTS, 2:CTS-to-self when vcs_en=1. */
@@ -1418,6 +1495,7 @@ struct _ADAPTER {
 	u8 tx_amsdu;
 	u16 tx_amsdu_rate;
 #endif
+	u8 driver_tx_max_agg_num; /*fix tx desc max agg num , 0xff: disable drv ctrl*/
 	unsigned char     in_cta_test;
 #ifdef DBG_RX_COUNTER_DUMP
 	u8 dump_rx_cnt_mode;/*BIT0:drv,BIT1:mac,BIT2:phy*/
@@ -1442,14 +1520,15 @@ struct _ADAPTER {
 #define adapter_to_pwrctl(adapter) dvobj_to_pwrctl(adapter_to_dvobj((adapter)))
 #define adapter_wdev_data(adapter) (&((adapter)->wdev_data))
 #if defined(RTW_SINGLE_WIPHY)
-	#define adapter_to_wiphy(adapter) dvobj_to_wiphy(adapter_to_dvobj(adapter))
+#define adapter_to_wiphy(adapter) dvobj_to_wiphy(adapter_to_dvobj(adapter))
 #else
-	#define adapter_to_wiphy(adapter) ((adapter)->wiphy)
+#define adapter_to_wiphy(adapter) ((adapter)->wiphy)
 #endif
 
 #define adapter_to_rfctl(adapter) dvobj_to_rfctl(adapter_to_dvobj((adapter)))
 
 #define adapter_mac_addr(adapter) (adapter->mac_addr)
+#define adapter_to_chset(adapter) (adapter_to_rfctl((adapter))->channel_set)
 
 #define mlme_to_adapter(mlme) container_of((mlme), struct _ADAPTER, mlmepriv)
 #define tdls_info_to_adapter(tdls) container_of((tdls), struct _ADAPTER, tdlsinfo)
@@ -1462,22 +1541,22 @@ struct _ADAPTER {
 
 static inline void rtw_set_surprise_removed(_adapter *padapter)
 {
-	ATOMIC_SET(&adapter_to_dvobj(padapter)->bSurpriseRemoved, _TRUE);
+	dev_set_surprise_removed(adapter_to_dvobj(padapter));
 }
 static inline void rtw_clr_surprise_removed(_adapter *padapter)
 {
-	ATOMIC_SET(&adapter_to_dvobj(padapter)->bSurpriseRemoved, _FALSE);
+	dev_clr_surprise_removed(adapter_to_dvobj(padapter));
 }
 static inline void rtw_set_drv_stopped(_adapter *padapter)
 {
-	ATOMIC_SET(&adapter_to_dvobj(padapter)->bDriverStopped, _TRUE);
+	dev_set_drv_stopped(adapter_to_dvobj(padapter));
 }
 static inline void rtw_clr_drv_stopped(_adapter *padapter)
 {
-	ATOMIC_SET(&adapter_to_dvobj(padapter)->bDriverStopped, _FALSE);
+	dev_clr_drv_stopped(adapter_to_dvobj(padapter));
 }
-#define rtw_is_surprise_removed(padapter)	(ATOMIC_READ(&adapter_to_dvobj(padapter)->bSurpriseRemoved) == _TRUE)
-#define rtw_is_drv_stopped(padapter)		(ATOMIC_READ(&adapter_to_dvobj(padapter)->bDriverStopped) == _TRUE)
+#define rtw_is_surprise_removed(padapter)	(dev_is_surprise_removed(adapter_to_dvobj(padapter)))
+#define rtw_is_drv_stopped(padapter)		(dev_is_drv_stopped(adapter_to_dvobj(padapter)))
 
 /*
  * Function disabled.

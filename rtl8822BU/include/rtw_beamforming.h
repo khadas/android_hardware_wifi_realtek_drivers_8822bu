@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_BEAMFORMING_H_
 #define __RTW_BEAMFORMING_H_
 
@@ -58,7 +53,7 @@ enum _BEAMFORMING_STATE {
 /*
  * typedef BEAMFORMING_CAP for phydm
  */
-typedef enum _BEAMFORMING_CAP {
+typedef enum beamforming_cap {
 	BEAMFORMING_CAP_NONE = 0x0,
 	BEAMFORMER_CAP_HT_EXPLICIT = 0x1,
 	BEAMFORMEE_CAP_HT_EXPLICIT = 0x2,
@@ -109,7 +104,7 @@ struct beamformee_entry {
 	CHANNEL_WIDTH sound_bw;
 	u16 sound_period;
 
-	enum _BEAMFORMING_CAP cap;
+	enum beamforming_cap cap;
 	enum _BEAMFORM_ENTRY_HW_STATE state;
 
 	/* The BFee need to be sounded when count to zero */
@@ -155,7 +150,7 @@ struct beamformer_entry {
 	u8 g_id;
 	u8 mac_addr[ETH_ALEN];
 
-	enum _BEAMFORMING_CAP cap;
+	enum beamforming_cap cap;
 	enum _BEAMFORM_ENTRY_HW_STATE state;
 
 	u8 NumofSoundingDim;
@@ -198,7 +193,7 @@ struct _RT_CSI_INFO{
 };
 
 struct beamforming_info {
-	enum _BEAMFORMING_CAP beamforming_cap;
+	enum beamforming_cap beamforming_cap;
 	enum _BEAMFORMING_STATE beamforming_state;
 	struct beamformee_entry bfee_entry[MAX_BEAMFORMEE_ENTRY_NUM];
 	struct beamformer_entry bfer_entry[MAX_BEAMFORMER_ENTRY_NUM];
@@ -213,6 +208,7 @@ struct beamforming_info {
 	u32 beamformee_mu_reg_maping;
 	u8 first_mu_bfee_index;
 	u8 mu_bfer_curidx;
+	u8 cur_csi_rpt_rate;
 
 	struct sounding_info sounding_info;
 	/* schedule regular timer for sounding */
@@ -239,7 +235,7 @@ struct beamforming_info {
 	s8 sounding_running;
 };
 
-enum _BEAMFORMING_CAP rtw_bf_bfee_get_entry_cap_by_macid(void *mlmepriv, u8 mac_id);
+enum beamforming_cap rtw_bf_bfee_get_entry_cap_by_macid(void *mlmepriv, u8 mac_id);
 struct beamformer_entry *rtw_bf_bfer_get_entry_by_addr(PADAPTER, u8 *ra);
 struct beamformee_entry *rtw_bf_bfee_get_entry_by_addr(PADAPTER, u8 *ra);
 void rtw_bf_get_ndpa_packet(PADAPTER, union recv_frame *);
@@ -261,6 +257,21 @@ void rtw_bf_update_traffic(PADAPTER);
 #define beamforming_wk_hdl				rtw_bf_cmd_hdl
 #define beamforming_wk_cmd				rtw_bf_cmd
 #define update_attrib_txbf_info				rtw_bf_update_attrib
+
+#define HT_BF_CAP(adapter) ((adapter)->mlmepriv.htpriv.beamform_cap)
+#define VHT_BF_CAP(adapter) ((adapter)->mlmepriv.vhtpriv.beamform_cap)
+
+#define IS_HT_BEAMFORMEE(adapter) \
+		(HT_BF_CAP(adapter) & \
+		(BEAMFORMING_HT_BEAMFORMEE_ENABLE))
+
+#define IS_VHT_BEAMFORMEE(adapter) \
+		(VHT_BF_CAP(adapter) & \
+		(BEAMFORMING_VHT_BEAMFORMEE_ENABLE | \
+		 BEAMFORMING_VHT_MU_MIMO_STA_ENABLE))
+
+#define IS_BEAMFORMEE(adapter) (IS_HT_BEAMFORMEE(adapter) | \
+				IS_VHT_BEAMFORMEE(adapter))
 
 #else /* !RTW_BEAMFORMING_VERSION_2 */
 

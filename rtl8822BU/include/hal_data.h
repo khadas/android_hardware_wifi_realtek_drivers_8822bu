@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_DATA_H__
 #define __HAL_DATA_H__
 
@@ -255,7 +250,8 @@ struct hal_spec_t {
 	u8 rfpath_num_5g:4;	/* used for tx power index path */
 
 	u8 max_tx_cnt;
-	u8 nss_num;
+	u8 tx_nss_num:4;
+	u8 rx_nss_num:4;
 	u8 band_cap;	/* value of BAND_CAP_XXX */
 	u8 bw_cap;		/* value of BW_CAP_XXX */
 	u8 port_num;
@@ -287,6 +283,72 @@ struct hal_iqk_reg_backup {
 	u32 reg_backup[MAX_RF_PATH][MAX_IQK_INFO_BACKUP_REG_NUM];
 };
 
+
+typedef struct hal_p2p_ps_para {
+	/*DW0*/
+	u8  offload_en:1;
+	u8  role:1;
+	u8  ctwindow_en:1;
+	u8  noa_en:1;
+	u8  noa_sel:1;
+	u8  all_sta_sleep:1;
+	u8  discovery:1;
+	u8  rsvd2:1;
+	u8  p2p_port_id;
+	u8  p2p_group;
+	u8  p2p_macid;
+
+	/*DW1*/
+	u8 ctwindow_length;
+	u8 rsvd3;
+	u8 rsvd4;
+	u8 rsvd5;
+
+	/*DW2*/
+	u32 noa_duration_para;
+
+	/*DW3*/
+	u32 noa_interval_para;
+
+	/*DW4*/
+	u32 noa_start_time_para;
+
+	/*DW5*/
+	u32 noa_count_para;
+} HAL_P2P_PS_PARA, *PHAL_P2P_PS_PARA;
+
+#define TXPWR_LMT_RS_CCK	0
+#define TXPWR_LMT_RS_OFDM	1
+#define TXPWR_LMT_RS_HT		2
+#define TXPWR_LMT_RS_VHT	3
+#define TXPWR_LMT_RS_NUM	4
+
+#define TXPWR_LMT_RS_NUM_2G	4 /* CCK, OFDM, HT, VHT */
+#define TXPWR_LMT_RS_NUM_5G	3 /* OFDM, HT, VHT */
+
+#ifdef CONFIG_TXPWR_LIMIT
+extern const char *const _txpwr_lmt_rs_str[];
+#define txpwr_lmt_rs_str(rs) (((rs) >= TXPWR_LMT_RS_NUM) ? _txpwr_lmt_rs_str[TXPWR_LMT_RS_NUM] : _txpwr_lmt_rs_str[(rs)])
+
+struct txpwr_lmt_ent {
+	_list list;
+
+	s8 lmt_2g[MAX_2_4G_BANDWIDTH_NUM]
+		[TXPWR_LMT_RS_NUM_2G]
+		[CENTER_CH_2G_NUM]
+		[MAX_TX_COUNT];
+
+#ifdef CONFIG_IEEE80211_BAND_5GHZ
+	s8 lmt_5g[MAX_5G_BANDWIDTH_NUM]
+		[TXPWR_LMT_RS_NUM_5G]
+		[CENTER_CH_5G_ALL_NUM]
+		[MAX_TX_COUNT];
+#endif
+
+	char regd_name[0];
+};
+#endif /* CONFIG_TXPWR_LIMIT */
+
 typedef struct hal_com_data {
 	HAL_VERSION			version_id;
 	RT_MULTI_FUNC		MultiFunc; /* For multi-function consideration. */
@@ -294,11 +356,13 @@ typedef struct hal_com_data {
 	RT_REGULATOR_MODE	RegulatorMode; /* switching regulator or LDO */
 	u8	hw_init_completed;
 	/****** FW related ******/
+	u32 firmware_size;
 	u16 firmware_version;
 	u16	FirmwareVersionRev;
 	u16 firmware_sub_version;
 	u16	FirmwareSignature;
 	u8	RegFWOffload;
+	u8	bFWReady;
 	u8	fw_ractrl;
 	u8	FwRsvdPageStartOffset; /* 2010.06.23. Added by tynli. Reserve page start offset except beacon in TxQ.*/
 	u8	LastHMEBoxNum;	/* H2C - for host message to fw */
@@ -326,6 +390,11 @@ typedef struct hal_com_data {
 	BOOLEAN			bSWToBW80M;
 	BOOLEAN			bChnlBWInitialized;
 	u32				BackUp_BB_REG_4_2nd_CCA[3];
+
+#ifdef	CONFIG_CHNL_LOAD_MAGT
+	u16	clm_result[MAX_CHANNEL_NUM];
+	u16	clm_period;
+#endif
 #ifdef CONFIG_AUTO_CHNL_SEL_NHM
 	struct auto_chan_sel acs;
 #endif
@@ -342,6 +411,7 @@ typedef struct hal_com_data {
 	u8	bDumpRxPkt;
 	u8	bDumpTxPkt;
 	u8	bDisableTXPowerTraining;
+	u8	dis_turboedca;
 
 
 	/****** EEPROM setting.******/
@@ -378,6 +448,8 @@ typedef struct hal_com_data {
 	u8	EEPROMMACAddr[ETH_ALEN];
 	u8	tx_bbswing_24G;
 	u8	tx_bbswing_5G;
+	u8	efuse0x3d7;	/* efuse[0x3D7] */
+	u8	efuse0x3d8;	/* efuse[0x3D8] */
 
 #ifdef CONFIG_RF_POWER_TRIM
 	u8	EEPROMRFGainOffset;
@@ -414,74 +486,17 @@ typedef struct hal_com_data {
 	s8	BW80_5G_Diff[MAX_RF_PATH][MAX_TX_COUNT];
 #endif
 
-	u8	Regulation2_4G;
-	u8	Regulation5G;
-
-	/********************************
-	*	TX power by rate table at most 4RF path.
-	*	The register is
-	*
-	*	VHT TX power by rate off setArray =
-	*	Band:-2G&5G = 0 / 1
-	*	RF: at most 4*4 = ABCD=0/1/2/3
-	*	CCK=0 OFDM=1/2 HT-MCS 0-15=3/4/56 VHT=7/8/9/10/11
-	**********************************/
-
 	u8 txpwr_by_rate_undefined_band_path[TX_PWR_BY_RATE_NUM_BAND]
 		[TX_PWR_BY_RATE_NUM_RF];
 
 	s8	TxPwrByRateOffset[TX_PWR_BY_RATE_NUM_BAND]
 		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[TX_PWR_BY_RATE_NUM_RATE];
 
-#ifdef CONFIG_PHYDM_POWERTRACK_BY_TSSI
-	s8	TxPwrByRate[TX_PWR_BY_RATE_NUM_BAND]
-		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RATE];
-#endif
-	/* --------------------------------------------------------------------------------- */
-
-	u8 tx_pwr_lmt_5g_20_40_ref;
-
-	/* Power Limit Table for 2.4G */
-	s8	TxPwrLimit_2_4G[MAX_REGULATION_NUM]
-		[MAX_2_4G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_2G_NUM]
-		[MAX_RF_PATH];
-
-	/* Power Limit Table for 5G */
-	s8	TxPwrLimit_5G[MAX_REGULATION_NUM]
-		[MAX_5G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_5G_ALL_NUM]
-		[MAX_RF_PATH];
-
-
-#ifdef CONFIG_PHYDM_POWERTRACK_BY_TSSI
-	s8	TxPwrLimit_2_4G_Original[MAX_REGULATION_NUM]
-		[MAX_2_4G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_2G_NUM]
-		[MAX_RF_PATH];
-
-
-	s8	TxPwrLimit_5G_Original[MAX_REGULATION_NUM]
-		[MAX_5G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_5G_ALL_NUM]
-		[MAX_RF_PATH];
-
-#endif
-
-	/* Store the original power by rate value of the base of each rate section of rf path A & B */
+	/* Store the original power by rate value of the base rate for each rate section and rf path */
 	u8	TxPwrByRateBase2_4G[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[MAX_BASE_NUM_IN_PHY_REG_PG_2_4G];
 	u8	TxPwrByRateBase5G[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[MAX_BASE_NUM_IN_PHY_REG_PG_5G];
 
 	u8	txpwr_by_rate_loaded:1;
@@ -509,7 +524,8 @@ typedef struct hal_com_data {
 
 	u8	bLedOpenDrain; /* Support Open-drain arrangement for controlling the LED. Added by Roger, 2009.10.16. */
 	u32	ac_param_be; /* Original parameter for BE, use for EDCA turbo.	*/
-
+	u8	is_turbo_edca;
+	u8	prv_traffic_idx;
 	BB_REGISTER_DEFINITION_T	PHYRegDef[MAX_RF_PATH];	/* Radio A/B/C/D */
 
 	u32	RfRegChnlVal[MAX_RF_PATH];
@@ -517,15 +533,7 @@ typedef struct hal_com_data {
 	/* RDG enable */
 	BOOLEAN	 bRDGEnable;
 
-	u8	RegTxPause;
-	/* Beacon function related global variable. */
-	u8	RegBcnCtrlVal;
-	u8	RegFwHwTxQCtrl;
-	u8	RegReg542;
-	u8	RegCR_1;
-	u8	Reg837;
-	u16	RegRRSR;
-
+	u16 RegRRSR;
 	/****** antenna diversity ******/
 	u8	AntDivCfg;
 	u8	with_extenal_ant_switch;
@@ -538,7 +546,6 @@ typedef struct hal_com_data {
 	u8 sw_antdiv_bl_state;
 
 	/******** PHY DM & DM Section **********/
-	u8			DM_Type;
 	_lock		IQKSpinLock;
 	u8			INIDATA_RATE[MACID_NUM_SW_LIMIT];
 	/* Upper and Lower Signal threshold for Rate Adaptive*/
@@ -546,6 +553,7 @@ typedef struct hal_com_data {
 	int			entry_max_undecorated_smoothed_pwdb;
 	int			min_undecorated_pwdb_for_dm;
 	struct PHY_DM_STRUCT	 odmpriv;
+	u64			bk_rf_ability;
 	u8			bIQKInitialized;
 	u8			bNeedIQK;
 	u8		IQK_MP_Switch;
@@ -612,7 +620,7 @@ typedef struct hal_com_data {
 	/* SDIO Rx FIFO related. */
 	/*  */
 	u8			SdioRxFIFOCnt;
-	u16			SdioRxFIFOSize;
+	u32			SdioRxFIFOSize;
 
 #ifndef RTW_HALMAC
 	u32			sdio_tx_max_len[SDIO_MAX_TX_QUEUE];/* H, N, L, used for sdio tx aggregation max length per queue */
@@ -624,9 +632,17 @@ typedef struct hal_com_data {
 	u16			tx_extra_page;
 	u16			tx_pub_page;
 	u16			max_oqt_page;
+	#ifdef XMIT_BUF_SIZE
 	u32			max_xmit_size_vovi;
 	u32			max_xmit_size_bebk;
-#endif
+	#endif /*XMIT_BUF_SIZE*/
+	u16			max_xmit_page;
+	u16			max_xmit_page_vo;
+	u16			max_xmit_page_vi;
+	u16			max_xmit_page_be;
+	u16			max_xmit_page_bk;
+
+#endif /*#ifdef CONFIG_RTL8821C*/
 #endif /* !RTW_HALMAC */
 #endif /* CONFIG_SDIO_HCI */
 
@@ -672,6 +688,7 @@ typedef struct hal_com_data {
 
 	BOOLEAN		bL1OffSupport;
 	BOOLEAN	bSupportBackDoor;
+	u32			pci_backdoor_ctrl;
 
 	u8			bDefaultAntenna;
 

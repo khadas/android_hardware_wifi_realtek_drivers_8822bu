@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2013 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __OSDEP_SERVICE_H_
 #define __OSDEP_SERVICE_H_
 
@@ -28,6 +23,7 @@
 #define RTW_RFRAME_PKT_UNAVAIL	4
 #define RTW_RBUF_UNAVAIL		5
 #define RTW_RBUF_PKT_UNAVAIL	6
+#define RTW_SDIO_READ_PORT_FAIL	7
 
 /* #define RTW_STATUS_TIMEDOUT -110 */
 
@@ -53,9 +49,6 @@
 #ifdef PLATFORM_OS_CE
 	#include <osdep_service_ce.h>
 #endif
-
-#define RTW_TIMER_HDL_NAME(name) rtw_##name##_timer_hdl
-#define RTW_DECLARE_TIMER_HDL(name) void RTW_TIMER_HDL_NAME(name)(RTW_TIMER_HDL_ARGS)
 
 /* #include <rtw_byteorder.h> */
 
@@ -344,37 +337,52 @@ extern void	rtw_udelay_os(int us);
 extern void rtw_yield_os(void);
 
 
-extern void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc);
+extern void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc, void *ctx);
 
 
 __inline static unsigned char _cancel_timer_ex(_timer *ptimer)
 {
-#ifdef PLATFORM_LINUX
-	return del_timer_sync(ptimer);
-#endif
-#ifdef PLATFORM_FREEBSD
-	_cancel_timer(ptimer, 0);
-	return 0;
-#endif
-#ifdef PLATFORM_WINDOWS
 	u8 bcancelled;
 
 	_cancel_timer(ptimer, &bcancelled);
 
 	return bcancelled;
-#endif
 }
 
 static __inline void thread_enter(char *name)
 {
 #ifdef PLATFORM_LINUX
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
-	daemonize("%s", name);
-#endif
 	allow_signal(SIGTERM);
 #endif
 #ifdef PLATFORM_FREEBSD
 	printf("%s", "RTKTHREAD_enter");
+#endif
+}
+void thread_exit(_completion *comp);
+void _rtw_init_completion(_completion *comp);
+void _rtw_wait_for_comp_timeout(_completion *comp);
+void _rtw_wait_for_comp(_completion *comp);
+
+static inline bool rtw_thread_stop(_thread_hdl_ th)
+{
+#ifdef PLATFORM_LINUX
+	return kthread_stop(th);
+#endif
+}
+static inline void rtw_thread_wait_stop(void)
+{
+#ifdef PLATFORM_LINUX
+	#if 0
+	while (!kthread_should_stop())
+		rtw_msleep_os(10);
+	#else
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (!kthread_should_stop()) {
+		schedule();
+		set_current_state(TASK_INTERRUPTIBLE);
+	}
+	__set_current_state(TASK_RUNNING);
+	#endif
 #endif
 }
 
@@ -434,6 +442,11 @@ __inline static int rtw_bug_check(void *parg1, void *parg2, void *parg3, void *p
 	return ret;
 
 }
+#ifdef PLATFORM_LINUX
+#define RTW_DIV_ROUND_UP(n, d)	DIV_ROUND_UP(n, d)
+#else /* !PLATFORM_LINUX */
+#define RTW_DIV_ROUND_UP(n, d)	(((n) + (d - 1)) / d)
+#endif /* !PLATFORM_LINUX */
 
 #define _RND(sz, r) ((((sz)+((r)-1))/(r))*(r))
 #define RND4(x)	(((x >> 2) + (((x & 3) == 0) ? 0 : 1)) << 2)
@@ -681,6 +694,7 @@ u8 map_read8(const struct map_t *map, u16 offset);
 /* String handler */
 
 BOOLEAN is_null(char c);
+BOOLEAN is_all_null(char *c, int len);
 BOOLEAN is_eol(char c);
 BOOLEAN is_space(char c);
 BOOLEAN IsHexDigit(char chTmp);

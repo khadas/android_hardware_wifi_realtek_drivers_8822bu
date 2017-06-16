@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_RECV_C_
 
 #include <drv_types.h>
@@ -30,7 +25,7 @@
 
 
 #ifdef CONFIG_NEW_SIGNAL_STAT_PROCESS
-void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS);
+static void rtw_signal_stat_timer_hdl(void *ctx);
 
 enum {
 	SIGNAL_STAT_CALC_PROFILE_0 = 0,
@@ -81,7 +76,7 @@ sint _rtw_init_recv_priv(struct recv_priv *precvpriv, _adapter *padapter)
 
 #ifdef CONFIG_RECV_THREAD_MODE
 	_rtw_init_sema(&precvpriv->recv_sema, 0);
-	_rtw_init_sema(&precvpriv->terminate_recvthread_sema, 0);
+
 #endif
 
 	_rtw_init_queue(&precvpriv->free_recv_queue);
@@ -144,7 +139,7 @@ sint _rtw_init_recv_priv(struct recv_priv *precvpriv, _adapter *padapter)
 	res = rtw_hal_init_recv_priv(padapter);
 
 #ifdef CONFIG_NEW_SIGNAL_STAT_PROCESS
-	rtw_init_timer(&precvpriv->signal_stat_timer, padapter, RTW_TIMER_HDL_NAME(signal_stat));
+	rtw_init_timer(&precvpriv->signal_stat_timer, padapter, rtw_signal_stat_timer_hdl, padapter);
 
 	precvpriv->signal_stat_sampling_interval = 2000; /* ms */
 	/* precvpriv->signal_stat_converging_constant = 5000; */ /* ms */
@@ -165,7 +160,6 @@ void rtw_mfree_recv_priv_lock(struct recv_priv *precvpriv)
 	_rtw_spinlock_free(&precvpriv->lock);
 #ifdef CONFIG_RECV_THREAD_MODE
 	_rtw_free_sema(&precvpriv->recv_sema);
-	_rtw_free_sema(&precvpriv->terminate_recvthread_sema);
 #endif
 
 	_rtw_spinlock_free(&precvpriv->free_recv_queue.lock);
@@ -788,6 +782,11 @@ sint recv_decache(union recv_frame *precv_frame, u8 bretry, struct stainfo_rxcac
 
 	if (1) { /* if(bretry) */
 		if (seq_ctrl == prxcache->tid_rxseq[tid]) {
+			/* for non-AMPDU case	*/
+			precv_frame->u.hdr.psta->sta_stats.duplicate_cnt++;
+
+			if (precv_frame->u.hdr.psta->sta_stats.duplicate_cnt % 100 == 0)
+				RTW_INFO("%s: seq=%d\n", __func__, precv_frame->u.hdr.attrib.seq_num);
 
 			return _FAIL;
 		}
@@ -1034,6 +1033,7 @@ void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_in
 		pstats->rx_data_pkts++;
 		pstats->rx_bytes += sz;
 
+		pstats->rxratecnt[pattrib->data_rate]++;
 		/*record rx packets for every tid*/
 		pstats->rx_data_qos_pkts[pattrib->priority]++;
 
@@ -2023,6 +2023,7 @@ sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
 	u8 *ptr = precv_frame->u.hdr.rx_data;
 	u8  ver = (unsigned char)(*ptr) & 0x3 ;
 #ifdef CONFIG_FIND_BEST_CHANNEL
+	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
 #endif
 
@@ -2040,9 +2041,9 @@ sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
 
 #ifdef CONFIG_FIND_BEST_CHANNEL
 	if (pmlmeext->sitesurvey_res.state == SCAN_PROCESS) {
-		int ch_set_idx = rtw_ch_set_search_ch(pmlmeext->channel_set, rtw_get_oper_ch(adapter));
+		int ch_set_idx = rtw_chset_search_ch(rfctl->channel_set, rtw_get_oper_ch(adapter));
 		if (ch_set_idx >= 0)
-			pmlmeext->channel_set[ch_set_idx].rx_count++;
+			rfctl->channel_set[ch_set_idx].rx_count++;
 	}
 #endif
 
@@ -2893,7 +2894,6 @@ int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *pre
 int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *preorder_ctrl, int bforced)
 {
 	/* _irqL irql; */
-	/* u8 bcancelled; */
 	_list	*phead, *plist;
 	union recv_frame *prframe;
 	struct rx_pkt_attrib *pattrib;
@@ -2976,8 +2976,8 @@ int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *pre
 				/* Cancel previous pending timer. */
 				/* PlatformCancelTimer(Adapter, &pTS->RxPktPendingTimer); */
 				if (bforced != _TRUE) {
-					/* RTW_INFO("_cancel_timer(&preorder_ctrl->reordering_ctrl_timer, &bcancelled);\n"); */
-					_cancel_timer(&preorder_ctrl->reordering_ctrl_timer, &bcancelled);
+					/* RTW_INFO("_cancel_timer_ex(&preorder_ctrl->reordering_ctrl_timer);\n"); */
+					_cancel_timer_ex(&preorder_ctrl->reordering_ctrl_timer);
 				}
 			}
 #endif
@@ -4214,9 +4214,9 @@ _recv_entry_drop:
 }
 
 #ifdef CONFIG_NEW_SIGNAL_STAT_PROCESS
-void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS)
+static void rtw_signal_stat_timer_hdl(void *ctx)
 {
-	_adapter *adapter = (_adapter *)FunctionContext;
+	_adapter *adapter = (_adapter *)ctx;
 	struct recv_priv *recvpriv = &adapter->recvpriv;
 
 	u32 tmp_s, tmp_q;
@@ -4512,8 +4512,8 @@ void rx_query_phy_status(
 
 	{
 		precvframe->u.hdr.psta = NULL;
-		if (pkt_info.is_packet_match_bssid
-		    && (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE)
+		if ((pkt_info.is_packet_match_bssid
+		    && (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE)) || (padapter->registrypriv.mp_mode == 1)
 		   ) {
 			if (psta) {
 				precvframe->u.hdr.psta = psta;
@@ -4526,6 +4526,8 @@ void rx_query_phy_status(
 			rx_process_phy_info(padapter, precvframe);
 		}
 	}
+
+	rtw_odm_parse_rx_phy_status_chinfo(precvframe, pphy_status);
 }
 /*
 * Increase and check if the continual_no_rx_packet of this @param pmlmepriv is larger than MAX_CONTINUAL_NORXPACKET_COUNT
@@ -4562,6 +4564,11 @@ s32 pre_recv_entry(union recv_frame *precvframe, u8 *pphy_status)
 	_adapter *iface = NULL;
 	_adapter *primary_padapter = precvframe->u.hdr.adapter;
 
+#ifdef CONFIG_MP_INCLUDED
+	if (rtw_mp_mode_check(primary_padapter))
+		return ret;
+#endif
+
 	pda = get_ra(pbuf);
 
 	if (IS_MCAST(pda) == _FALSE) { /*unicast packets*/
@@ -4584,7 +4591,11 @@ thread_return rtw_recv_thread(thread_context context)
 	_adapter *adapter = (_adapter *)context;
 	struct recv_priv *recvpriv = &adapter->recvpriv;
 	s32 err = _SUCCESS;
+#ifdef PLATFORM_LINUX
+	struct sched_param param = { .sched_priority = 1 };
 
+	sched_setscheduler(current, SCHED_FIFO, &param);
+#endif /* PLATFORM_LINUX */
 	thread_enter("RTW_RECV_THREAD");
 
 	RTW_INFO(FUNC_ADPT_FMT" enter\n", FUNC_ADPT_ARG(adapter));
@@ -4597,8 +4608,10 @@ thread_return rtw_recv_thread(thread_context context)
 		}
 
 		if (RTW_CANNOT_RUN(adapter)) {
-			RTW_INFO(FUNC_ADPT_FMT" DS:%d, SR:%d\n", FUNC_ADPT_ARG(adapter)
-				, rtw_is_drv_stopped(adapter), rtw_is_surprise_removed(adapter));
+			RTW_DBG(FUNC_ADPT_FMT "- bDriverStopped(%s) bSurpriseRemoved(%s)\n",
+				FUNC_ADPT_ARG(adapter),
+				rtw_is_drv_stopped(adapter) ? "True" : "False",
+				rtw_is_surprise_removed(adapter) ? "True" : "False");
 			goto exit;
 		}
 
@@ -4616,9 +4629,12 @@ thread_return rtw_recv_thread(thread_context context)
 	} while (err != _FAIL);
 
 exit:
-	_rtw_up_sema(&adapter->recvpriv.terminate_recvthread_sema);
-	RTW_INFO(FUNC_ADPT_FMT" exit\n", FUNC_ADPT_ARG(adapter));
-	thread_exit();
+
+	RTW_INFO(FUNC_ADPT_FMT " Exit\n", FUNC_ADPT_ARG(adapter));
+
+	rtw_thread_wait_stop();
+
+	return 0;
 }
 #endif /* CONFIG_RECV_THREAD_MODE */
 

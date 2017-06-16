@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 /* ************************************************************
  * Description:
  *
@@ -10,6 +24,52 @@
 
 #if (BEAMFORMING_SUPPORT == 1)
 #if (RTL8814A_SUPPORT == 1)
+
+boolean
+phydm_beamforming_set_iqgen_8814A(
+	void			*p_dm_void
+)
+{
+	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+	u8 i = 0;
+	u16 counter = 0;
+	u32 rf_mode[4];
+
+	for (i = ODM_RF_PATH_A ; i < MAX_RF_PATH ; i++)
+		odm_set_rf_reg(p_dm_odm, i, RF_WE_LUT, 0x80000, 0x1);	/*RF mode table write enable*/
+
+	while (1) {
+		counter++;
+		for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++)
+			odm_set_rf_reg(p_dm_odm, i, RF_RCK_OS, 0xfffff, 0x18000);	/*Select Rx mode*/
+
+		ODM_delay_us(2);
+
+		for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++)
+			rf_mode[i] = odm_get_rf_reg(p_dm_odm, i, RF_RCK_OS, 0xfffff);
+
+		if ((rf_mode[0] == 0x18000) && (rf_mode[1] == 0x18000) && (rf_mode[2] == 0x18000) && (rf_mode[3] == 0x18000))
+			break;
+		else if (counter == 100) {
+			ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_TRACE, ("iqgen setting fail:8814A\n"));
+			return false;
+		}
+	}
+
+	for (i = ODM_RF_PATH_A ; i < MAX_RF_PATH ; i++) {
+		odm_set_rf_reg(p_dm_odm, i, RF_TXPA_G1, 0xfffff, 0xBE77F); /*Set Table data*/
+		odm_set_rf_reg(p_dm_odm, i, RF_TXPA_G2, 0xfffff, 0x226BF); /*Enable TXIQGEN in Rx mode*/
+	}
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_TXPA_G2, 0xfffff, 0xE26BF); /*Enable TXIQGEN in Rx mode*/
+
+	for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++)
+		odm_set_rf_reg(p_dm_odm, i, RF_WE_LUT, 0x80000, 0x0);	/*RF mode table write disable*/
+
+	return true;
+
+}
+
+
 
 void
 hal_txbf_8814a_set_ndpa_rate(
@@ -24,7 +84,7 @@ hal_txbf_8814a_set_ndpa_rate(
 	odm_write_1byte(p_dm_odm, REG_NDPA_RATE_8814A, (u8) rate);
 
 }
-
+#if 0
 #define PHYDM_MEMORY_MAP_BUF_READ	0x8000
 #define PHYDM_CTRL_INFO_PAGE			0x660
 
@@ -52,6 +112,7 @@ phydm_data_rate_8814a(
 		*(data + i) = odm_read_2byte(p_dm_odm, x_read_data_addr + i);
 
 }
+#endif
 
 void
 hal_txbf_8814a_get_tx_rate(
@@ -61,18 +122,18 @@ hal_txbf_8814a_get_tx_rate(
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _RT_BEAMFORMING_INFO	*p_beam_info = &p_dm_odm->beamforming_info;
 	struct _RT_BEAMFORMEE_ENTRY	*p_entry;
+	struct _rate_adaptive_table_	*p_ra_table = &p_dm_odm->dm_ra_table;
 	u32	tx_rpt_data = 0;
 	u8	data_rate = 0xFF;
 
 	p_entry = &(p_beam_info->beamformee_entry[p_beam_info->beamformee_cur_idx]);
 
-	phydm_data_rate_8814a(p_dm_odm, (u8)p_entry->mac_id, &tx_rpt_data, 1);
-	data_rate = (u8)tx_rpt_data;
+	data_rate = p_ra_table->link_tx_rate[(u8)p_entry->mac_id];
 	data_rate &= 0x7f;   /*Bit7 indicates SGI*/
 
-	p_dm_odm->tx_bf_data_rate = data_rate;
+	p_beam_info->tx_bf_data_rate = data_rate;
 
-	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] p_dm_odm->tx_bf_data_rate = 0x%x\n", __func__, p_dm_odm->tx_bf_data_rate));
+	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] p_dm_odm->tx_bf_data_rate = 0x%x\n", __func__, p_beam_info->tx_bf_data_rate));
 }
 
 void
@@ -92,7 +153,7 @@ hal_txbf_8814a_reset_tx_path(
 	else
 		return;
 
-	if ((p_dm_odm->last_usb_hub) != (*p_dm_odm->hub_usb_mode)) {
+	if ((p_beamforming_info->last_usb_hub) != (*p_dm_odm->hub_usb_mode)) {
 		nr_index = tx_bf_nr(hal_txbf_8814a_get_ntx(p_dm_odm), beamformee_entry.comp_steering_num_of_bfer);
 
 		if (*p_dm_odm->hub_usb_mode == 2) {
@@ -154,7 +215,7 @@ hal_txbf_8814a_reset_tx_path(
 			}
 		}
 
-		p_dm_odm->last_usb_hub = *p_dm_odm->hub_usb_mode;
+		p_beamforming_info->last_usb_hub = *p_dm_odm->hub_usb_mode;
 	} else
 		return;
 #endif
@@ -239,32 +300,9 @@ hal_txbf_8814a_rf_mode(
 	if (p_dm_odm->rf_type == ODM_1T1R)
 		return;
 
-	for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++) {
-		odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0xef, 0x80000, 0x1);
-		/*RF mode table write enable*/
-	}
-
-	if (p_beamforming_info->beamformee_su_cnt > 0) {
-		for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++) {
-			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x30, 0xfffff, 0x18000);
-			/*Select RX mode*/
-			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x31, 0xfffff, 0xBE77F);
-			/*Set Table data*/
-			odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0x32, 0xfffff, 0x226BF);
-			/*Enable TXIQGEN in RX mode*/
-		}
-		odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0x32, 0xfffff, 0xE26BF);
-		/*Enable TXIQGEN in RX mode*/
-	}
-
-	for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++) {
-		odm_set_rf_reg(p_dm_odm, (enum odm_rf_radio_path_e)i, 0xef, 0x80000, 0x0);
-		/*RF mode table write disable*/
-	}
-
 	if (p_beamforming_info->beamformee_su_cnt > 0) {
 #if DEV_BUS_TYPE == RT_USB_INTERFACE
-		p_dm_odm->last_usb_hub = *p_dm_odm->hub_usb_mode;
+		p_beamforming_info->last_usb_hub = *p_dm_odm->hub_usb_mode;
 		tx_ss = *p_dm_odm->hub_usb_mode;
 #endif
 		if (tx_ss == 3 || tx_ss == 2) {
@@ -292,6 +330,7 @@ hal_txbf_8814a_rf_mode(
 
 		/*for 8814 19ac(idx 1), 19b4(idx 0), different Tx ant setting*/
 		odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8814A, BIT(28) | BIT29, 0x2);			/*enable BB TxBF ant mapping register*/
+		odm_set_bb_reg(p_dm_odm, REG_BB_TXBF_ANT_SET_BF1_8814A, BIT30, 0x1);			/*if Nsts > Nc don't apply V matrix*/
 
 		if (idx == 0) {
 			switch (nr_index) {
@@ -347,7 +386,7 @@ hal_txbf_8814a_download_ndpa(
 	u8			u1b_tmp = 0, tmp_reg422 = 0;
 	u8			bcn_valid_reg = 0, count = 0, dl_bcn_count = 0;
 	u16			head_page = 0x7FE;
-	bool			is_send_beacon = false;
+	boolean			is_send_beacon = false;
 	u16			tx_page_bndy = LAST_ENTRY_OF_TX_PKT_BUFFER_8814A; /*default reseved 1 page for the IC type which is undefined.*/
 	struct _RT_BEAMFORMING_INFO	*p_beam_info = &p_dm_odm->beamforming_info;
 	struct _RT_BEAMFORMEE_ENTRY	*p_beam_entry = p_beam_info->beamformee_entry + idx;
@@ -358,7 +397,7 @@ hal_txbf_8814a_download_ndpa(
 #endif
 	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] Start!\n", __func__));
 
-	adapter->hal_func.get_hal_def_var_handler(adapter, HAL_DEF_TX_PAGE_BOUNDARY, (u16 *)&tx_page_bndy);
+	phydm_get_hal_def_var_handler_interface(p_dm_odm, HAL_DEF_TX_PAGE_BOUNDARY, (u16 *)&tx_page_bndy);
 
 	/*Set REG_CR bit 8. DMA beacon by SW.*/
 	u1b_tmp = odm_read_1byte(p_dm_odm, REG_CR_8814A + 1);
@@ -524,7 +563,7 @@ hal_txbf_8814a_enter(
 		if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 			sta_id = beamformee_entry.mac_id;
 		else
-			sta_id = beamformee_entry.P_AID;
+			sta_id = beamformee_entry.p_aid;
 
 		/*P_AID of Beamformee & enable NDPA transmission & enable NDPA interrupt*/
 		if (bfee_idx == 0) {
@@ -617,7 +656,7 @@ hal_txbf_8814a_status(
 	if (phydm_acting_determine(p_dm_odm, phydm_acting_as_ibss))
 		beam_ctrl_val = beamform_entry.mac_id;
 	else
-		beam_ctrl_val = beamform_entry.P_AID;
+		beam_ctrl_val = beamform_entry.p_aid;
 
 	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("@%s, beamform_entry.beamform_entry_state = %d", __func__, beamform_entry.beamform_entry_state));
 

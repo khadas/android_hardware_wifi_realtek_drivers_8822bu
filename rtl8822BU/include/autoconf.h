@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define CONFIG_SINGLE_IMG
 /* #define CONFIG_DISABLE_ODM */
 
@@ -85,9 +80,6 @@
 
 /* #define CONFIG_DRVEXT_MODULE	1 */
 
-#define CONFIG_RF_POWER_TRIM
-
-#define CONFIG_DFS	1
 
 /* #define CONFIG_SUPPORT_USB_INT */
 #ifdef CONFIG_SUPPORT_USB_INT
@@ -99,6 +91,7 @@
 	#ifdef CONFIG_IPS
 	/* #define CONFIG_IPS_LEVEL_2 1*/ /*enable this to set default IPS mode to IPS_LEVEL_2*/
 	#define CONFIG_IPS_CHECK_IN_WD /* Do IPS Check in WatchDog.	*/
+	/* #define CONFIG_FWLPS_IN_IPS */
 	#endif
 	/* #define SUPPORT_HW_RFOFF_DETECTED	1 */
 
@@ -108,7 +101,9 @@
 	#endif
 
 	#ifdef CONFIG_LPS_LCLK
-		#define CONFIG_XMIT_THREAD_MODE
+		#ifdef CONFIG_POWER_SAVING
+			#define CONFIG_XMIT_THREAD_MODE
+		#endif /* CONFIG_POWER_SAVING */
 		#ifndef CONFIG_SUPPORT_USB_INT
 			#define LPS_RPWM_WAIT_MS 300
 			#define CONFIG_DETECT_CPWM_BY_POLLING
@@ -346,6 +341,7 @@
 #define CONFIG_PROC_DEBUG
 
 #define DBG_CONFIG_ERROR_DETECT
+
 /*
 #define DBG_CONFIG_ERROR_DETECT_INT
 #define DBG_CONFIG_ERROR_RESET

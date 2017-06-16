@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 /* ************************************************************
  * Description:
  *
@@ -16,9 +30,12 @@ hal_com_txbf_beamform_init(
 )
 {
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+	boolean		is_iqgen_setting_ok = false;
 
-	if (p_dm_odm->support_ic_type & ODM_RTL8822B)
-		hal_txbf_8822b_init(p_dm_odm);
+	if (p_dm_odm->support_ic_type & ODM_RTL8814A) {
+		is_iqgen_setting_ok = phydm_beamforming_set_iqgen_8814A(p_dm_odm);
+		ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] is_iqgen_setting_ok = %d\n", __func__, is_iqgen_setting_ok));
+	}
 }
 
 /*Only used for MU BFer Entry when get GID management frame (self is as MU STA)*/
@@ -178,7 +195,7 @@ hal_com_txbf_enter_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -208,7 +225,7 @@ hal_com_txbf_leave_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -240,7 +257,7 @@ hal_com_txbf_fw_ndpa_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -270,7 +287,7 @@ hal_com_txbf_clk_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -294,7 +311,7 @@ hal_com_txbf_rate_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -321,9 +338,9 @@ hal_com_txbf_fw_ndpa_timer_callback(
 )
 {
 
-	struct _ADAPTER		*adapter = (struct _ADAPTER *)p_timer->adapter;
+	struct _ADAPTER		*adapter = (struct _ADAPTER *)p_timer->Adapter;
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 
 	struct _HAL_TXBF_INFO	*p_txbf_info = &p_dm_odm->beamforming_info.txbf_info;
 
@@ -333,7 +350,7 @@ hal_com_txbf_fw_ndpa_timer_callback(
 	if (*p_dm_odm->p_is_fw_dw_rsvd_page_in_progress)
 		odm_set_timer(p_dm_odm, &(p_txbf_info->txbf_fw_ndpa_timer), 5);
 	else
-		platform_schedule_work_item(&(p_txbf_info->txbf_fw_ndpa_work_item));
+		odm_schedule_work_item(&(p_txbf_info->txbf_fw_ndpa_work_item));
 }
 #endif
 
@@ -349,7 +366,7 @@ hal_com_txbf_status_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -380,7 +397,7 @@ hal_com_txbf_reset_tx_path_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -404,7 +421,7 @@ hal_com_txbf_get_tx_rate_work_item_callback(
 {
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PHAL_DATA_TYPE	p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->dm_out_src;
+	struct PHY_DM_STRUCT		*p_dm_odm = &p_hal_data->DM_OutSrc;
 #else
 	struct PHY_DM_STRUCT	*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #endif
@@ -414,7 +431,7 @@ hal_com_txbf_get_tx_rate_work_item_callback(
 }
 
 
-bool
+boolean
 hal_com_txbf_set(
 	void			*p_dm_void,
 	u8			set_type,
@@ -473,7 +490,7 @@ hal_com_txbf_set(
 }
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-bool
+boolean
 hal_com_txbf_get(
 	struct _ADAPTER		*adapter,
 	u8			get_type,
@@ -481,8 +498,8 @@ hal_com_txbf_get(
 )
 {
 	PHAL_DATA_TYPE		p_hal_data = GET_HAL_DATA(adapter);
-	struct PHY_DM_STRUCT			*p_dm_odm = &p_hal_data->dm_out_src;
-	bool			*p_boolean = (bool *)p_out_buf;
+	struct PHY_DM_STRUCT			*p_dm_odm = &p_hal_data->DM_OutSrc;
+	boolean			*p_boolean = (boolean *)p_out_buf;
 
 	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_LOUD, ("[%s] Start!\n", __func__));
 
@@ -503,7 +520,7 @@ hal_com_txbf_get(
 			IS_HARDWARE_TYPE_8821B(adapter)	||
 			IS_HARDWARE_TYPE_8192E(adapter)	||
 			IS_HARDWARE_TYPE_JAGUAR(adapter) || IS_HARDWARE_TYPE_JAGUAR_AND_JAGUAR2(adapter)) {
-			if (p_hal_data->rf_type == RF_2T2R || p_hal_data->rf_type == RF_3T3R)
+			if (p_hal_data->RF_Type == RF_2T2R || p_hal_data->RF_Type == RF_3T3R)
 				*p_boolean = true;
 			else
 				*p_boolean = false;
