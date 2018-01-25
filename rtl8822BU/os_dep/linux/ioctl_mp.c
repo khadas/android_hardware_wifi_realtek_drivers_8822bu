@@ -2142,6 +2142,43 @@ int rtw_efuse_file_map(struct net_device *dev,
 	return 0;
 }
 
+int rtw_bt_efuse_file_map(struct net_device *dev,
+				struct iw_request_info *info,
+				union iwreq_data *wrqu, char *extra)
+{
+	char *rtw_efuse_file_map_path;
+	u8 Status;
+	PEFUSE_HAL pEfuseHal;
+	PADAPTER padapter = rtw_netdev_priv(dev);
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
+	struct mp_priv *pmp_priv = &padapter->mppriv;
+
+	pEfuseHal = &pHalData->EfuseHal;
+	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
+		return -EFAULT;
+
+	rtw_efuse_file_map_path = extra;
+
+	_rtw_memset(pEfuseHal->fakeBTEfuseModifiedMap, 0xFF, EFUSE_BT_MAX_MAP_LEN);
+
+	if (rtw_is_file_readable(rtw_efuse_file_map_path) == _TRUE) {
+		RTW_INFO("%s do rtw_efuse_mask_file_read = %s!\n", __func__, rtw_efuse_file_map_path);
+		Status = rtw_efuse_file_read(padapter, rtw_efuse_file_map_path, pEfuseHal->fakeBTEfuseModifiedMap, sizeof(pEfuseHal->fakeBTEfuseModifiedMap));
+		if (Status == _TRUE) {
+			pmp_priv->bloadBTefusemap = _TRUE;
+			sprintf(extra, "BT efuse file file_read OK\n");
+		} else {
+			pmp_priv->bloadBTefusemap = _FALSE;
+			sprintf(extra, "BT efuse file file_read FAIL\n");
+		}
+	} else {
+		sprintf(extra, "BT efuse file readable FAIL\n");
+		RTW_INFO("%s rtw_is_file_readable fail!\n", __func__);
+	}
+	wrqu->data.length = strlen(extra);
+	return 0;
+}
+
 #if defined(CONFIG_RTL8723B)
 int rtw_mp_SetBT(struct net_device *dev,
 		 struct iw_request_info *info,

@@ -1374,6 +1374,10 @@ static int wpa_set_encryption(struct net_device *dev, struct ieee_param *param, 
 						}
 						padapter->securitypriv.binstallGrpkey = _TRUE;
 						/* DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len)); */
+						if (param->u.crypt.idx < 4) {
+							_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+							_rtw_memcpy(padapter->securitypriv.iv_seq[param->u.crypt.idx], param->u.crypt.seq, 8);							
+						}
 						RTW_INFO(" ~~~~set sta key:groupkey\n");
 
 						padapter->securitypriv.dot118021XGrpKeyid = param->u.crypt.idx;
@@ -7866,9 +7870,9 @@ static int rtw_hostapd_sta_flush(struct net_device *dev)
 	RTW_INFO("%s\n", __FUNCTION__);
 
 	flush_all_cam_entry(padapter);	/* clear CAM */
-
+#ifdef CONFIG_AP_MODE
 	ret = rtw_sta_flush(padapter, _TRUE);
-
+#endif
 	return ret;
 
 }
@@ -10745,6 +10749,10 @@ static int rtw_priv_mp_get(struct net_device *dev,
 		RTW_INFO("mp_get MP_SETPWRBYRATE\n");
 		rtw_mp_pwrbyrate(dev, info, wdata, extra);
 		break;
+	case  BT_EFUSE_FILE:
+		RTW_INFO("mp_get BT EFUSE_FILE\n");
+		rtw_bt_efuse_file_map(dev, info, wdata, extra);
+		break;	
 	default:
 		return -EIO;
 	}
@@ -12874,6 +12882,7 @@ static const struct iw_priv_args rtw_mp_private_args[] = {
 	{ CTA_TEST, IW_PRIV_TYPE_CHAR | 1024, 0, "cta_test"},
 	{ MP_IQK, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_iqk"},
 	{ MP_LCK, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_lck"},
+	{ BT_EFUSE_FILE, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "bt_efuse_file" },
 #ifdef CONFIG_RTW_CUSTOMER_STR
 	{ MP_CUSTOMER_STR, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "customer_str" },
 #endif

@@ -49,7 +49,10 @@ static u8 recvbuf2recvframe_proccess_normal_rx
 	_queue *pfree_recv_queue = &precvpriv->free_recv_queue;
 
 #ifdef CONFIG_RX_PACKET_APPEND_FCS
-	pattrib->pkt_len -= IEEE80211_FCS_LEN;
+	if (check_fwstate(&padapter->mlmepriv, WIFI_MONITOR_STATE) == _FALSE) {
+		if (rtl8822b_rx_fcs_appended(padapter))
+			pattrib->pkt_len -= IEEE80211_FCS_LEN;
+	}
 #endif
 
 	if (rtw_os_alloc_recvframe(padapter, precvframe,

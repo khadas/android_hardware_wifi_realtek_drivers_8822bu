@@ -32,6 +32,9 @@
 #define IEEE80211W_WRONG_KEY	0x1
 #define IEEE80211W_NO_KEY		0x2
 
+#define CCMPH_2_PN(ch)	((ch) & 0x000000000000ffff) \
+			| (((ch) & 0xffffffff00000000) >> 16)
+
 #define is_wep_enc(alg) (((alg) == _WEP40_) || ((alg) == _WEP104_))
 
 const char *security_type_str(u8 value);
@@ -136,6 +139,7 @@ struct security_priv {
 	union Keytype	dot118021XGrprxmickey[4];
 	union pn48		dot11Grptxpn;			/* PN48 used for Grp Key xmit. */
 	union pn48		dot11Grprxpn;			/* PN48 used for Grp Key recv. */
+	u8				iv_seq[4][8];
 #ifdef CONFIG_IEEE80211W
 	u32	dot11wBIPKeyid;						/* key id used for BIP Key ( tx key index) */
 	union Keytype	dot11wBIPKey[6];		/* BIP Key, for index4 and index5 */

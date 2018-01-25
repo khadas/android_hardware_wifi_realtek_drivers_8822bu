@@ -337,8 +337,9 @@ enum {
 	MP_CUSTOMER_STR,
 	MP_PWRLMT,
 	MP_PWRBYRATE,
-	MP_NULL,
+	BT_EFUSE_FILE,
 	MP_SetBT,
+	MP_NULL,
 #ifdef CONFIG_APPEND_VENDOR_IE_ENABLE
 	VENDOR_IE_SET ,
 	VENDOR_IE_GET ,
@@ -442,6 +443,7 @@ struct mp_priv {
 	BOOLEAN bRTWSmbCfg;
 	BOOLEAN bloopback;
 	BOOLEAN bloadefusemap;
+	BOOLEAN bloadBTefusemap;
 
 	MPT_CONTEXT	mpt_ctx;
 
@@ -924,6 +926,9 @@ int rtw_efuse_mask_file(struct net_device *dev,
 		struct iw_request_info *info,
 		union iwreq_data *wrqu, char *extra);
 int rtw_efuse_file_map(struct net_device *dev,
+		struct iw_request_info *info,
+		union iwreq_data *wrqu, char *extra);
+int rtw_bt_efuse_file_map(struct net_device *dev,
 		struct iw_request_info *info,
 		union iwreq_data *wrqu, char *extra);
 int rtw_mp_SetBT(struct net_device *dev,

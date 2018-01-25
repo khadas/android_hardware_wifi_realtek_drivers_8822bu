@@ -1001,9 +1001,10 @@ static void SetFwRsvdPagePkt_BTCoex(PADAPTER adapter)
 	u32 BeaconLength = 0;
 	u32 BTQosNullLength = 0;
 	u8 *ReservedPagePacket;
+	u32 page_size;
 	u8 TxDescLen, TxDescOffset;
 	u8 TotalPageNum = 0, CurtPktPageNum = 0, RsvdPageNum = 0;
-	u16 BufIndex, PageSize;
+	u16 BufIndex;
 	u32 TotalPacketLen, MaxRsvdPageBufSize = 0;
 	RSVDPAGE_LOC RsvdPageLoc;
 
@@ -1015,9 +1016,9 @@ static void SetFwRsvdPagePkt_BTCoex(PADAPTER adapter)
 	TxDescLen = TXDESC_SIZE;
 	TxDescOffset = TXDESC_OFFSET;
 
-	rtw_hal_get_def_var(adapter, HAL_DEF_TX_PAGE_SIZE, (u8 *)&PageSize);
+	rtw_hal_get_def_var(adapter, HAL_DEF_TX_PAGE_SIZE, &page_size);
 	RsvdPageNum = rtw_hal_get_txbuff_rsvd_page_num(adapter, _FALSE);
-	MaxRsvdPageBufSize = RsvdPageNum * PageSize;
+	MaxRsvdPageBufSize = RsvdPageNum * page_size;
 
 	pcmdframe = rtw_alloc_cmdxmitframe(pxmitpriv);
 	if (pcmdframe == NULL) {
@@ -1036,7 +1037,7 @@ static void SetFwRsvdPagePkt_BTCoex(PADAPTER adapter)
 	 * When we count the first page size, we need to reserve description size for the RSVD
 	 * packet, it will be filled in front of the packet in TXPKTBUF.
 	 */
-	CurtPktPageNum = (u8)PageNum(TxDescLen + BeaconLength, PageSize);
+	CurtPktPageNum = (u8)PageNum(TxDescLen + BeaconLength, page_size);
 	/*
 	 * If we don't add 1 more page, the WOWLAN function has a problem.
 	 * Maybe it's a bug of firmware?
@@ -1045,11 +1046,11 @@ static void SetFwRsvdPagePkt_BTCoex(PADAPTER adapter)
 		CurtPktPageNum += 1;
 	TotalPageNum += CurtPktPageNum;
 
-	BufIndex += (CurtPktPageNum * PageSize);
+	BufIndex += (CurtPktPageNum * page_size);
 
 	/* Jump to lastest page */
-	if (BufIndex < (MaxRsvdPageBufSize - PageSize)) {
-		BufIndex = TxDescOffset + (MaxRsvdPageBufSize - PageSize);
+	if (BufIndex < (MaxRsvdPageBufSize - page_size)) {
+		BufIndex = TxDescOffset + (MaxRsvdPageBufSize - page_size);
 		TotalPageNum = RsvdPageNum - 1;
 	}
 
@@ -1063,7 +1064,7 @@ static void SetFwRsvdPagePkt_BTCoex(PADAPTER adapter)
 		_TRUE, 0, 0, _FALSE);
 	rtw_hal_fill_fake_txdesc(adapter, &ReservedPagePacket[BufIndex - TxDescLen], BTQosNullLength, _FALSE, _TRUE, _FALSE);
 
-	CurtPktPageNum = (u8)PageNum(TxDescLen + BTQosNullLength, PageSize);
+	CurtPktPageNum = (u8)PageNum(TxDescLen + BTQosNullLength, page_size);
 
 	TotalPageNum += CurtPktPageNum;
 

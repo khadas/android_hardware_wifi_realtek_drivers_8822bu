@@ -180,7 +180,8 @@ static u8 init_bb_reg(PADAPTER adapter)
 
 static u8 _init_rf_reg(PADAPTER adapter)
 {
-	u8 path, phydm_path;
+	u8 path;
+	enum odm_rf_radio_path_e phydm_path;
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 	u8 *regfile;
@@ -196,14 +197,14 @@ static u8 _init_rf_reg(PADAPTER adapter)
 	for (path = 0; path < hal->NumTotalRFPath; path++) {
 		/* Initialize RF from configuration file */
 		switch (path) {
-		case RF_PATH_A:
+		case 0:
 			phydm_path = ODM_RF_PATH_A;
 			#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 			regfile = PHY_FILE_RADIO_A;
 			#endif
 			break;
 
-		case RF_PATH_B:
+		case 1:
 			phydm_path = ODM_RF_PATH_B;
 			#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 			regfile = PHY_FILE_RADIO_B;
@@ -217,12 +218,12 @@ static u8 _init_rf_reg(PADAPTER adapter)
 
 		ret = _FALSE;
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
-		res = PHY_ConfigRFWithParaFile(adapter, regfile, phydm_path);
+		res = PHY_ConfigRFWithParaFile(adapter, regfile, (u8)phydm_path);
 		if (_SUCCESS == res)
 			ret = _TRUE;
 #endif
 		if (_FALSE == ret) {
-			status = odm_config_rf_with_header_file(&hal->odmpriv, CONFIG_RF_RADIO, (enum odm_rf_radio_path_e)phydm_path);
+			status = odm_config_rf_with_header_file(&hal->odmpriv, CONFIG_RF_RADIO, phydm_path);
 			if (HAL_STATUS_SUCCESS != status)
 				goto exit;
 			ret = _TRUE;
@@ -1157,7 +1158,7 @@ void rtl8822b_switch_chnl_and_set_bw(PADAPTER adapter)
 	/* IQK */
 	if ((hal->bNeedIQK == _TRUE)
 	    || (adapter->registrypriv.mp_mode == 1)) {
-		phy_iq_calibrate_8822b(p_dm_odm, _FALSE);
+		phy_iq_calibrate_8822b(p_dm_odm, _TRUE);
 		hal->bNeedIQK = _FALSE;
 	}
 }
@@ -1290,7 +1291,7 @@ void rtl8822b_mp_config_rfpath(PADAPTER adapter)
 	PHAL_DATA_TYPE hal;
 	PMPT_CONTEXT mpt;
 	ANTENNA_PATH anttx, antrx;
-	enum odm_rf_path_e rxant;
+	enum odm_rf_path_e bb_tx, bb_rx;
 
 
 	hal = GET_HAL_DATA(adapter);
@@ -1302,31 +1303,34 @@ void rtl8822b_mp_config_rfpath(PADAPTER adapter)
 
 	switch (anttx) {
 	case ANTENNA_A:
-		mpt->mpt_rf_path = ODM_RF_A;
+		mpt->mpt_rf_path = ODM_RF_PATH_A;
+		bb_tx = ODM_RF_A;
 		break;
 	case ANTENNA_B:
-		mpt->mpt_rf_path = ODM_RF_B;
+		mpt->mpt_rf_path = ODM_RF_PATH_B;
+		bb_tx = ODM_RF_B;
 		break;
 	case ANTENNA_AB:
 	default:
-		mpt->mpt_rf_path = ODM_RF_A | ODM_RF_B;
+		mpt->mpt_rf_path = ODM_RF_PATH_AB;
+		bb_tx = ODM_RF_A | ODM_RF_B;
 		break;
 	}
 
 	switch (antrx) {
 	case ANTENNA_A:
-		rxant = ODM_RF_A;
+		bb_rx = ODM_RF_A;
 		break;
 	case ANTENNA_B:
-		rxant = ODM_RF_B;
+		bb_rx = ODM_RF_B;
 		break;
 	case ANTENNA_AB:
 	default:
-		rxant = ODM_RF_A | ODM_RF_B;
+		bb_rx = ODM_RF_A | ODM_RF_B;
 		break;
 	}
 
-	config_phydm_trx_mode_8822b(GET_PDM_ODM(adapter), mpt->mpt_rf_path, rxant, FALSE);
+	config_phydm_trx_mode_8822b(GET_PDM_ODM(adapter), bb_tx, bb_rx, FALSE);
 
 	RTW_INFO("-Config RF Path Finish\n");
 }

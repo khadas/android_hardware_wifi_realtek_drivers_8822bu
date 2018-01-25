@@ -42,7 +42,7 @@ const char *rtw_log_level_str[] = {
 void dump_drv_version(void *sel)
 {
 	RTW_PRINT_SEL(sel, "%s %s\n", DRV_NAME, DRIVERVERSION);
-	//RTW_PRINT_SEL(sel, "build time: %s %s\n", __DATE__, __TIME__);
+	RTW_PRINT_SEL(sel, "build time: %s %s\n", __DATE__, __TIME__);
 }
 
 void dump_drv_cfg(void *sel)
@@ -1314,10 +1314,10 @@ int proc_get_survey_info(struct seq_file *m, void *v)
 	_enter_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 	phead = get_list_head(queue);
 	if (!phead)
-		return 0;
+		goto _exit;
 	plist = get_next(phead);
 	if (!plist)
-		return 0;
+		goto _exit;
 
 	RTW_PRINT_SEL(m, "%5s  %-17s  %3s  %-3s  %-4s  %-4s  %5s  %32s  %32s\n", "index", "bssid", "ch", "RSSI", "SdBm", "Noise", "age", "flag", "ssid");
 	while (1) {
@@ -1365,6 +1365,8 @@ int proc_get_survey_info(struct seq_file *m, void *v)
 			      pnetwork->network.Ssid.Ssid);
 		plist = get_next(plist);
 	}
+
+_exit:
 	_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 
 	return 0;

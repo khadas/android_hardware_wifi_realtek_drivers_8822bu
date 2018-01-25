@@ -185,6 +185,7 @@ enum bt_8822b_2ant_phase {
 	BT_8822B_2ANT_PHASE_ANTENNA_DET								= 0x6,
 	BT_8822B_2ANT_PHASE_COEX_POWERON							= 0x7,
 	BT_8822B_2ANT_PHASE_2G_RUNTIME_CONCURRENT					= 0x8,
+	BT_8822B_2ANT_PHASE_2G_FREERUN								= 0x9,
 	BT_8822B_2ANT_PHASE_MAX
 };
 
@@ -391,6 +392,7 @@ struct coex_sta_8822b_2ant {
 
 	boolean				is_set_ps_state_fail;
 	u8					cnt_set_ps_state_fail;
+	boolean				is_2g_freerun;
 };
 
 
